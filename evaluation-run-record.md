@@ -3,32 +3,32 @@ Each participant should complete one Evaluation Run Record per harness/model run
 
 | Field | Value |
 | --- | --- |
-| Team | OpenAI / Anthropic / Cursor / xAI / Antigravity |
-| Developer / Operator | |
+| Team | xAI |
+| Developer / Operator | Mohit Gupta (SCORE operator); record by Eval Runner |
 | Reviewer | (leave blank for now) |
-| Harness | |
-| Model | |
+| Harness | Grok Build + mog-xai-2 harness 66ff918 (66ff91867f1f6e01f561ef4b639c0ac6bc61274f, tag mog-xai-2-frozen-r1) |
+| Model | grok-4.7-build, reasoning effort medium |
 | License / Plan | |
 | Codebase | ECFMG/axc |
-| Task Set | A / B |
-| Run Type | Baseline / Harness Engineering Iteration N / Final |
-| Harness Engineering Used | |
-| Config / Diff Notes | |
-| Branch / Commit | |
-| Requirements Completed / Attempted | |
-| Acceptance Criteria Passed / Total | |
-| Tests Passed / Failed | |
-| Static Analysis / Security Findings | |
-| Input Tokens | ← `/usage` **Input** (do not invent) |
-| Cached Tokens | ← `/usage` **Cached**/cache-read; else `n/a` + reason |
-| Output Tokens | ← `/usage` **Output** |
-| Total Tokens or Credits Used | ← `/usage` **Total** (or credits if that is what it bills) |
-| Estimated Cost | ← `/usage` **Cost**/USD; if tokens only, note dashboard source |
-| Elapsed Time | |
-| Number of Human Interventions / Redirects | |
+| Task Set | A (TS-A-CATALOG-SEARCH); prompt byte-identical to a-out-20/a-out-21 (2,351 chars, sha1 72581a95), task-set-a-requirements.md and super-prompt.md unchanged vs a-out-21 (same blobs) |
+| Run Type | Harness Engineering Iteration (mog-xai-2 r1: Stop-hook verify/auto-commit + auto-fix with knip build-retry and failed-commit log persistence + Snyk dependency gate + new map rules), single SCORE run |
+| Harness Engineering Used | mog-xai-2 frozen r1 (66ff918) = a-out-21 harness (53268aa) plus 8 commits: biome/git ignore worktree-suffixed Azurite leftovers (e6ed8c4); auto-fix log persists across a failed commit in <git dir>/stop-gate/auto-fix-log.json (5823696); auto-fix builds once when knip cannot load its config, then retries (d7e66de); block report gives TS6133/TS6196 a one-line fix (01c477f); map rule: never hand-remove unused exports, the Stop hook auto-fix un-exports them (8fdc00c); map test rule: multi-error 400 asserts the field set, not order (63dac67); map trim 12081 to 12014 B (878cd6f); stop-gate probe fix (66ff918). No dependency file changed 53268aa..66ff918. Stop hook does install, auto-fix, husky verify and auto-commit (agent never runs checks or commits; write-guard), block cap 3, SNYK_SKIP=1 on the Stop path. Launched with --trust --no-memory --reasoning-effort medium and web/agent/image tools disallowed. Fresh worktree mog-xai-2-a-out-1: git clean -fdX packages apps, Node v24.21.0, HUSKY=0 pnpm install --frozen-lockfile, `.husky/_` copied from b-out-1 (pre-commit executable, _/h cmp-identical to husky 9.1.7), audit passing (2 moderate), git status empty. **Prep incomplete: /health, the hook probe and the biome pre-check were skipped because Mohit started the run (15:24:34 EDT) before READY; Chief accepted this as the run. No dev ran, so there were no Azurite leftovers.** |
+| Config / Diff Notes | Effort: medium. Contamination: clean (--no-memory; 10 reads, all inside the worktree: map SKILL.md, then one batch of 9 (requirements, write-skeleton, sidebars, healthcheck.steps, questions.ts, health.test, 3 index.ts); no grep, list_dir, shell, dist/ or node_modules; no prior-run refs). The agent did not read or edit this record, eval/score docs, harness or config; no dependency file changed 66ff918..aa667d4; all 10 changed files are in apps/api, apps/docs, packages/axc, packages/axc-verification; no shared acceptance helper edited. No .skip/.only, biome-ignore, ts-ignore/expect-error, `as any`, eslint-disable or deleted tests. Tools: 10 read_file, 9 write, 3 search_replace (22 calls, 0 failures). **Gate integrity: OK, 0 blocks, one green Stop-hook auto-commit.** Stop #1 (15:32:37–15:35:05 EDT, ~2m29s): install + auto-fix, lint-staged + husky verify green (`verify ok · acceptance 10/10 · aa667d4`; acceptance 10 scenarios), auto-committed aa667d4 (stamped 15:33:12). Stop-gate state blocks:0; auto-fix-log.json absent after the commit (cleared, as designed). **Auto-fix log present in the aa667d4 body:** `build (knip could not load its config before it)` (the d7e66de build-retry fired on the unbuilt worktree) and `biome check --write: packages/axc/application-services/src/index.ts` (import/export specifier sorting, `type` first; confirmed by reconstructing the agent writes: index.ts is the only non-test file that differs). No failed attempt, so the 5823696 persistence path was not exercised in this run. courses.steps.ts formatting was fixed by lint-staged (test files are excluded from auto-fix). No knip export fixes were needed. **Rule (a) held:** no hand-removed exports; the agent's only post-write edits (call 4) dropped an unused `type CourseSort` import and its annotation in courses.routes.ts before stopping (an import, not an export). **Rule (b) held:** the multi-error 400 check (A-AC8 step `the error details include`) asserts code, message, non-empty messages, every expected field present and equal count (a set, order-independent). Note: validation is covered only by the A-AC8 acceptance scenario (modality, status, page, pageSize, sort); courses.test.ts has 8 unit `it`s for listCourses and none for parsing (a-out-21 had 14 incl. parseCourseQuery). Flow: 2 orientation calls, 1 write call (9 writes + 1 sidebar edit after ~7.4 min reasoning), 1 small self-fix, 1 reply. Per-call (unified.jsonl inference_done, sums equal /usage exactly), input (cached) / output (reasoning): 1) 13,794 (0) / 463 (392) map; 2) 17,694 (13,696) / 663 (220) read batch; 3) 23,182 (17,664) / 40,496 (31,532) write 10 files, 447 s; 4) 64,139 (23,168) / 755 (502) unused-import fix; 5) 64,995 (64,128) / 481 (243) reply. Phases: orientation 32.6k, write 63.7k, self-fix 64.9k, reply 65.5k, block recovery 0. Tests: 8 unit `it`s; acceptance 10 (9 course + healthcheck). Cache 64.6%. Meter source: Grok Build `/usage` (matches session usage.json exactly): input 183,804 (118,656 cached), output 42,858 (32,889 reasoning), total 226,662, 5 model calls, API time 7m53s, cost $0.1519. Session 01a16a38-e26f-7522-8d11-0ecea01007e7, grok 1.0.67, process 15:24:35–15:35:57 America/New_York (prompt 15:24:40, turn end 15:35:05). No cherry-picks; the feature commit is the only commit on top of 66ff918. Snyk on this record commit: the dependency hash c7f7f6fc47ccd1e02eb8606a3eda92de5ff1cf9b (computed as scripts/snyk-verify.mjs does) equals the last Snyk-ok hash and no dependency file changed 66ff918..HEAD, so mog-snyk-ok.json was seeded by hand in this worktree's git dir, per Chief, because the Snyk monthly quota is used up (basis: verify log of 20e4c99189a77f72df84373ce16975ae4276ea79, Snyk ok, 23 projects). The dependency gate then skips Snyk on this commit. |
+| Branch / Commit | mog-xai-2-a-out-1 / feature aa667d4b758f635c64756b23de9ac28b0c5d2b53 (Stop-hook auto-commit, 0 blocks, auto-fix log in body); start 66ff91867f1f6e01f561ef4b639c0ac6bc61274f |
+| Requirements Completed / Attempted | 11/11 (A1–A11); A10 tests (unit + acceptance, validation via A-AC8) and A11 docs present; existing tests pass in the husky verify on aa667d4 |
+| Acceptance Criteria Passed / Total | 12/12: A-AC1–A-AC9 each have a tagged scenario (`@A-AC<n>`, id in title) with real Serenity Ensure assertions that passed at runtime in the husky verify for aa667d4 (2026-10-23 15:33–15:35 EDT); A-AC10–A-AC12 covered by `# ac-meta` in courses.feature (A-AC10 by green verify incl. healthcheck, A-AC11 by 8 unit tests + 9 scenarios incl. A-AC8 invalid parameters, A-AC12 by apps/docs/docs/courses.md); check-ac-coverage exit 0 (re-checked read-only) |
+| Tests Passed / Failed | Husky verify on aa667d4: acceptance 10/10 (course catalog search 9/9, healthcheck 1/1), 0 failed; turbo test+test:acceptance 25/25 tasks; test:arch 14/14; unit courses.test.ts 8 cases green (re-run read-only: 8 runtime + 8 typecheck = 16 passed); node --test scripts green. Single attempt, no red verify. |
+| Static Analysis / Security Findings | Husky verify on aa667d4 (exit 0): script-policy PASS, ac-coverage PASS, node --test PASS, biome PASS, typecheck PASS (21/21), build PASS (18/18), knip PASS, e18e PASS, arch PASS (14/14), unit+acceptance PASS (25/25 tasks), audit PASS (`pnpm audit --audit-level=high`: 2 moderate), snyk SKIPPED on the feature commit (SNYK_SKIP=1, Stop-hook commit, by design). Auto-fix: build-retry for knip + biome --write on application-services/src/index.ts (logged); lint-staged formatted courses.steps.ts. Logs: /tmp/x2a1-capture/feature-verify-aa667d4.log, /tmp/x2a1-capture/feature-stop-aa667d4.log |
+| Input Tokens | 183804 |
+| Cached Tokens | 118656 (inside Input) |
+| Output Tokens | 42858 (reasoning 32889) |
+| Total Tokens or Credits Used | 226662 |
+| Estimated Cost | $0.1519 |
+| Elapsed Time | API 7m53s (Grok Build `/usage`; sum of 5 model calls 473.5 s); session process 15:24:35–15:35:57 America/New_York (11m22s): startup to prompt 5 s, model 7m53s, tools between calls ~2 s, Stop #1 install+auto-fix+verify+commit 2m29s, idle after reply until /usage and exit 52 s |
+| Number of Human Interventions / Redirects | 0 |
 | Reviewer Notes | (leave blank for now) |
 | Final Rubric Score | (leave blank for now) |
-| Recommendation | Continue / Remediate / Stop / Candidate for Pilot |
+| Recommendation | Pass, and the cheapest Task Set A run so far. 226,662 tokens / 5 calls / $0.1519 vs a-out-21 (a42759d, 53268aa) 483,574 / 8 / $0.2219 (−53.1%, −$0.0700) and a-out-14 (6a10909) 350,587 / 10 / $0.1482 (−35.3% tokens, +$0.0037 cost). Vs a-out-21 by phase: orientation −1.2k, write −5.3k (40.5k output vs 45.2k), pre-stop self-fix −85.7k (1 call that only dropped an unused import vs 2 calls hand-pruning exports: rule 8fdc00c worked), reply −10.9k, block recovery −153.8k (0 blocks vs 1: no order-sensitive multi-error test, rule 63dac67). Cost is flat vs a-out-14 despite −35% tokens because output is 42.9k vs 28.4k and the cache rate is lower (64.6% vs 78.3%): the single long write call (~31.5k reasoning) dominates, and every later call re-sends it (~64–65k). Remaining sink: the write call. Caveat: validation has no unit test (acceptance A-AC8 only). Prep caveat: /health, hook probe and biome pre-check were skipped (run started before READY). |
 
 ### Grok Build `/usage` paste checklist (SCORE meter)
 
