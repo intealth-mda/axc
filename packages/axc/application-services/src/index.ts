@@ -1,9 +1,21 @@
 import { COURSE_SEED } from './course-seed.ts';
 import { type CourseSearchParams, type CourseSearchResult, searchCourses } from './courses.ts';
+import { createEnrollmentRequestService, type EnrollmentRequestService } from './enrollment-requests.ts';
 
 export { COURSE_SEED } from './course-seed.ts';
 export type { Course, CourseModality, CoursePage, CourseSearchParams, CourseSearchResult, CourseSort, CourseStatus, QueryParameterError } from './courses.ts';
 export { searchCourses } from './courses.ts';
+export type {
+	EnrollmentError,
+	EnrollmentErrorCode,
+	EnrollmentListParams,
+	EnrollmentRequest,
+	EnrollmentRequestService,
+	EnrollmentRequestStatus,
+	EnrollmentResult,
+	StatusHistoryEntry,
+} from './enrollment-requests.ts';
+export { createEnrollmentRequestService } from './enrollment-requests.ts';
 
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
@@ -29,6 +41,7 @@ export interface ApplicationServices {
 	courses: {
 		search(params: CourseSearchParams): CourseSearchResult;
 	};
+	enrollmentRequests: EnrollmentRequestService;
 }
 
 export interface ApplicationServicesFactory {
@@ -46,6 +59,8 @@ export function resolveEnvironment(nodeEnv: string | undefined): HealthEnvironme
 }
 
 export function buildApplicationServicesFactory(context: ApiContext): ApplicationServicesFactory {
+	// One store per factory so enrollment requests survive across requests (in-memory, per process).
+	const enrollmentRequests = createEnrollmentRequestService(COURSE_SEED);
 	const forRequest = (): Promise<ApplicationServices> =>
 		Promise.resolve({
 			health: {
@@ -62,6 +77,7 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 			courses: {
 				search: (params: CourseSearchParams): CourseSearchResult => searchCourses(COURSE_SEED, params),
 			},
+			enrollmentRequests,
 		});
 
 	return { forRequest };
