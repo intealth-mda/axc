@@ -4,42 +4,52 @@ version: v1.25.1
 ignore:
   SNYK-JS-BRACES-19963945:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:43.527Z
-        created: 2026-09-28T22:36:43.528Z
+        reason: No upgrade or patch available (braces 3.0.3 is the latest release)
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
   SNYK-JS-DEEPMERGE-19964053:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:44.923Z
-        created: 2026-09-28T22:36:44.928Z
+        reason: No upgrade or patch available (deepmerge 4.3.1 is the latest release)
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
   SNYK-JS-HTTPCACHESEMANTICS-19964064:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:46.295Z
-        created: 2026-09-28T22:36:46.299Z
+        reason: No upgrade or patch available per Snyk (already on latest 4.3.0, which fixes GHSA-ch52-4w7c-c8xp)
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
   SNYK-JS-HTTPCACHESEMANTICS-19964068:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:47.625Z
-        created: 2026-09-28T22:36:47.628Z
+        reason: No upgrade or patch available per Snyk (already on latest 4.3.0)
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
+  SNYK-JS-MINIMATCH-22111072:
+    - '@docusaurus/core > serve-handler > minimatch':
+        reason: Fixed only in minimatch 11, which drops the callable export serve-handler 6 (Docusaurus) requires; no 3.x fix
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
+  SNYK-JS-PICOMATCH-21248802:
+    - '*':
+        reason: No upgrade or patch available (picomatch 2.3.2 and 4.0.7 are the latest releases)
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
   SNYK-JS-URIJS-19963961:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:48.966Z
-        created: 2026-09-28T22:36:48.969Z
+        reason: No upgrade or patch available (uri-js 4.4.1 is the latest release)
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
   SNYK-JS-URIJS-19963963:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:50.274Z
-        created: 2026-09-28T22:36:50.278Z
+        reason: No upgrade or patch available (uri-js 4.4.1 is the latest release)
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
   SNYK-JS-URIJS-20341609:
     - '*':
         reason: No upgrade or patch available (transitive via Docusaurus in apps/docs)
-        expires: 2026-10-28T23:59:59.000Z
-        created: 2026-10-02T20:52:16.000Z
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
   SNYK-JS-UUID-16133035:
     - '*':
-        reason: uuid 11+ is ESM-only and breaks the Azure Functions bundle
-        expires: 2026-10-28T22:44:29.364Z
-        created: 2026-09-28T22:44:29.367Z
+        reason: Fixed only in uuid 11+, which is ESM-only; breaks the Azure Functions bundle and sockjs 0.3 (webpack-dev-server in apps/docs)
+        expires: 2026-12-01T00:00:00.000Z
+        created: 2026-11-01T00:00:00.000Z
 patch: {}
