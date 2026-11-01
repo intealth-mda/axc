@@ -4,12 +4,22 @@ import { azureHonoHandler } from '@marplex/hono-azurefunc-adapter';
 import { Hono } from 'hono';
 
 export function createRestApp(applicationServicesFactory: ApplicationServicesFactory): Hono {
-	const app = new Hono();
+	const app = new Hono({ strict: false });
 
 	app.get('/health', async (c) => {
 		const authorization = c.req.header('Authorization');
 		const applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);
 		return c.json(applicationServices.health.getStatus());
+	});
+
+	app.get('/api/courses', async (c) => {
+		const authorization = c.req.header('Authorization');
+		const applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);
+		const result = applicationServices.courses.search(c.req.query());
+		if (result.ok) {
+			return c.json(result.value);
+		}
+		return c.json({ error: { code: 'INVALID_QUERY_PARAMETER', message: 'One or more query parameters are invalid.', details: result.errors } }, 400);
 	});
 
 	return app;
