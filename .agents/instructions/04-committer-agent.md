@@ -108,7 +108,9 @@ The shell is allow-listed. Anything not listed below is denied.
 - Also allowed: `--author`, `-s`/`--signoff`, `--allow-empty`, and `-q`/`--quiet`.
 - Everything else is denied, including `--amend`, `-a`, `--no-verify`/`-n`, `--fixup`, `--squash`, `-c`/`-C`, `-i`/`-o`, and pathspecs.
 - Combined short flags such as `-sm` or `-am` are denied. Write each flag separately.
-
+- Use the commit message from the brief exactly as written, including the
+  Co-Authored-By line. Do not change attribution to your own model name.
+  
 ### Push options
 
 - `git push [-u|--set-upstream] [-q] [-v] [--dry-run] [<remote> [<branch>]]`.
