@@ -1,0 +1,9 @@
+{
+	"extends": ["./tsconfig.json", "@cellix/config-typescript/vitest"],
+	"compilerOptions": {
+		"composite": false,
+		"paths": {
+			"@axc/application-services": ["../application-services/src/index.ts"]
+		}
+	}
+}
