@@ -1,3 +1,18 @@
+import { COURSE_SEED } from './course-seed.ts';
+import { type CourseSearchQuery, type CourseSearchResult, searchCourses } from './courses.ts';
+
+export type {
+	Course,
+	CourseModality,
+	CourseSearchQuery,
+	CourseSearchResult,
+	CourseSort,
+	CourseStatus,
+	ParseCourseQueryResult,
+	QueryParameterError,
+} from './courses.ts';
+export { parseCourseQuery } from './courses.ts';
+
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
 
@@ -18,6 +33,9 @@ export interface ApiContext {
 export interface ApplicationServices {
 	health: {
 		getStatus(): HealthStatus;
+	};
+	courses: {
+		search(query: CourseSearchQuery): CourseSearchResult;
 	};
 }
 
@@ -48,6 +66,9 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 						timestamp: new Date().toISOString(),
 					};
 				},
+			},
+			courses: {
+				search: (query) => searchCourses(COURSE_SEED, query),
 			},
 		});
 
