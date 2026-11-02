@@ -9,12 +9,23 @@ alwaysApply: true
 - Use at most one follow-up read batch to resolve a specific unknown. A failed check permits the reads needed to fix it.
 - Do not reopen a file or successful command, summarize intermediate work, or start a second exploration, review pass, or subagent.
 - Write each new file once. Make a follow-up edit only to resolve a specific unknown or failed check.
-- Format changed files once with `pnpm exec biome check --write --no-errors-on-unmatched <paths>`.
-- Run one affected-package check through `node scripts/agent-check.mjs -- <command>`. That command includes the affected package test and `pnpm run knip`.
-- Run `pnpm run verify` once through the same wrapper. The wrapper rejects another full verify after a pass and allows one rerun only after a failed verify.
-- Do not run acceptance or the full suite as a separate command. They run inside `pnpm run verify`.
-- On failure, fix the reported cause, rerun only the failed package through the wrapper, then run one more wrapped verify.
 - Ponytail and Caveman apply in full. This rule limits tool calls only.
+
+## Scoped edits
+
+- Change only files required for the current unknown or failed check.
+- Do not broaden an edit into adjacent features, cleanup passes, or unrelated refactors.
+- Prefer one follow-up edit on an already-touched file over opening a new file.
+- Do not edit unrelated tests to satisfy a type or shared-context shape change when a shared test helper can absorb it.
+
+## Validation
+
+- Format only the changed paths once with `pnpm exec biome check --write --no-errors-on-unmatched <paths>`.
+- While iterating, run only the package test file(s) or describe filter that cover the files just edited, through `node scripts/agent-check.mjs -- <narrow command>`. Prefer `pnpm exec vitest run <relative-test-file>` in the affected package, or `pnpm exec turbo run test --filter=<affected-package> --` with vitest args that select that file. Include `pnpm run knip` in the affected-package preflight when exports or package boundaries changed.
+- Do not run the full monorepo unit suite, full acceptance, or `pnpm run verify` until that narrow check passes.
+- Then run `pnpm run verify` once through the same wrapper. The wrapper rejects another full verify after a pass and allows one rerun only after a failed verify.
+- Do not run acceptance or the full suite as a separate command. They run inside `pnpm run verify`.
+- On failure, fix the reported cause, rerun only the failing narrow test or failed package through the wrapper, then run one more wrapped verify.
 
 ## Command output
 
