@@ -2,7 +2,8 @@
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { type CellixLintConfig, checkCellixLint, defaultCellixLintConfig } from '@cellix/lint';
+import { pathToFileURL } from 'node:url';
+import { findCellixRoot, loadGenerateLayout } from './config.js';
 import { filesToEdit } from './edit-targets.js';
 import { type GenerateFeatureOptions, generateFeature } from './generate.js';
 import { parseArgv, parseField, parseFieldsFile, parseNested, parsePermission } from './spec.js';
@@ -11,8 +12,8 @@ const argv = process.argv.slice(2);
 const head = argv[0];
 const operation = head === 'query' || head === 'update' ? head : undefined;
 const args = parseArgv(operation ? argv.slice(1) : argv);
-const root = await findRoot(process.cwd());
-const lint = await loadConfig(root);
+const root = await findCellixRoot(process.cwd());
+const lint = await loadGenerateLayout(root);
 const transport = args.get('transport');
 const fieldsFile = args.get('fields');
 const fromFile = fieldsFile ? parseFieldsFile(await readFile(path.resolve(fieldsFile), 'utf8')) : { fields: [], permissions: [], nested: [] };
@@ -60,7 +61,7 @@ if (manifests.length > 0) {
 	const install = spawnSync('pnpm', ['install'], { cwd: root, stdio: 'inherit' });
 	if (install.status !== 0) process.exit(install.status ?? 1);
 }
-const violations = (await checkCellixLint({ root, lint })).filter((violation) => files.some((file) => violation.includes(file.path.split(path.sep).join('/'))));
+const violations = await repoAfter(feature, files);
 if (violations.length > 0) {
 	console.error(violations.join('\n\n'));
 	process.exit(1);
@@ -72,31 +73,19 @@ console.log('Edit these. The barrels are already wired. Do not list the tree.');
 console.log('While editing, run pnpm run agent-check -- pnpm run check. Do not pipe it to tail. The Expected line is the next edit.');
 console.log('Run pnpm run agent-check -- pnpm run verify once before you stop.');
 
+async function repoAfter(feature: GenerateFeatureOptions, files: { path: string }[]): Promise<string[]> {
+	const hook = path.join(feature.root, 'scripts/generator-after.mjs');
+	try {
+		const mod = (await import(pathToFileURL(hook).href)) as { afterGenerate: (options: GenerateFeatureOptions, written: { path: string }[]) => Promise<string[]> };
+		return await mod.afterGenerate(feature, files);
+	} catch (error) {
+		if (error instanceof Error && 'code' in error && error.code === 'ERR_MODULE_NOT_FOUND' && error.message.includes('generator-after.mjs')) return [];
+		throw error;
+	}
+}
+
 function required(args: ReturnType<typeof parseArgv>, key = 'context'): string {
 	const value = args.get(key);
 	if (!value) throw new Error(`Missing --${key}`);
 	return value;
-}
-
-async function findRoot(start: string): Promise<string> {
-	let current = path.resolve(start);
-	for (;;) {
-		try {
-			await readFile(path.join(current, 'cellix-lint.config.json'), 'utf8');
-			return current;
-		} catch {
-			const parent = path.dirname(current);
-			if (parent === current) return path.resolve(start);
-			current = parent;
-		}
-	}
-}
-
-async function loadConfig(root: string): Promise<CellixLintConfig> {
-	try {
-		const parsed = JSON.parse(await readFile(path.join(root, 'cellix-lint.config.json'), 'utf8')) as CellixLintConfig;
-		return { ...defaultCellixLintConfig(), ...parsed, layers: { ...defaultCellixLintConfig().layers, ...parsed.layers } };
-	} catch {
-		return defaultCellixLintConfig();
-	}
 }

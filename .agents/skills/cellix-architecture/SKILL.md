@@ -11,7 +11,7 @@ description: >
 
 Generate a new context, subdomain, or action. Edit a file that already exists. Do not invent a second layout.
 
-`cellix-lint.config.json` stays at the project root. The generator reads it and writes into those paths.
+`factory.json` at the project root holds `enabled` and the layer paths. The generator reads it and writes into those paths. Do not edit that file.
 
 ## Commands
 

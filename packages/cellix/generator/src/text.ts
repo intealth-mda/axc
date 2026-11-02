@@ -22,6 +22,7 @@ export function gqlType(type: string): string {
 	if (type.endsWith('[]')) return `[${gqlType(type.slice(0, -2)).replace(/!$/, '')}!]!`;
 	if (type === 'boolean') return 'Boolean!';
 	if (type === 'number') return 'Float!';
+	if (type === 'date') return 'DateTime!';
 	if (type === 'string' || type === 'id') return 'String!';
 	return 'String!';
 }

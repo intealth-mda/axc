@@ -11,7 +11,7 @@ description: >
 
 `@cellix/generator` is how a new data structure starts: a new context, subdomain, or action. That is any new slice, not one fixed feature. The `--subdomain` flag is the subdomain name.
 
-`cellix-lint.config.json` stays at the project root. `generate` reads it and writes into those paths, including `acceptance`. Cellix lint reads the same file.
+`factory.json` at the project root holds `enabled` and the layer paths. `generate` reads it and writes into those paths, including `acceptance`. Cellix lint reads the same file. Do not edit it.
 
 A change to a structure that already exists does not need the generator. That includes a bugfix, a validation rule, a query filter, a route that already has a handler, a test, or documentation. Edit the existing files. Cellix lint still checks file roles, imports, and the dependency graph.
 
@@ -31,7 +31,7 @@ Use them in this order. Each one catches a different class of drift.
 | Biome, extended from `@cellix/lint/biome` | Formatter, recommended rules, and layer import bans. The repo `biome.json` extends that file and adds only app-specific ignores and overrides | `pnpm exec biome check` |
 | `@cellix/archunit-tests` `./structure` | The same lint, as an architecture test apps opt into | `pnpm run test:arch` |
 
-Do not edit `packages/cellix/lint`, `packages/cellix/generator`, `cellix-lint.config.json`, or `.cursor/hooks` to make a feature pass. Those are the control plane. A human changes them on purpose.
+Do not edit `packages/cellix/lint`, `packages/cellix/generator`, `factory.json`, or `.cursor/hooks` to make a feature pass. Those are the control plane. A human changes them on purpose.
 
 ## New feature
 
@@ -148,7 +148,7 @@ The generator writes one API acceptance scenario. The steps call the running app
 
 ## read and write
 
-`ocom-write.config.json` has two maps, `read` and `write`. The first matching key in that map wins. `true` allows the path. `false` locks it. A path with no match is denied. `read` has no catch-all. The open trees are `packages/axc`, `packages/axc-verification`, `apps/api/src`, and `apps/docs`, plus `AGENTS.md`, this skill, the task prompt and requirements, `cellix-lint.config.json`, `biome.json`, `package.json`, and `pnpm-workspace.yaml`. A session file holds the agent id. It does not close the product tree, and it does not unlock a locked path.
+`ocom-write.config.json` has two maps, `read` and `write`. The first matching key in that map wins. `true` allows the path. `false` locks it. A path with no match is denied. `read` has no catch-all. The open trees are `packages/axc`, `packages/axc-verification`, `apps/api/src`, and `apps/docs`, plus `AGENTS.md`, this skill, the task prompt and requirements, `factory.json`, `biome.json`, `package.json`, and `pnpm-workspace.yaml`. A session file holds the agent id. It does not close the product tree, and it does not unlock a locked path.
 
 A shell write that does not name a file is denied. `pnpm --filter @cellix/generator generate` is allowed. `git status` and `git diff` are allowed. `git restore` of a locked file is denied.
 

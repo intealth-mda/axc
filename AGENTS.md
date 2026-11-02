@@ -12,7 +12,7 @@ While the files are still changing, run `pnpm run agent-check -- pnpm run check`
 
 These are the control plane. A human changes them on purpose.
 
-- `cellix-lint.config.json`
+- `factory.json`
 - `ocom-write.config.json`
 - `packages/cellix/lint/**`
 - `packages/cellix/generator/**`

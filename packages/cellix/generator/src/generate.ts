@@ -4,7 +4,6 @@ import { wireComposition } from './compose.ts';
 import { formatGeneratedFiles } from './format.ts';
 import { camel } from './names.ts';
 import { plan } from './plan.ts';
-import { recordAgentSession } from './session-files.ts';
 import { assertOperationName } from './text.ts';
 import type { GeneratedFile, GenerateFeatureOptions } from './types.ts';
 import { writeNewFiles } from './write/new-files.ts';
@@ -34,7 +33,6 @@ export async function generateFeature(options: GenerateFeatureOptions): Promise<
 	const composed = await wireComposition(options);
 	formatGeneratedFiles([...writes, ...composed]);
 	for (const file of writes) file.contents = await readFile(file.path, 'utf8');
-	recordAgentSession(options, [...writes, ...composed]);
 	return writes;
 }
 

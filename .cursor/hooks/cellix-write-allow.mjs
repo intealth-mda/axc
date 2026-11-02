@@ -6,13 +6,18 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { logNames } from '../../packages/cellix/guardrails/src/budget.mjs';
 import { agentIdFromEnv, decidePath, decideShell, loadSession, policyFromConfig } from '../../packages/cellix/guardrails/src/index.mjs';
+import { factoryEnabled, isFactoryFile } from './factory.mjs';
 
 const payload = readPayload();
 const workspace = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
-const policy = policyFromConfig(readAgentAccess(workspace), readSession(workspace));
+const policy = policyFromConfig(readAgentAccess(workspace), factoryEnabled(workspace) ? readSession(workspace) : null);
 const toolInput = toolInputObject(payload.tool_input);
 const toolName = String(payload.tool_name ?? payload.toolName ?? '');
 const command = String(payload.command ?? toolInput.command ?? '');
+
+if (shellWritesFactory(command, workspace) || pathsInToolInput(toolInput, payload).some((file) => isFactoryFile(file, workspace))) {
+	reply(deny('`factory.json` stays closed. Hooks read it and do not write it.'));
+}
 
 if (command && (!toolName || toolName === 'Shell')) {
 	const decision = decideShell(command, workspace, policy);
@@ -81,6 +86,12 @@ function pathsInToolInput(toolInput, payload) {
 	visit(toolInput);
 	if (typeof payload.file_path === 'string') found.push(payload.file_path);
 	return found;
+}
+
+function shellWritesFactory(command, workspace) {
+	if (!command.includes('factory.json')) return false;
+	const tokens = command.split(/\s+/);
+	return tokens.some((token) => isFactoryFile(token.replace(/^['"`]+|['"`;]+$/g, ''), workspace)) && /(?:>>?|\btee\b|\brm\b|\bmv\b|\bcp\b|\bunlink\b|\btruncate\b|sed\s+-i)/.test(command);
 }
 
 function allow() {

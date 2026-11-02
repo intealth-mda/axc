@@ -7,6 +7,7 @@
 // report.mjs is the error block agent-check prints. Expected comes first.
 // verify-flag.mjs records a passing pnpm run verify.
 
+export { factoryEnabled } from './factory.mjs';
 export {
 	agentIdForRecord,
 	agentIdFromEnv,

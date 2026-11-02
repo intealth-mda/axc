@@ -24,10 +24,6 @@
 		"test": "vitest run",
 		"clean": "rimraf dist tsconfig.tsbuildinfo"
 	},
-	"dependencies": {
-		"@cellix/guardrails": "workspace:*",
-		"@cellix/lint": "workspace:*"
-	},
 	"devDependencies": {
 		"@cellix/config-typescript": "workspace:*",
 		"@cellix/config-vitest": "workspace:*",

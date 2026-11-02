@@ -104,7 +104,7 @@ function actionFiles(options: GenerateFeatureOptions): GeneratedFile[] {
 		{ path: path.join(root, lint.acceptance, 'step-definitions', `${acceptanceName}.steps.ts`), contents: steps(entity, actionName) },
 	);
 	if (resolver) {
-		const typesDir = path.join(root, lint.layers.graphql, 'schema/types');
+		const typesDir = path.join(root, lint.layers.graphql);
 		const operation = kind === 'read' ? 'Query' : 'Mutation';
 		const inputs = options.operation === 'query' ? queryInputs(commandShape.fields) : options.operation === 'update' ? updateInputs(commandShape.fields) : undefined;
 		files.push(

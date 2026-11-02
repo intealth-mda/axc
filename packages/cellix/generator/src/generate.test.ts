@@ -3,9 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ensureStartupSession, loadSession } from '@cellix/guardrails';
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkCellixLint, defaultCellixLintConfig } from '../../lint/src/index.ts';
+import { recordGeneratedSession } from '../../../../scripts/generator-after.mjs';
+import { ensureStartupSession, loadSession } from '../../guardrails/src/index.mjs';
+import { checkCellixLint } from '../../lint/src/index.ts';
+import { defaultGenerateLayout } from './config.ts';
 import { filesToEdit } from './edit-targets.ts';
 import { generateFeature } from './generate.ts';
 import { parseField, parseFieldsFile, parseNested, parsePermission } from './spec.ts';
@@ -37,7 +39,7 @@ describe('Cellix generator', () => {
 	it('writes a feature slice that passes Cellix lint', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		const files = await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'create', transport: 'graphql' });
 		const paths = files.map((file) => file.path).join('\n');
 		expect(paths).toContain('course.aggregate.ts');
@@ -59,7 +61,14 @@ describe('Cellix generator', () => {
 		expect(files.map((file) => file.path).join('\n')).not.toContain('.event.ts');
 		const aggregate = files.find((file) => file.path.endsWith('course.aggregate.ts'));
 		const resolver = files.find((file) => file.path.endsWith('course.resolvers.ts'));
+		expect(resolver?.path).not.toContain(`${path.sep}schema${path.sep}types${path.sep}`);
 		expect(resolver?.contents).toContain('applicationServices.Course.Course.create');
+		expect(resolver?.contents).toContain('export default');
+		expect(resolver?.contents).not.toContain('generated.ts');
+		const graphql = files.find((file) => file.path.endsWith('course.graphql'));
+		expect(graphql?.contents).toContain('type Course {\n\tid: ID!\n\tschemaVersion: String!\n\tcreatedAt: DateTime!\n\tupdatedAt: DateTime!');
+		expect(graphql?.contents).toContain('status: MutationStatus!');
+		expect(graphql?.contents).toContain('extend type Mutation {');
 		expect(aggregate?.contents).toContain('const newInstance = new Course');
 		expect(aggregate?.contents).toContain('newInstance.markAsNew()');
 		expect(aggregate?.contents).toContain('this.visa.determineIf');
@@ -80,7 +89,7 @@ describe('Cellix generator', () => {
 	it('fills fields, permissions, a value object, and an entity, and writes resolvers only when asked', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		const files = await generateFeature({
 			root,
 			lint,
@@ -169,7 +178,7 @@ describe('Cellix generator', () => {
 	it('nests a value object inside a value object and inside an entity', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		const shape = parseFieldsFile(`{
 			"fields": [{ "name": "firstName", "type": "string" }],
 			"nested": [
@@ -209,7 +218,7 @@ describe('Cellix generator', () => {
 	it('rejects shapes that collide, drop the only identity, or hide an entity inside a value object', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		expect(() => parseFieldsFile('not json')).toThrow('Fields file must be JSON');
 		expect(() => parseFieldsFile('{ "fields": {} }')).toThrow('fields must be an array');
 		expect(() => parseFieldsFile('{ "fields": [{ "name": "address", "fields": [] }] }')).toThrow('belongs in nested');
@@ -240,7 +249,7 @@ describe('Cellix generator', () => {
 	});
 
 	it('passes lint for a query, an entity inside an entity, and three levels of value objects', async () => {
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		const queryRoot = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(queryRoot);
 		const queryFiles = await generateFeature({ root: queryRoot, lint, context: 'course', entity: 'course', action: 'query-by-id', resolver: true });
@@ -336,7 +345,7 @@ describe('Cellix generator', () => {
 	});
 
 	it('names the files to edit and leaves the barrels off that list', () => {
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		const query = filesToEdit({ root: '/repo', lint, context: 'course', entity: 'course', action: 'search', operation: 'query', transport: 'rest' });
 		expect(query).toStrictEqual([
 			'packages/axc/application-services/src/contexts/course/course/search.ts',
@@ -366,8 +375,12 @@ describe('Cellix generator', () => {
 				'apps/api/src/index.ts',
 				`import { type ApiContext, type ApplicationServices, buildApplicationServicesFactory } from '@axc/application-services';\nimport { restHandlerCreator } from '@axc/rest';\nimport { Cellix } from '@cellix/api-core';\n\nCellix.initializeInfrastructureServices<ApiContext, ApplicationServices>(() => undefined)\n\t.initializeApplicationServices((context) => buildApplicationServicesFactory(context))\n\t.registerAzureFunctionHttpHandler('health', { route: 'health', methods: ['GET'], authLevel: 'anonymous' }, restHandlerCreator)\n\t.startUp();\n`,
 			);
-			await generateFeature({ root, lint: defaultCellixLintConfig(), context: 'course', entity: 'course' });
-			await generateFeature({ root, lint: defaultCellixLintConfig(), context: 'course', entity: 'course', operation: 'query', action: 'search', params: [parseField('title:string')], route: 'course', transport: 'rest' });
+			const subdomain = { root, lint: defaultGenerateLayout(), context: 'course', entity: 'course' } as const;
+			await generateFeature(subdomain);
+			recordGeneratedSession(subdomain);
+			const query = { ...subdomain, operation: 'query' as const, action: 'search', params: [parseField('title:string')], route: 'course', transport: 'rest' as const };
+			await generateFeature(query);
+			recordGeneratedSession(query);
 			const session = loadSession(root, 'task-a');
 			expect(session?.write).toEqual(
 				expect.arrayContaining([
@@ -379,7 +392,7 @@ describe('Cellix generator', () => {
 				]),
 			);
 			expect(session?.write).not.toContain('AGENTS.md');
-			expect(session?.write).not.toContain('cellix-lint.config.json');
+			expect(session?.write).not.toContain('.cellix/factory.json');
 			expect(session?.write).not.toContain('.agents/skills/cellix-architecture/SKILL.md');
 			expect(session?.read).toEqual(
 				expect.arrayContaining([
@@ -403,6 +416,23 @@ describe('Cellix generator', () => {
 		}
 	});
 
+	it('leaves the session open when the factory switch is off', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const previous = process.env.CELLIX_AGENT_ID;
+		process.env.CELLIX_AGENT_ID = 'task-a';
+		try {
+			await writeStub(root, '.cellix/factory.json', '{ "enabled": false }\n');
+			const created = { root, lint: defaultGenerateLayout(), context: 'course', entity: 'course', action: 'create' };
+			await generateFeature(created);
+			recordGeneratedSession(created);
+			expect(loadSession(root, 'task-a')).toBeNull();
+		} finally {
+			if (previous === undefined) delete process.env.CELLIX_AGENT_ID;
+			else process.env.CELLIX_AGENT_ID = previous;
+		}
+	});
+
 	it('leaves the startup session open when the shell has no agent id', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
@@ -420,8 +450,12 @@ describe('Cellix generator', () => {
 				'apps/api/src/index.ts',
 				`import { type ApiContext, type ApplicationServices, buildApplicationServicesFactory } from '@axc/application-services';\nimport { restHandlerCreator } from '@axc/rest';\nimport { Cellix } from '@cellix/api-core';\n\nCellix.initializeInfrastructureServices<ApiContext, ApplicationServices>(() => undefined)\n\t.initializeApplicationServices((context) => buildApplicationServicesFactory(context))\n\t.registerAzureFunctionHttpHandler('health', { route: 'health', methods: ['GET'], authLevel: 'anonymous' }, restHandlerCreator)\n\t.startUp();\n`,
 			);
-			await generateFeature({ root, lint: defaultCellixLintConfig(), context: 'course', entity: 'course' });
-			await generateFeature({ root, lint: defaultCellixLintConfig(), context: 'course', entity: 'course', operation: 'query', action: 'search', params: [parseField('title:string')], route: 'course', transport: 'rest' });
+			const subdomain = { root, lint: defaultGenerateLayout(), context: 'course', entity: 'course' } as const;
+			await generateFeature(subdomain);
+			recordGeneratedSession(subdomain);
+			const query = { ...subdomain, operation: 'query' as const, action: 'search', params: [parseField('title:string')], route: 'course', transport: 'rest' as const };
+			await generateFeature(query);
+			recordGeneratedSession(query);
 			const session = loadSession(root, 'task-a');
 			expect(session?.agentId).toBe('task-a');
 			expect(session?.write).toBeUndefined();
@@ -435,7 +469,7 @@ describe('Cellix generator', () => {
 	it('rejects an acceptance step file that keeps a document array', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		const files = await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'search' });
 		const steps = files.find((file) => file.path.endsWith('course-search.steps.ts'));
 		if (!steps) throw new Error('missing course search steps');
@@ -451,7 +485,7 @@ describe('Cellix generator', () => {
 	it('builds a subdomain without a route, and query only adds the read', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		await writeStub(
 			root,
 			'packages/axc/rest/src/index.ts',
@@ -492,7 +526,7 @@ describe('Cellix generator', () => {
 	it('refuses to overwrite an entity file', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'create' });
 		await expect(generateFeature({ root, lint, context: 'course', entity: 'course', action: 'update' })).rejects.toThrow('Refusing to overwrite');
 	});
@@ -500,7 +534,7 @@ describe('Cellix generator', () => {
 	it('adds a named query and update onto an entity that already exists', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		await writeStub(
 			root,
 			'packages/axc/rest/src/index.ts',
@@ -546,10 +580,10 @@ describe('Cellix generator', () => {
 		expect(rest).toContain("app.post('/api/course'");
 		expect(rest).toContain('applicationServices.Course.Course.publish(await c.req.json())');
 		expect(search.map((file) => file.path).join('\n')).not.toContain('course.resolvers.ts');
-		const resolver = await readFile(path.join(root, 'packages/axc/graphql/src/schema/types/course.resolvers.ts'), 'utf8');
+		const resolver = await readFile(path.join(root, 'packages/axc/graphql/src/course.resolvers.ts'), 'utf8');
 		expect(resolver).toContain('search:');
 		expect(resolver).toContain('publish:');
-		const schema = await readFile(path.join(root, 'packages/axc/graphql/src/schema/types/course.graphql'), 'utf8');
+		const schema = await readFile(path.join(root, 'packages/axc/graphql/src/course.graphql'), 'utf8');
 		expect(schema).toContain('extend type Query {\n\tsearch(input:');
 		expect(schema).toContain('extend type Mutation {\n\tpublish(input:');
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
@@ -558,7 +592,7 @@ describe('Cellix generator', () => {
 	it('writes a return type and route passed in by the caller', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		await writeStub(
 			root,
 			'packages/axc/rest/src/index.ts',
@@ -603,9 +637,9 @@ describe('Cellix generator', () => {
 			route: 'catalog',
 			transport: 'graphql',
 		});
-		const graphql = await readFile(path.join(root, 'packages/axc/graphql/src/schema/types/course.graphql'), 'utf8');
+		const graphql = await readFile(path.join(root, 'packages/axc/graphql/src/course.graphql'), 'utf8');
 		expect(graphql).toContain('catalog(input:');
-		const resolver = await readFile(path.join(root, 'packages/axc/graphql/src/schema/types/course.resolvers.ts'), 'utf8');
+		const resolver = await readFile(path.join(root, 'packages/axc/graphql/src/course.resolvers.ts'), 'utf8');
 		expect(resolver).toContain('catalog:');
 		expect(resolver).toContain('.find(');
 	});
@@ -613,7 +647,7 @@ describe('Cellix generator', () => {
 	it('wires a new context through the same barrels Community uses', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
-		const lint = defaultCellixLintConfig();
+		const lint = defaultGenerateLayout();
 		await writeStub(
 			root,
 			'packages/axc/domain/src/index.ts',

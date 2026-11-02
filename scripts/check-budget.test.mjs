@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { broadGlobReason, closedReferenceInText, heavyCommandReason, logAllowsPath, wideShellReason } from './check-budget.mjs';
+import { broadGlobReason, closedReferenceInText, heavyCommandReason, logAllowsPath, logAllowsReference, wideShellReason } from './check-budget.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -75,6 +75,54 @@ describe('closed trees', () => {
 	});
 });
 
+describe('factory switch', () => {
+	it('closes inspection when the switch is on and opens an import of a named file', async () => {
+		const workspace = mkdtempSync(join(tmpdir(), 'cellix-factory-'));
+		const adapter = 'packages/axc/persistence/src/datasources/domain/enrollment/enrollment-request/enrollment-request.domain-adapter.ts';
+		const course = 'packages/axc/persistence/src/datasources/domain/catalog/course/course.domain-adapter.ts';
+		const barrel = 'packages/axc/domain/src/index.ts';
+		mkdirSync(join(workspace, 'packages/axc/persistence/src/datasources/domain/enrollment/enrollment-request'), { recursive: true });
+		mkdirSync(join(workspace, 'packages/axc/persistence/src/datasources/domain/catalog/course'), { recursive: true });
+		mkdirSync(join(workspace, 'packages/axc/domain/src'), { recursive: true });
+		mkdirSync(join(workspace, '.cellix'), { recursive: true });
+		writeFileSync(join(workspace, adapter), "import type { Domain } from '@axc/domain';\nimport { Course } from '../../catalog/course/course.domain-adapter.ts';\n");
+		writeFileSync(join(workspace, course), 'export class Course {}\n');
+		writeFileSync(join(workspace, barrel), 'export const Domain = {};\n');
+		writeFileSync(join(workspace, 'factory.json'), `${JSON.stringify({ enabled: true, scope: '@axc', layers: { domain: 'packages/axc/domain/src' } })}\n`);
+		const log = `error TS2307 ${adapter}(1,1)`;
+		try {
+			assert.equal(logAllowsReference(log, course, workspace), true);
+			assert.equal(logAllowsReference(log, barrel, workspace), true);
+			assert.equal(logAllowsReference(log, 'packages/axc/rest/src/index.ts', workspace), false);
+			const closed = await hookDecision({ command: 'ls packages/cellix/generator', hook_event_name: 'beforeShellExecution' }, {}, workspace);
+			assert.equal(closed.permission, 'deny');
+		} finally {
+			rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+
+	it('skips the verify follow-up when the switch is off', async () => {
+		const workspace = mkdtempSync(join(tmpdir(), 'cellix-stop-'));
+		writeFileSync(join(workspace, 'factory.json'), '{ "enabled": false }\n');
+		const child = spawn(process.execPath, [join(root, '.cursor/hooks/cellix-verify-stop.mjs')], {
+			cwd: workspace,
+			env: { ...process.env, CELLIX_AGENT_ID: 'task-a', CURSOR_PROJECT_DIR: workspace },
+		});
+		let out = '';
+		child.stdout.setEncoding('utf8');
+		child.stdout.on('data', (chunk) => {
+			out += chunk;
+		});
+		child.stdin.end('{}');
+		await once(child, 'exit');
+		try {
+			assert.deepEqual(JSON.parse(out), {});
+		} finally {
+			rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+});
+
 describe('the transcript hook', () => {
 	it('stops an unwrapped verify and a whole-tree glob', async () => {
 		const verify = await hookDecision({ command: 'pnpm run verify', hook_event_name: 'beforeShellExecution' });
@@ -106,7 +154,7 @@ describe('the transcript hook', () => {
 			tool_input: { pattern: 'health', path: 'packages/cellix/guardrails' },
 			hook_event_name: 'preToolUse',
 		});
-		assert.equal(closed.permission, 'deny');
+		assert.equal(closed.permission, 'allow');
 		const generate = await hookDecision({
 			command: 'pnpm --filter @cellix/generator generate -- --context course --subdomain course --action create',
 			hook_event_name: 'beforeShellExecution',
@@ -115,7 +163,7 @@ describe('the transcript hook', () => {
 		const listed = await hookDecision({ command: 'pnpm list @lucaspaganini/value-objects -r --depth 0', hook_event_name: 'beforeShellExecution' });
 		assert.equal(listed.permission, 'allow');
 		const cellix = await hookDecision({ command: 'ls packages/cellix/generator', hook_event_name: 'beforeShellExecution' });
-		assert.equal(cellix.permission, 'deny');
+		assert.equal(cellix.permission, 'allow');
 		const acceptance = await hookDecision({
 			command: 'pnpm --filter @axc-verification/acceptance-api test:acceptance',
 			hook_event_name: 'beforeShellExecution',
@@ -127,7 +175,7 @@ describe('the transcript hook', () => {
 		});
 		assert.equal(writePackage.permission, 'allow');
 		const readBuild = await hookDecision({ command: 'ls packages/axc/domain/dist', hook_event_name: 'beforeShellExecution' });
-		assert.equal(readBuild.permission, 'deny');
+		assert.equal(readBuild.permission, 'allow');
 		const environment = await hookDecision({ command: "printenv | rg -i 'cellix|agent' || true", hook_event_name: 'beforeShellExecution' });
 		assert.equal(environment.permission, 'allow');
 		const bareSearch = await hookDecision({ command: 'rg health', hook_event_name: 'beforeShellExecution' });

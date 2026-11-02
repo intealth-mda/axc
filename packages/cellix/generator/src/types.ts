@@ -1,9 +1,9 @@
-import type { CellixLintConfig } from '@cellix/lint';
+import type { GenerateLayout } from './config.ts';
 import type { FieldSpec, NestedSpec } from './spec.ts';
 
 export interface GenerateFeatureOptions {
 	root: string;
-	lint: CellixLintConfig;
+	lint: GenerateLayout;
 	context: string;
 	/** The `--subdomain` flag. Folder and type names still use this value. */
 	entity: string;

@@ -16,7 +16,7 @@ export function filesToEdit(options: GenerateFeatureOptions): string[] {
 	if ((operation === 'query' || operation === 'update') && transport === 'rest') {
 		files.push(`${lint.layers.rest}/index.ts`);
 	} else if (resolver === true || transport === 'graphql') {
-		files.push(`${lint.layers.graphql}/schema/types/${entity}.resolvers.ts`);
+		files.push(`${lint.layers.graphql}/${entity}.resolvers.ts`);
 	}
 	if (operation !== 'query') files.push(seed);
 	if (lint.acceptance) {
@@ -38,12 +38,12 @@ export function readsForEdit(options: GenerateFeatureOptions): string[] {
 		'AGENTS.md',
 		'.agents/skills/cellix-architecture/SKILL.md',
 		'.agents/skills/cellix-architecture/REFERENCE.md',
-		'cellix-lint.config.json',
+		'.cellix/factory.json',
 	];
 	return [...new Set([...filesToEdit(options), ...behavior])];
 }
 
-const INSTRUCTION = new Set(['AGENTS.md', '.agents/skills/cellix-architecture/SKILL.md', '.agents/skills/cellix-architecture/REFERENCE.md', 'cellix-lint.config.json']);
+const INSTRUCTION = new Set(['AGENTS.md', '.agents/skills/cellix-architecture/SKILL.md', '.agents/skills/cellix-architecture/REFERENCE.md', '.cellix/factory.json']);
 
 /** Same slice as the read list. Instruction files stay readable and are not writable. */
 export function writesForEdit(options: GenerateFeatureOptions): string[] {

@@ -45,4 +45,5 @@ export function matchGlob(glob: string, relative: string): boolean;
 export function relativeToWorkspace(file: string, workspace: string): string;
 export function workingTree(cwd: string): { head: string; tree: string };
 export function writeFlag(cwd: string): VerifyFlag;
+export function factoryEnabled(workspace: string): boolean;
 export function checkFlag(cwd: string): boolean;

@@ -6,26 +6,40 @@ export function schema(input: { entityPascal: string; actionPascal: string; acti
 	const fieldName = input.fieldName ?? actionCamel;
 	const resultName = operation === 'Query' ? `${entityPascal}${actionPascal}Result` : `${entityPascal}${actionPascal}MutationResult`;
 	if (inputs) {
-		const lines = inputs.map((field) => `\t${field.name}: ${field.name === 'id' ? 'ID!' : gqlType(field.type)}`).join('\n');
+		const lines = inputs.map((field) => `\t${field.name}: ${gqlFieldType(field)}`).join('\n');
 		const typeName = operation === 'Query' ? 'Query' : 'Mutation';
-		return `input ${entityPascal}${actionPascal}Input {\n${lines}\n}\n\ntype ${resultName} {\n\tid: ID!\n}\n\nextend type ${typeName} {\n\t${fieldName}(input: ${entityPascal}${actionPascal}Input): ${resultName}!\n}\n`;
+		const resultFields = operation === 'Query' ? '\tid: ID!' : '\tstatus: MutationStatus!';
+		return `input ${entityPascal}${actionPascal}Input {\n${lines}\n}\n\ntype ${resultName} {\n${resultFields}\n}\n\nextend type ${typeName} {\n\t${fieldName}(input: ${entityPascal}${actionPascal}Input!): ${resultName}!\n}\n`;
 	}
-	const result = `type ${resultName} {\n\tid: ID!\n}\n`;
-	if (operation === 'Query') {
-		return `input ${entityPascal}${actionPascal}Input {\n\tid: ID!\n}\n\n${result}\nextend type Query {\n\t${fieldName}(input: ${entityPascal}${actionPascal}Input): ${resultName}!\n}\n`;
-	}
-	const nestedInputs = graphqlNestedInputs(entityPascal, shape.nested);
-	const fields = [...shape.fields.map((field) => `\t${field.name}: ${gqlType(field.type)}`), ...shape.nested.map((item) => `\t${item.camel}: ${entityPascal}${item.pascal}Input!`)].join('\n');
-	const prefix = nestedInputs.length > 0 ? `${nestedInputs}\n\n` : '';
-	return `${prefix}input ${entityPascal}${actionPascal}Input {\n${fields}\n}\n\n${result}\nextend type Mutation {\n\t${fieldName}(input: ${entityPascal}${actionPascal}Input): ${resultName}!\n}\n`;
+	const nested = graphqlNestedBlocks(entityPascal, shape.nested);
+	const prefix = nested.length > 0 ? `${nested}\n\n` : '';
+	const documentFields = [
+		'\tid: ID!',
+		'\tschemaVersion: String!',
+		'\tcreatedAt: DateTime!',
+		'\tupdatedAt: DateTime!',
+		...shape.fields.map((field) => `\t${field.name}: ${gqlFieldType(field)}`),
+		...shape.nested.map((item) => `\t${item.camel}: ${entityPascal}${item.pascal}!`),
+	].join('\n');
+	const inputFields = [...shape.fields.map((field) => `\t${field.name}: ${gqlFieldType(field)}`), ...shape.nested.map((item) => `\t${item.camel}: ${entityPascal}${item.pascal}Input!`)].join('\n');
+	const typeName = operation === 'Query' ? 'Query' : 'Mutation';
+	const resultFields = operation === 'Query' ? '\tid: ID!' : '\tstatus: MutationStatus!';
+	return `${prefix}type ${entityPascal} {\n${documentFields}\n}\n\ninput ${entityPascal}${actionPascal}Input {\n${inputFields}\n}\n\ntype ${resultName} {\n${resultFields}\n}\n\nextend type ${typeName} {\n\t${fieldName}(input: ${entityPascal}${actionPascal}Input!): ${resultName}!\n}\n`;
 }
 
-function graphqlNestedInputs(entityPascal: string, items: ShapeNested[]): string {
+function gqlFieldType(field: { name: string; type: string }): string {
+	if (field.name === 'id' || field.type === 'id') return 'ID!';
+	return gqlType(field.type);
+}
+
+function graphqlNestedBlocks(entityPascal: string, items: ShapeNested[]): string {
 	return items
 		.flatMap((item) => {
-			const fields = item.fields.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${entityPascal}${member.pascal}Input!` : `\t${member.name}: ${gqlType(member.type)}`));
-			const self = `input ${entityPascal}${item.pascal}Input {\n${fields.join('\n')}\n}`;
-			return [graphqlNestedInputs(entityPascal, item.fields.filter(isShapeNested)), self];
+			const outputFields = item.fields.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${entityPascal}${member.pascal}!` : `\t${member.name}: ${gqlFieldType(member)}`));
+			const inputFields = item.fields.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${entityPascal}${member.pascal}Input!` : `\t${member.name}: ${gqlFieldType(member)}`));
+			const output = `type ${entityPascal}${item.pascal} {\n${outputFields.join('\n')}\n}`;
+			const input = `input ${entityPascal}${item.pascal}Input {\n${inputFields.join('\n')}\n}`;
+			return [graphqlNestedBlocks(entityPascal, item.fields.filter(isShapeNested)), output, input];
 		})
 		.filter((part) => part.length > 0)
 		.join('\n\n');

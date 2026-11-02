@@ -68,10 +68,21 @@ function acceptanceFailed(requested, log) {
 	return isVerify(requested) && (log.includes('@cucumber/cucumber') || /\.feature:\d+/.test(log));
 }
 
+function readFactory(workspace) {
+	for (const file of ['factory.json', '.cellix/factory.json']) {
+		try {
+			return JSON.parse(readFileSync(join(workspace, file), 'utf8'));
+		} catch {
+			// Try the next factory location.
+		}
+	}
+	return {};
+}
+
 function acceptanceHints(workspace, log) {
 	let acceptance = 'packages/axc-verification/acceptance-api/src';
 	try {
-		const config = JSON.parse(readFileSync(join(workspace, 'cellix-lint.config.json'), 'utf8'));
+		const config = readFactory(workspace);
 		if (typeof config.acceptance === 'string') acceptance = config.acceptance;
 	} catch {
 		// The default acceptance root still names the files a failure has to open.

@@ -5,6 +5,7 @@
 // A matching flag removes that agent's session file. The verify file stays.
 import { readFileSync } from 'node:fs';
 import { agentIdFromEnv, checkFlag, clearSession } from '../../packages/cellix/guardrails/src/index.mjs';
+import { factoryEnabled } from './factory.mjs';
 
 const FOLLOWUP =
 	'While files are still changing, run pnpm run agent-check -- pnpm run check. Do not list the tree. Run pnpm run agent-check -- pnpm run verify once when the behavior is in place. Finish only after it prints CELLIX_VERIFY=pass. Do not write .cellix/verify.json.';
@@ -14,6 +15,10 @@ const workspace = workspaceFrom(payload);
 const agentId = readAgentId();
 
 if (!agentId || payload.status === 'aborted' || payload.status === 'error') reply({});
+if (!factoryEnabled(workspace)) {
+	if (checkFlag(workspace)) clearSession(workspace, agentId);
+	reply({});
+}
 if (!checkFlag(workspace)) reply({ followup_message: FOLLOWUP });
 clearSession(workspace, agentId);
 reply({});

@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { camel, pascal } from './names.ts';
-import { recordAgentSession } from './session-files.ts';
 import { normalizeShape } from './shape.ts';
 import {
 	contextApplication,
@@ -134,7 +133,7 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 		written.push(...(await ensureApiWiring(options)));
 	}
 	if (routeOperation) {
-		const graphqlDir = path.join(options.root, options.lint.layers.graphql, 'schema/types');
+		const graphqlDir = path.join(options.root, options.lint.layers.graphql);
 		const resolverFile = path.join(graphqlDir, `${entity}.resolvers.ts`);
 		const asked = options.transport !== 'rest' && (options.resolver === true || options.transport === 'graphql');
 		if (asked || (await exists(resolverFile))) {
@@ -157,7 +156,6 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 			);
 		}
 	}
-	recordAgentSession(options, written);
 	return written;
 }
 

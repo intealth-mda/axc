@@ -25,7 +25,7 @@ export function formatGeneratedFiles(files: { path: string; contents: string }[]
 function findRepo(start: string): string {
 	let current = path.resolve(start);
 	for (;;) {
-		if (existsSync(path.join(current, 'biome.json')) && existsSync(path.join(current, 'cellix-lint.config.json'))) return current;
+		if (existsSync(path.join(current, 'biome.json')) && (existsSync(path.join(current, 'factory.json')) || existsSync(path.join(current, '.cellix', 'factory.json')))) return current;
 		const parent = path.dirname(current);
 		if (parent === current) throw new Error('Could not find the repository Biome config');
 		current = parent;

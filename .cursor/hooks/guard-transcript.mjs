@@ -5,6 +5,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { agentIdFromEnv, decideRead, ensureStartupSession, loadSession, policyFromConfig } from '../../packages/cellix/guardrails/src/index.mjs';
 import { broadGlobReason, closedReferenceInText, commandCap, heavyCommandReason, logNames, noteRepeat, OPEN_ROOTS, repeatMessage, wideShellReason } from '../../scripts/check-budget.mjs';
+import { factoryEnabled } from './factory.mjs';
 
 try {
 	const input = await readPayload();
@@ -19,9 +20,11 @@ try {
 		else {
 			const blocked = findBlockedReference(input);
 			const cwd = input.cwd ?? input.workspace_roots?.[0];
-			if (blocked !== undefined && !logNames(blocked, cwd)) deny(`Inspection of ${blocked} is closed. Use the agent-check error block first. Open this path only when that log names the file.`, input.hook_event_name);
+			const funnel = factoryEnabled(cwd ?? process.cwd());
+			if (funnel && blocked !== undefined && !logNames(blocked, cwd))
+				deny(`Inspection of ${blocked} is closed. Use the agent-check error block first. Open this path only when that log names the file or a file it imports.`, input.hook_event_name);
 			else {
-				const readBlock = readDenial(input, cwd);
+				const readBlock = readDenial(input, cwd, funnel);
 				if (readBlock !== undefined) deny(readBlock, input.hook_event_name);
 				else {
 					const cap = commandCap(cwd ?? process.cwd(), agentId(), command);
@@ -100,7 +103,7 @@ function closedPath(value, cwd) {
 	return closedReferenceInText(relativePath) ?? closedReferenceInText(value.replaceAll('\\', '/'));
 }
 
-function readDenial(input, cwd) {
+function readDenial(input, cwd, funnel = true) {
 	const workspace = cwd ?? process.cwd();
 	let config;
 	try {
@@ -113,8 +116,10 @@ function readDenial(input, cwd) {
 	let agentId = '';
 	try {
 		agentId = agentIdFromEnv();
-		session = agentId ? loadSession(workspace, agentId) : null;
-		if (agentId && !session) session = ensureStartupSession(workspace, agentId);
+		if (funnel) {
+			session = agentId ? loadSession(workspace, agentId) : null;
+			if (agentId && !session) session = ensureStartupSession(workspace, agentId);
+		}
 	} catch (error) {
 		return error instanceof Error ? error.message : 'CELLIX_AGENT_ID is invalid.';
 	}

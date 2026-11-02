@@ -9,6 +9,7 @@ export {
 	heavyCommandReason,
 	isWrapped,
 	logAllowsPath,
+	logAllowsReference,
 	logNames,
 	noteRepeat,
 	OPEN_ROOTS,
