@@ -273,6 +273,16 @@ export class ActivityLog extends DomainEntity<ActivityLogProps> implements Activ
 		expect(text).not.toContain('Found: DataSources');
 	});
 
+	it('accepts a document type that biome wrapped onto the next line', async () => {
+		const root = await scaffold({
+			'packages/axc/persistence/src/datasources/domain/enrollment/enrollment-request/enrollment-request.domain-adapter.ts': `import type { EnrollmentRequest } from '@axc/data-sources-mongoose-models';\nimport { MongooseSeedwork } from '@cellix/mongoose-seedwork';\nexport class EnrollmentRequestConverter extends MongooseSeedwork.MongoTypeConverter<\n\tEnrollmentRequest,\n\tEnrollmentRequestDomainAdapter\n> {}\nexport class EnrollmentRequestDomainAdapter extends MongooseSeedwork.MongooseDomainAdapter<\n\tEnrollmentRequest\n> {}\n`,
+			'packages/axc/persistence/src/datasources/domain/enrollment/enrollment-request/enrollment-request.repository.ts': `export class EnrollmentRequestRepository extends MongooseSeedwork.MongoRepositoryBase<\n\tEnrollmentRequest,\n\tEnrollmentRequestDomainAdapter\n> implements EnrollmentRequestRepository {}\n`,
+		});
+		const text = (await checkCellixLint({ root })).join('\n');
+		expect(text).not.toContain('cellix/persistence-adapter-document');
+		expect(text).not.toContain('cellix/persistence-repository-document');
+	});
+
 	it('rejects a REST catalog fallback and a seed that is not one example document', async () => {
 		const root = await scaffold({
 			'packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts': 'export class Course {}\n',

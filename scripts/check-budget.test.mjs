@@ -160,6 +160,22 @@ describe('the transcript hook', () => {
 			hook_event_name: 'beforeShellExecution',
 		});
 		assert.equal(generate.permission, 'allow');
+		const byId = await hookDecision({
+			command: 'pnpm --filter @cellix/generator query -- --context enrollment --subdomain enrollment-request --name find-enrollment-request --param id:string --route enrollment-requests/:id --transport rest',
+			hook_event_name: 'beforeShellExecution',
+		});
+		assert.equal(byId.permission, 'allow');
+		const statusRoute = await hookDecision({
+			command:
+				"pnpm --filter @cellix/generator update -- --context enrollment --subdomain enrollment-request --name change-enrollment-request-status --param status:string --route 'enrollment-requests/:id/status' --transport rest",
+			hook_event_name: 'beforeShellExecution',
+		});
+		assert.equal(statusRoute.permission, 'allow');
+		const revision = await hookDecision({
+			command: 'git show HEAD:packages/axc/rest/src/index.ts',
+			hook_event_name: 'beforeShellExecution',
+		});
+		assert.equal(revision.permission, 'allow');
 		const listed = await hookDecision({ command: 'pnpm list @lucaspaganini/value-objects -r --depth 0', hook_event_name: 'beforeShellExecution' });
 		assert.equal(listed.permission, 'allow');
 		const cellix = await hookDecision({ command: 'ls packages/cellix/generator', hook_event_name: 'beforeShellExecution' });

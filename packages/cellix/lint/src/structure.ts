@@ -560,7 +560,7 @@ function checkPersistenceRepository(file: string, content: string, domainReposit
 	}
 	violations.push(...banTopLevelFunctions(file, content, 'cellix/persistence-repository-no-helper'));
 	const pascal = kebabToPascal(stem);
-	if (!new RegExp(`MongoRepositoryBase<${pascal},`).test(content)) {
+	if (!new RegExp(`MongoRepositoryBase<\\s*${pascal}\\s*,`).test(content)) {
 		violations.push(report(file, 'cellix/persistence-repository-document', `document type is not ${pascal}`, `MongoRepositoryBase<${pascal}, ${pascal}DomainAdapter, ...>. The document type is the entity`));
 	}
 	violations.push(...rejectUnexpectedTypes(file, content, new Set(), 'cellix/persistence-repository-types'));
@@ -584,7 +584,7 @@ function checkPersistenceAdapter(file: string, content: string): string[] {
 		violations.push(report(file, 'cellix/persistence-adapter-types', 'exported type on the domain adapter', 'export class <Name>Converter and export class <Name>DomainAdapter only. The document type is the entity on the model'));
 	}
 	violations.push(...rejectUnexpectedTypes(file, content, new Set(), 'cellix/persistence-adapter-types'));
-	if (!new RegExp(`MongooseDomainAdapter<${pascal}>`).test(content) || !new RegExp(`MongoTypeConverter<${pascal},`).test(content)) {
+	if (!new RegExp(`MongooseDomainAdapter<\\s*${pascal}\\s*>`).test(content) || !new RegExp(`MongoTypeConverter<\\s*${pascal}\\s*,`).test(content)) {
 		violations.push(
 			report(file, 'cellix/persistence-adapter-document', `document type is not ${pascal}`, `import ${pascal} from the models package and use MongooseDomainAdapter<${pascal}> and MongoTypeConverter<${pascal}, ...>`),
 		);

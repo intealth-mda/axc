@@ -1,6 +1,6 @@
 {
 	"read": {
-		"factory.json": true,
+		"factory.json": false,
 		"**/node_modules/**": false,
 		"node_modules/**": false,
 		"**/dist/**": false,
@@ -8,8 +8,8 @@
 		"**/agent-transcripts/**": false,
 		"agent-transcripts/**": false,
 		"packages/cellix/**": true,
-		"scripts/**": true,
-		".cursor/**": true,
+		"scripts/**": false,
+		".cursor/**": false,
 		".git/**": false,
 		".cellix/**": true,
 		"patches/**": true,
@@ -36,11 +36,11 @@
 		"apps/docs/**": true
 	},
 	"write": {
-		"packages/cellix/**": true,
-		"scripts/**": true,
-		".cursor/**": true,
-		"ocom-write.config.json": true,
-		"factory.json": true,
+		"packages/cellix/**": false,
+		"scripts/**": false,
+		".cursor/**": false,
+		"ocom-write.config.json": false,
+		"factory.json": false,
 		"packages/axc/**": true,
 		"packages/axc-verification/**": true,
 		"package.json": true,

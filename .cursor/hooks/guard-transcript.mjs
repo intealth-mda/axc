@@ -204,9 +204,30 @@ function shellReadPaths(command, workspace) {
 		const cleaned = token.replace(/^['"`]+|['"`]+$/g, '').replace(/[;,]+$/g, '');
 		const pathToken = cleaned.includes('>') ? cleaned.slice(cleaned.lastIndexOf('>') + 1) : cleaned;
 		if (!pathToken || pathToken.startsWith('-') || pathToken.includes('$') || pathToken.includes('*') || isPackageName(pathToken)) continue;
-		if (pathToken.includes('/') || pathToken.includes('\\') || pathToken.includes('.') || fileExists(workspace, pathToken)) found.push(pathToken);
+		const repoPath = repoPathFromToken(pathToken);
+		if (repoPath !== undefined) found.push(repoPath);
+		else if (!pathToken.includes(':') && fileExists(workspace, pathToken)) found.push(pathToken);
 	}
 	return found;
+}
+
+/** A REST route such as enrollment-requests/:id is an argument, not a file. A git revision prefix is the file after the colon. */
+function repoPathFromToken(token) {
+	if (isRepoPath(token)) return stripLineSuffix(token);
+	const colon = token.indexOf(':');
+	if (colon <= 0) return undefined;
+	const rest = stripLineSuffix(token.slice(colon + 1));
+	return isRepoPath(rest) ? rest : undefined;
+}
+
+function stripLineSuffix(token) {
+	const line = token.search(/:\d/);
+	return line === -1 ? token : token.slice(0, line);
+}
+
+function isRepoPath(token) {
+	if (token.startsWith('./') || token.startsWith('/') || token.startsWith('packages/') || token.startsWith('apps/') || token.startsWith('.cursor/') || token.startsWith('.agents/') || token.startsWith('.cellix/')) return true;
+	return /^(?:package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.snyk|AGENTS\.md|biome\.json|ocom-write\.config\.json|factory\.json|cellix-lint\.config\.json)$/.test(token);
 }
 
 function fileExists(workspace, token) {

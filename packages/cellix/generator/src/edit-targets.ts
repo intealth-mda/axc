@@ -26,7 +26,36 @@ export function filesToEdit(options: GenerateFeatureOptions): string[] {
 	return files;
 }
 
-/** Files the timed agent may read. Barrels, manifests, and tsconfig stay off this list. A failing check names any other file. */
+/** Package and slice barrels, plus the mongoose model. The printed edit list stays the behavior files. */
+function modelAndBarrels(options: GenerateFeatureOptions): string[] {
+	const { lint, context, entity } = options;
+	const domain = lint.layers.domain;
+	const persistence = lint.layers.persistence;
+	const application = lint.layers.applicationServices;
+	return [
+		`${lint.layers.models}/models/${entity}/${entity}.model.ts`,
+		`${lint.layers.models}/index.ts`,
+		`${lint.layers.serviceMongoose}/index.ts`,
+		`${domain}/index.ts`,
+		`${domain}/domain/index.ts`,
+		`${domain}/domain/contexts/index.ts`,
+		`${domain}/domain/contexts/${context}/index.ts`,
+		`${domain}/domain/contexts/${context}/${entity}/index.ts`,
+		`${persistence}/index.ts`,
+		`${persistence}/datasources/index.ts`,
+		`${persistence}/datasources/domain/index.ts`,
+		`${persistence}/datasources/domain/${context}/index.ts`,
+		`${persistence}/datasources/domain/${context}/${entity}/index.ts`,
+		`${persistence}/datasources/readonly/index.ts`,
+		`${persistence}/datasources/readonly/${context}/index.ts`,
+		`${persistence}/datasources/readonly/${context}/${entity}/index.ts`,
+		`${application}/index.ts`,
+		`${application}/contexts/${context}/index.ts`,
+		`${application}/contexts/${context}/${entity}/index.ts`,
+	];
+}
+
+/** Files the timed agent may read. Manifests and tsconfig stay off this list. A failing check names any other file. */
 export function readsForEdit(options: GenerateFeatureOptions): string[] {
 	const { lint, context, entity } = options;
 	const acceptance = lint.acceptance;
@@ -40,7 +69,7 @@ export function readsForEdit(options: GenerateFeatureOptions): string[] {
 		'.agents/skills/cellix-architecture/REFERENCE.md',
 		'.cellix/factory.json',
 	];
-	return [...new Set([...filesToEdit(options), ...behavior])];
+	return [...new Set([...filesToEdit(options), ...modelAndBarrels(options), ...behavior])];
 }
 
 const INSTRUCTION = new Set(['AGENTS.md', '.agents/skills/cellix-architecture/SKILL.md', '.agents/skills/cellix-architecture/REFERENCE.md', '.cellix/factory.json']);
