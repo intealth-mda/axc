@@ -6,9 +6,11 @@ alwaysApply: true
 # One pass
 
 - Start with the `apps/api` composition root, the `packages/axc/rest` and `packages/axc/application-services` entries and nearest existing feature, and the `packages/axc-verification` acceptance entry. Use one batched search to identify them, then read them in parallel.
-- Use at most one follow-up read batch to resolve a specific unknown. A failed check permits the reads needed to fix it.
-- Do not reopen a file or successful command, summarize intermediate work, or start a second exploration, review pass, or subagent.
+- Use at most one follow-up read batch to resolve a specific unknown in those packages or their direct manifests. A failed check permits the reads needed to fix it.
+- Before the first write, do not open monorepo tooling or config tours: knip, turbo, biome, cucumber, serenity, rolldown, host.json, or every package.json. Open a tooling file only when a failed check names it.
+- Do not reopen a file or successful command, summarize intermediate work, inspect `git diff` / `git status` for progress, or start a second exploration, review pass, or subagent.
 - Write each new file once. Make a follow-up edit only to resolve a specific unknown or failed check.
+- Dependencies are preinstalled. Do not run `pnpm install`.
 - Ponytail and Caveman apply in full. This rule limits tool calls only.
 
 ## Scoped edits
@@ -16,12 +18,12 @@ alwaysApply: true
 - Change only files required for the current unknown or failed check.
 - Do not broaden an edit into adjacent features, cleanup passes, or unrelated refactors.
 - Prefer one follow-up edit on an already-touched file over opening a new file.
-- Do not edit unrelated tests to satisfy a type or shared-context shape change when a shared test helper can absorb it.
+- When a shared factory or test dependency shape changes, add or extend one shared test helper that returns complete stubs and accepts a partial override; route existing tests through that helper. Do not patch unrelated test files one by one.
 
 ## Validation
 
 - Format only the changed paths once with `pnpm exec biome check --write --no-errors-on-unmatched <paths>`.
-- While iterating, run only the package test file(s) or describe filter that cover the files just edited, through `node scripts/agent-check.mjs -- <narrow command>`. Prefer `pnpm exec vitest run <relative-test-file>` in the affected package, or `pnpm exec turbo run test --filter=<affected-package> --` with vitest args that select that file. Include `pnpm run knip` in the affected-package preflight when exports or package boundaries changed.
+- While iterating, run only the new or changed test file(s) that cover the files just edited, through `node scripts/agent-check.mjs -- <narrow command>`. Prefer `pnpm exec vitest run <relative-test-file>` in the affected package, or `pnpm exec turbo run test --filter=<affected-package> --` with vitest args that select **only those** files. Do not include pre-existing unrelated test files in that command. If exports or package boundaries changed, run `pnpm run knip` in the same wrapped preflight (or as the next single wrapped command), not as a separate exploration step.
 - Do not run the full monorepo unit suite, full acceptance, or `pnpm run verify` until that narrow check passes.
 - Then run `pnpm run verify` once through the same wrapper. The wrapper rejects another full verify after a pass and allows one rerun only after a failed verify.
 - Do not run acceptance or the full suite as a separate command. They run inside `pnpm run verify`.

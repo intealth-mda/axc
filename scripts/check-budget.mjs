@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 const VERIFY_LIMIT = 'One wrapped pnpm run verify already ran. Repeat it only after that verify fails, and only once.';
 const ACCEPTANCE_LIMIT = 'Acceptance runs inside the one wrapped pnpm run verify. Run acceptance by itself only after that verify fails.';
+const INSTALL_LIMIT = 'Dependencies are preinstalled. Do not run pnpm install during the scored run.';
 
 export function commandText(command, args = []) {
 	return [command, ...args].join(' ');
@@ -18,6 +19,10 @@ export function isVerify(text) {
 
 export function isAcceptance(text) {
 	return /\btest:acceptance\b/.test(text) && !isVerify(text);
+}
+
+export function isInstall(text) {
+	return /(?:^|\s)pnpm(?:\s+-+[^\s]+)*\s+install(?:\s|$)/.test(text) || /(?:^|\s)npm(?:\s+-+[^\s]+)*\s+install(?:\s|$)/.test(text);
 }
 
 export function readBudget(cwd = process.cwd()) {
@@ -40,6 +45,9 @@ export function recordVerify(status, cwd = process.cwd()) {
 }
 
 export function rejectionReason(text, budget = readBudget()) {
+	if (isInstall(text)) {
+		return INSTALL_LIMIT;
+	}
 	if (isAcceptance(text)) {
 		return budget.verifies > 0 && budget.lastVerifyStatus !== 0 ? undefined : ACCEPTANCE_LIMIT;
 	}
@@ -53,6 +61,9 @@ export function rejectionReason(text, budget = readBudget()) {
 }
 
 export function rawBroadCommandReason(text) {
+	if (isInstall(text)) {
+		return INSTALL_LIMIT;
+	}
 	if (isWrapped(text) || (!isVerify(text) && !isAcceptance(text))) {
 		return undefined;
 	}
