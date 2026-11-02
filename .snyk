@@ -2,6 +2,11 @@
 version: v1.25.1
 # ignores vulnerabilities until expiry date; change duration by modifying expiry date
 ignore:
+  SNYK-JS-MINIMATCH-22111072:
+    - '*':
+        reason: Fixed only in minimatch 11.0.1+, which drops makeRe and AST; archunit 2.5.4, ts-morph and glob 13 call them (archunit tests fail with 11), and serve-handler needs the 3.x default export. All paths are dev and docs tooling matching repo-authored globs. Review by 2026-12-31 (checked 2026-11-02).
+        expires: 2026-12-31T00:00:00.000Z
+        created: 2026-11-02T00:00:00.000Z
   SNYK-JS-BRACES-19963945:
     - '*':
         reason: No upgrade or patch available (re-checked 2026-10-30, still no fixed release)

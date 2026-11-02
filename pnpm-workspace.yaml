@@ -81,6 +81,7 @@ overrides:
   vitest: 4.1.11
   '@vitest/browser-playwright': 4.1.11
   '@vitest/mocker': 4.1.12
+  joi: 17.13.9
 
 patchedDependencies:
   '@azure/functions@4.11.0': patches/@azure__functions@4.11.0.patch
