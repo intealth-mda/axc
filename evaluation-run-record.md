@@ -3,29 +3,29 @@ Each participant should complete one Evaluation Run Record per harness/model run
 
 | Field | Value |
 | --- | --- |
-| Team | OpenAI / Anthropic / Cursor / xAI / Antigravity |
-| Developer / Operator | |
+| Team | xAI |
+| Developer / Operator | Nick Noce. Git author of `e3ae308` (`nnoce12@gmail.com`). Implementing session lived under `/Users/nick/.grok/sessions`. Unsure whether the recorded participant should instead be Julian: the branch prefix is `jsm-xai-4`. |
 | Reviewer | (leave blank for now) |
-| Harness | |
-| Model | |
-| License / Plan | |
+| Harness | Grok Build CLI 1.0.67 (2fe064390d07) [stable], agent `grok-build-plan`. Session `01a16990-5016-7873-85e4-96c88b09238f`, title `jsm-xai-4-nrn-xai-1-b-out` (manual). |
+| Model | `grok-4.6` in `summary.json` / `signals.json`. Usage file primary model id is `grok-4.6-build`. Reasoning effort `medium`. Unsure which of those two ids the rubric wants. They refer to this same run. |
+| License / Plan | Unsure. The session files that were read do not record a license or plan. |
 | Codebase | ECFMG/axc |
-| Task Set | A / B |
-| Run Type | Baseline / Harness Engineering Iteration N / Final |
-| Harness Engineering Used | |
-| Config / Diff Notes | |
-| Branch / Commit | |
-| Requirements Completed / Attempted | |
-| Acceptance Criteria Passed / Total | |
-| Tests Passed / Failed | |
-| Static Analysis / Security Findings | |
-| Input Tokens | |
-| Cached Tokens | |
-| Output Tokens | |
-| Total Tokens or Credits Used | |
-| Estimated Cost | |
-| Elapsed Time | |
-| Number of Human Interventions / Redirects | |
+| Task Set | B |
+| Run Type | Harness Engineering Iteration 4. Base harness branch is `jsm-xai-4` at `7f60a4a` ("Iterarion 3 Harness Update"). This B-out is stacked on Task Set A seed `jsm-xai-4-nrn-xai-1-a-out` (`a527f1d`, PR #31). |
+| Harness Engineering Used | Yes. Always-on project rule `.grok/rules/feature-slice.md` (repo card, in-memory persistence, run spec commands then `pnpm run test:arch`, do not self-run verify/knip/audit/snyk). Memory v2 off. No subagents. BothyBoard MCP connected and unused. Tools used: `read_file`, `list_dir`, `grep`, `todo_write`, `search_replace`, `run_terminal_command`. The agent did read `task-set-b-requirements.md` and `task-set-a-requirements.md` on turn 1, and also opened the BothyBoard skill file; it did not call BothyBoard tools. |
+| Config / Diff Notes | Sandbox profile `off`. `yolo_mode` true. Feature-slice file was not edited. Task B diff vs A-out: 14 files, +1330 / −9. In-memory enrollment store (same style as the catalog). No third-party dependency and no lockfile change. First `git commit` failed pre-commit knip on unused exported type `ErrorFieldDetail`; the agent made that type internal and the second commit’s `verify` passed. PR #32 targets `jsm-xai-4-nrn-xai-1-a-out`. |
+| Branch / Commit | `jsm-xai-4-nrn-xai-1-b-out@e3ae308f3694f9dd457d091f952eb600300d17b8` (“Add enrollment request workflow on the course catalog”, 2026-10-23). PR https://github.com/ECFMG/axc/pull/32 |
+| Requirements Completed / Attempted | 17/17 (B1–B17) from the Task Set B spec the implementing session read. Course search from Task Set A preserved; enrollment create / get / list / status update, validation, duplicate prevention, transitions, `statusHistory`, tests, and docs. Unsure of a strict reading of the docs path in the deliverables table (`docs/api/enrollment-requests.md`): the file landed at `apps/docs/docs/enrollment-requests.md`. |
+| Acceptance Criteria Passed / Total | 15/15 (B-AC1–B-AC15) against the commands that ran. B-AC1: catalog acceptance 12/12 plus healthcheck 1/1. B-AC2–B-AC12, B-AC14: 17/17 enrollment Cucumber scenarios and 16 enrollment unit tests. B-AC13: `pnpm test` 27/27 Turbo tasks. B-AC15: `apps/docs/docs/enrollment-requests.md` describes the endpoints, bodies, and errors and the docs package built during verify. Unsure on a strict reading of B-AC15 because the requirements name `docs/api/enrollment-requests.md`. No independent reviewer has signed off. |
+| Tests Passed / Failed | Final successful pre-commit `verify`: 0 failed. Implementation-turn commands before commit: `pnpm run lint` pass (207 files); `pnpm run build` 18/18; `pnpm test` 27/27 Turbo tasks; acceptance 30/30 scenarios (12 catalog, 17 enrollment, 1 healthcheck); `@axc/application-services` Vitest 54/54 reported passed (27 unique: 2 health, 9 catalog, 16 enrollment; Vitest also typechecks the same tests). `pnpm run test:arch` 17/17 tasks; `@cellix/archunit-tests` 10/10; `@axc-verification/archunit-tests` 9/9. This tree has no package-level `test:arch` for `@axc/domain`, `@axc/persistence`, or `@axc/application-services`. First commit attempt failed knip; after the export fix, verify including knip/e18e/test/audit/snyk passed. |
+| Static Analysis / Security Findings | Biome lint: no findings (207 files on the implementation lint run). knip: one unused exported type on the first commit (`ErrorFieldDetail`); clean after that type was made internal. Remaining knip lines were configuration hints. e18e ran in verify (cli v0.7.0). Architecture tests: no findings. audit (`pnpm audit --audit-level=high`): 2 vulnerabilities found, severity 2 moderate. snyk: 23 projects, no vulnerable paths. Snyk also printed the monthly private-test cap warning for org `cellixjs`. No secrets, authentication edits, environment files, or third-party dependencies were added. |
+| Input Tokens | 3,331,413. `usage.json` snapshot at 2026-10-23T16:45:19Z for turns 1–2 (`grok-4.6-build`, 39 model calls). Does not include the cancelled `.usage` turn or this form-filling session. |
+| Cached Tokens | 3,201,920 cached read tokens. Cache creation tokens were 0. Same snapshot as Input Tokens. |
+| Output Tokens | 35,021. Reasoning tokens are recorded separately as 13,395. Unsure whether those reasoning tokens are already inside the 35,021. The recorded total equals input plus output, so reasoning is not an extra total on top of that sum. |
+| Total Tokens or Credits Used | 3,366,434 tokens. 39 model calls. Unsure of the credit balance. Credits were not recorded in the session file. |
+| Estimated Cost | Unsure. `costUsdTicks` was 7,038,244,800. A same-day Grok session guide / prior jsm record treated ticks as 10^10 per USD, which would be $0.70. That conversion is not recorded in this session’s files. |
+| Elapsed Time | Implementation turn 8m 55s (2026-10-23T16:26:36Z–16:35:31Z). Commit/PR turn 1m 54s (16:43:25Z–16:45:19Z). Combined completed-turn wall clock 18m 43s including the pause between those turns. `signals.json` `sessionDurationSeconds` 2624 (43m 44s). Session created 16:20:27Z, last_active 17:08:32Z (48m 5s), which includes idle time and a cancelled `.usage` turn. Unsure which interval should be scored. |
+| Number of Human Interventions / Redirects | 1 follow-up after implementation: the operator sent “Commit and push … and open a PR targeting jsm-xai-4-nrn-xai-1-a-out”. The Task B prompt did not ask for commit/PR; feature-slice says stop when the named checks pass. 0 mid-implementation redirects. The knip commit failure was fixed by the agent without a human redirect. A later `.usage` turn was cancelled with ctrl_c at 17:04:12Z; that did not redirect the implementation. Unsure whether a reviewer would count the commit/PR prompt as a redirect. |
 | Reviewer Notes | (leave blank for now) |
 | Final Rubric Score | (leave blank for now) |
 | Recommendation | Continue / Remediate / Stop / Candidate for Pilot |
