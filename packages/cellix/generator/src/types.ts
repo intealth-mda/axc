@@ -18,6 +18,8 @@ export interface GenerateFeatureOptions {
 	result?: string;
 	/** REST path name, or the GraphQL field name when transport is graphql. Omitted, REST uses the entity and GraphQL uses the action. */
 	route?: string;
+	/** REST verb. Omitted, a query is get and a write is post. */
+	method?: 'get' | 'post' | 'patch' | 'put' | 'delete';
 	fields?: FieldSpec[];
 	permissions?: string[];
 	nested?: NestedSpec[];

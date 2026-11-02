@@ -64,6 +64,26 @@ export function parseField(token: string): FieldSpec {
 	return field;
 }
 
+/** A query or update may take the aggregate id. A field on the subdomain may not. */
+export function parseParam(token: string): FieldSpec {
+	return readField(token);
+}
+
+/** Repeated names become one union. A shell that splits on `|` can pass the parts as separate flags. */
+export function mergeFields(fields: FieldSpec[]): FieldSpec[] {
+	const merged: FieldSpec[] = [];
+	for (const field of fields) {
+		const existing = merged.find((item) => item.name === field.name);
+		if (!existing) {
+			merged.push({ name: field.name, type: field.type });
+			continue;
+		}
+		if (existing.type === field.type) continue;
+		existing.type = `${existing.type}|${field.type}`;
+	}
+	return merged;
+}
+
 export function parsePermission(token: string): string {
 	const name = camel(token);
 	if (!CAMEL.test(name)) throw new Error(`Permission must be camelCase, received ${token}`);

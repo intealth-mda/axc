@@ -13,7 +13,7 @@ export function filesToEdit(options: GenerateFeatureOptions): string[] {
 	} else {
 		files.push(aggregate);
 	}
-	if ((operation === 'query' || operation === 'update') && transport === 'rest') {
+	if (transport === 'rest' && (operation === 'query' || operation === 'update' || options.route)) {
 		files.push(`${lint.layers.rest}/index.ts`);
 	} else if (resolver === true || transport === 'graphql') {
 		files.push(`${lint.layers.graphql}/${entity}.resolvers.ts`);
@@ -52,6 +52,13 @@ function modelAndBarrels(options: GenerateFeatureOptions): string[] {
 		`${application}/index.ts`,
 		`${application}/contexts/${context}/index.ts`,
 		`${application}/contexts/${context}/${entity}/index.ts`,
+		`${domain}/domain/contexts/${context}/${entity}/${entity}.repository.ts`,
+		`${domain}/domain/contexts/${context}/${entity}/${entity}.uow.ts`,
+		`${persistence}/datasources/domain/${context}/${entity}/${entity}.domain-adapter.ts`,
+		`${persistence}/datasources/domain/${context}/${entity}/${entity}.repository.ts`,
+		`${persistence}/datasources/domain/${context}/${entity}/${entity}.uow.ts`,
+		`${persistence}/datasources/readonly/${context}/${entity}/${entity}.data.ts`,
+		`${persistence}/datasources/readonly/${context}/${entity}/${entity}.read-repository.ts`,
 	];
 }
 
@@ -61,9 +68,12 @@ export function readsForEdit(options: GenerateFeatureOptions): string[] {
 	const acceptance = lint.acceptance;
 	const behavior = [
 		`${lint.layers.domain}/domain/contexts/${context}/${entity}/${entity}.value-objects.ts`,
-		...(acceptance ? [`${acceptance}/infrastructure.ts`, `${acceptance}/cucumber-lifecycle-hooks.ts`] : []),
+		...(acceptance ? [`${acceptance}/`, `${acceptance}/infrastructure.ts`, `${acceptance}/cucumber-lifecycle-hooks.ts`] : []),
 		...(lint.apiComposition ? [lint.apiComposition] : []),
 		'apps/docs/',
+		`${lint.layers.domain}/`,
+		`${lint.layers.models}/`,
+		'.agents/skills/cellix-architecture/',
 		'AGENTS.md',
 		'.agents/skills/cellix-architecture/SKILL.md',
 		'.agents/skills/cellix-architecture/REFERENCE.md',
@@ -74,7 +84,7 @@ export function readsForEdit(options: GenerateFeatureOptions): string[] {
 
 const INSTRUCTION = new Set(['AGENTS.md', '.agents/skills/cellix-architecture/SKILL.md', '.agents/skills/cellix-architecture/REFERENCE.md', '.cellix/factory.json']);
 
-/** Same slice as the read list. Instruction files stay readable and are not writable. */
+/** Same slice as the read list. Instruction files and the layer prefixes stay readable and are not writable. */
 export function writesForEdit(options: GenerateFeatureOptions): string[] {
-	return readsForEdit(options).filter((entry) => !INSTRUCTION.has(entry));
+	return readsForEdit(options).filter((entry) => !INSTRUCTION.has(entry) && !(entry.endsWith('/') && entry !== 'apps/docs/'));
 }

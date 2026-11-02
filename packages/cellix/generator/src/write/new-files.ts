@@ -9,7 +9,7 @@ export async function writeNewFiles(options: GenerateFeatureOptions, files: Gene
 	const shared = new Set([passport, path.join(readonlyRoot, 'mongo-data-source.ts'), path.join(readonlyRoot, 'index.ts'), path.join(readonlyRoot, options.context, 'index.ts')]);
 	const collisions: string[] = [];
 	const writes: GeneratedFile[] = [];
-	const adding = options.operation === 'query' || options.operation === 'update';
+	const adding = options.operation === 'query' || options.operation === 'update' || options.action !== undefined;
 	for (const file of files) {
 		if (await exists(file.path)) {
 			if (shared.has(file.path)) continue;

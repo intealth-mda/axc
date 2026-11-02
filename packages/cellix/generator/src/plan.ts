@@ -134,7 +134,7 @@ function queryInputs(fields: { name: string; pascal: string; type: string }[]) {
 }
 
 function updateInputs(fields: { name: string; pascal: string; type: string }[]) {
-	return [{ name: 'id', pascal: 'Id', type: 'string' as const }, ...fields];
+	return [{ name: 'id', pascal: 'Id', type: 'string' as const }, ...fields.filter((field) => field.name !== 'id')];
 }
 
 const OWNED_TIMESTAMPS = new Set(['createdAt', 'updatedAt']);

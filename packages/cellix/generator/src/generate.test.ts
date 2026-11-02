@@ -10,7 +10,7 @@ import { checkCellixLint } from '../../lint/src/index.ts';
 import { defaultGenerateLayout } from './config.ts';
 import { filesToEdit } from './edit-targets.ts';
 import { generateFeature } from './generate.ts';
-import { parseField, parseFieldsFile, parseNested, parsePermission } from './spec.ts';
+import { mergeFields, parseField, parseFieldsFile, parseNested, parseParam, parsePermission } from './spec.ts';
 
 const roots: string[] = [];
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -396,6 +396,9 @@ describe('Cellix generator', () => {
 					'packages/axc/persistence/src/datasources/domain/index.ts',
 					'packages/axc/persistence/src/datasources/readonly/index.ts',
 					'packages/axc/service-mongoose/src/index.ts',
+					'packages/axc/persistence/src/datasources/domain/course/course/course.domain-adapter.ts',
+					'packages/axc/persistence/src/datasources/readonly/course/course/course.read-repository.ts',
+					'packages/axc/domain/src/domain/contexts/course/course/course.repository.ts',
 					'packages/axc-verification/acceptance-api/src/features/course-search.feature',
 					'packages/axc-verification/acceptance-api/src/step-definitions/course-search.steps.ts',
 					'apps/docs/',
@@ -404,6 +407,10 @@ describe('Cellix generator', () => {
 			expect(session?.write).not.toContain('AGENTS.md');
 			expect(session?.write).not.toContain('.cellix/factory.json');
 			expect(session?.write).not.toContain('.agents/skills/cellix-architecture/SKILL.md');
+			expect(session?.write).not.toContain('packages/axc/domain/src/');
+			expect(session?.write).not.toContain('packages/axc/data-sources-mongoose-models/src/');
+			expect(session?.write).not.toContain('.agents/skills/cellix-architecture/');
+			expect(session?.write).not.toContain('packages/axc-verification/acceptance-api/src/');
 			expect(session?.read).toEqual(
 				expect.arrayContaining([
 					'packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts',
@@ -420,6 +427,11 @@ describe('Cellix generator', () => {
 					'packages/axc-verification/acceptance-api/src/step-definitions/course-search.steps.ts',
 					'apps/api/src/index.ts',
 					'apps/docs/',
+					'packages/axc/domain/src/',
+					'packages/axc/data-sources-mongoose-models/src/',
+					'.agents/skills/cellix-architecture/',
+					'packages/axc-verification/acceptance-api/src/',
+					'packages/axc/persistence/src/datasources/domain/course/course/course.domain-adapter.ts',
 				]),
 			);
 			expect(session?.read?.some((entry) => entry.endsWith('package.json'))).toBe(false);
@@ -536,12 +548,116 @@ describe('Cellix generator', () => {
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
 	});
 
-	it('refuses to overwrite an entity file', async () => {
+	it('adds another action onto a subdomain that already exists', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
 		const lint = defaultGenerateLayout();
 		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'create' });
+		const added = await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'update' });
+		expect(added.map((file) => file.path).join('\n')).toContain('/update.ts');
+		expect(added.map((file) => file.path).join('\n')).not.toContain('course.aggregate.ts');
+		const index = await readFile(path.join(root, 'packages/axc/application-services/src/contexts/course/course/index.ts'), 'utf8');
+		expect(index).toContain('create:');
+		expect(index).toContain('update:');
 		await expect(generateFeature({ root, lint, context: 'course', entity: 'course', action: 'update' })).rejects.toThrow('Refusing to overwrite');
+	});
+
+	it('keeps a path param in hono and braces it for azure', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const lint = defaultGenerateLayout();
+		await writeStub(
+			root,
+			'packages/axc/rest/src/index.ts',
+			`import type { ApplicationServicesFactory } from '@axc/application-services';\nimport { Hono } from 'hono';\n\nexport function createRestApp(applicationServicesFactory: ApplicationServicesFactory): Hono {\n\tconst app = new Hono();\n\treturn app;\n}\n`,
+		);
+		await writeStub(
+			root,
+			'apps/api/src/index.ts',
+			`import { type ApiContext, type ApplicationServices, buildApplicationServicesFactory } from '@axc/application-services';\nimport { restHandlerCreator } from '@axc/rest';\nimport { Cellix } from '@cellix/api-core';\n\nCellix.initializeInfrastructureServices<ApiContext, ApplicationServices>(() => undefined)\n\t.initializeApplicationServices((context) => buildApplicationServicesFactory(context))\n\t.registerAzureFunctionHttpHandler('health', { route: 'health', methods: ['GET'], authLevel: 'anonymous' }, restHandlerCreator)\n\t.startUp();\n`,
+		);
+		await generateFeature({ root, lint, context: 'course', entity: 'course', fields: [parseField('title:string')] });
+		await generateFeature({
+			root,
+			lint,
+			context: 'course',
+			entity: 'course',
+			operation: 'query',
+			action: 'get',
+			params: [parseParam('id:string')],
+			route: 'courses/:id',
+			transport: 'rest',
+		});
+		const rest = await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8');
+		expect(rest).toContain("app.get('/api/courses/:id'");
+		expect(rest).toContain("id: c.req.param('id') ?? ''");
+		const api = await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8');
+		expect(api).toContain("route: 'api/courses/{id}'");
+		await generateFeature({
+			root,
+			lint,
+			context: 'course',
+			entity: 'course',
+			operation: 'update',
+			action: 'publish',
+			params: [parseParam('id:string'), parseField('status:string')],
+			route: 'courses/:id/status',
+			transport: 'rest',
+		});
+		const updated = await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8');
+		expect(updated).toContain("app.post('/api/courses/:id/status'");
+		expect(updated).toContain("id: c.req.param('id') ?? ''");
+		const command = await readFile(path.join(root, 'packages/axc/application-services/src/contexts/course/course/publish.ts'), 'utf8');
+		expect(command.match(/id: string;/g)).toHaveLength(1);
+		expect(command).toContain('status: string;');
+	});
+
+	it('writes a rest route for a create action and honors the method', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const lint = defaultGenerateLayout();
+		await writeStub(
+			root,
+			'packages/axc/rest/src/index.ts',
+			`import type { ApplicationServicesFactory } from '@axc/application-services';\nimport { Hono } from 'hono';\n\nexport function createRestApp(applicationServicesFactory: ApplicationServicesFactory): Hono {\n\tconst app = new Hono();\n\treturn app;\n}\n`,
+		);
+		await writeStub(
+			root,
+			'apps/api/src/index.ts',
+			`import { type ApiContext, type ApplicationServices, buildApplicationServicesFactory } from '@axc/application-services';\nimport { restHandlerCreator } from '@axc/rest';\nimport { Cellix } from '@cellix/api-core';\n\nCellix.initializeInfrastructureServices<ApiContext, ApplicationServices>(() => undefined)\n\t.initializeApplicationServices((context) => buildApplicationServicesFactory(context))\n\t.registerAzureFunctionHttpHandler('health', { route: 'health', methods: ['GET'], authLevel: 'anonymous' }, restHandlerCreator)\n\t.startUp();\n`,
+		);
+		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'create', fields: [parseField('title:string')], route: 'courses', transport: 'rest' });
+		const rest = await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8');
+		expect(rest).toContain("app.post('/api/courses'");
+		expect(rest).toContain('applicationServices.Course.Course.create(await c.req.json())');
+		const api = await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8');
+		expect(api).toContain("methods: ['POST']");
+		await generateFeature({
+			root,
+			lint,
+			context: 'course',
+			entity: 'course',
+			operation: 'update',
+			action: 'publish',
+			params: [parseField('status:string')],
+			route: 'courses/:id/status',
+			method: 'patch',
+			transport: 'rest',
+		});
+		const updated = await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8');
+		expect(updated).toContain("app.patch('/api/courses/:id/status'");
+		expect(updated).toContain("id: c.req.param('id') ?? ''");
+		expect(await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8')).toContain("methods: ['PATCH']");
+	});
+
+	it('joins repeated field names into one union', async () => {
+		const fields = mergeFields([parseField("status:'pending'"), parseField("status:'approved'")]);
+		expect(fields).toEqual([{ name: 'status', type: "'pending'|'approved'" }]);
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		await generateFeature({ root, lint: defaultGenerateLayout(), context: 'course', entity: 'course', fields });
+		const model = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/models/course/course.model.ts'), 'utf8');
+		expect(model).toContain("status: 'pending' | 'approved';");
 	});
 
 	it('adds a named query and update onto an entity that already exists', async () => {
@@ -701,7 +817,7 @@ describe('Cellix generator', () => {
 		await writeStub(root, 'apps/api/package.json', apiPackage);
 		await writeStub(root, 'apps/api/tsconfig.json', apiTsconfig);
 
-		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'query', transport: 'rest' });
+		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'query' });
 
 		const models = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/index.ts'), 'utf8');
 		const persistence = await readFile(path.join(root, 'packages/axc/persistence/src/index.ts'), 'utf8');
@@ -766,7 +882,7 @@ describe('Cellix generator', () => {
 
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
 
-		await generateFeature({ root, lint, context: 'user', entity: 'staff-user', action: 'query', transport: 'rest' });
+		await generateFeature({ root, lint, context: 'user', entity: 'staff-user', action: 'query' });
 		const modelsAfter = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/index.ts'), 'utf8');
 		const domainAfter = await readFile(path.join(root, 'packages/axc/domain/src/index.ts'), 'utf8');
 		const passportAfter = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/passport.ts'), 'utf8');

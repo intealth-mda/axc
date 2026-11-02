@@ -7,7 +7,7 @@
 		"dist/**": false,
 		"**/agent-transcripts/**": false,
 		"agent-transcripts/**": false,
-		"packages/cellix/**": true,
+		"packages/cellix/**": false,
 		"scripts/**": false,
 		".cursor/**": false,
 		".git/**": false,

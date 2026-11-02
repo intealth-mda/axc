@@ -84,8 +84,30 @@ export function commandFields(shape: { fields: ShapeField[]; nested: ShapeNested
 		...shape.nested.map((item) => `${item.camel}${optional ? '?' : ''}: ${structuralType(item)};`),
 	];
 	if (kind === 'read') return (lines(true).length > 0 ? lines(true) : ['id: string;']).join('\n\t');
-	if (kind === 'update') return ['id: string;', ...lines(false)].join('\n\t');
+	if (kind === 'update') {
+		const extras = shape.fields.filter((field) => field.name !== 'id');
+		return ['id: string;', ...extras.map((field) => `${field.name}: ${tsType(field.type)};`), ...shape.nested.map((item) => `${item.camel}: ${structuralType(item)};`)].join('\n\t');
+	}
 	return lines(false).join('\n\t');
+}
+
+/** `:param` stays in the Hono path. Azure registrations use `{param}`. */
+export function azureRoute(route: string): string {
+	return route.replace(/:([A-Za-z][A-Za-z0-9-]*)/g, '{$1}');
+}
+
+/** A query defaults to get. A write defaults to post. `--method` wins. */
+export function httpMethod(input: { method?: string | undefined; operation?: 'query' | 'update' | undefined; kind: ActionKind }): string {
+	if (input.method) return input.method;
+	if (input.operation === 'query' || input.kind === 'read') return 'get';
+	return 'post';
+}
+
+export function mutationArgument(route: string): string {
+	const params = routeParamNames(route);
+	if (params.length === 0) return 'await c.req.json()';
+	const spread = params.map((name) => `${name}: c.req.param('${name}') ?? ''`).join(', ');
+	return `{ ...await c.req.json(), ${spread} }`;
 }
 
 /** Relative import of src/models-context.ts from a file under src/. */
@@ -93,10 +115,21 @@ export function persistenceModelsImport(depth: number): string {
 	return `${'../'.repeat(depth)}models-context.ts`;
 }
 
-export function httpReadArgument(shape: { fields: ShapeField[]; nested: ShapeNested[] }): string {
-	const parts = [...shape.fields.map((field) => httpSpread(field)), ...shape.nested.map((item) => `${item.camel}: {} as ${structuralType(item)}`)];
+export function httpReadArgument(shape: { fields: ShapeField[]; nested: ShapeNested[] }, route = ''): string {
+	const pathParams = new Set(routeParamNames(route));
+	const parts = [
+		...routeParamNames(route)
+			.filter((name) => !shape.fields.some((field) => field.name === name))
+			.map((name) => `${name}: c.req.param('${name}') ?? ''`),
+		...shape.fields.map((field) => (pathParams.has(field.name) ? `${field.name}: c.req.param('${field.name}') ?? ''` : httpSpread(field))),
+		...shape.nested.map((item) => `${item.camel}: {} as ${structuralType(item)}`),
+	];
 	if (parts.length === 0) return "{ id: c.req.query('id') ?? '' }";
 	return `{ ${parts.join(', ')} }`;
+}
+
+function routeParamNames(route: string): string[] {
+	return [...route.matchAll(/:([A-Za-z][A-Za-z0-9-]*)/g)].map((match) => match[1] ?? '').filter((name) => name.length > 0);
 }
 
 function mongooseScalar(type: string): string {

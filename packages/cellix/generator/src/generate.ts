@@ -12,6 +12,8 @@ export { plan } from './plan.ts';
 export type { GeneratedFile, GenerateFeatureOptions } from './types.ts';
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SEGMENT = /(?:[A-Za-z][A-Za-z0-9-]*|:[A-Za-z][A-Za-z0-9-]*)/;
+const ROUTE = new RegExp(`^${SEGMENT.source}(?:/${SEGMENT.source})*$`);
 
 export async function generateFeature(options: GenerateFeatureOptions): Promise<GeneratedFile[]> {
 	if (!KEBAB.test(options.context) || !KEBAB.test(options.entity) || (options.action !== undefined && !KEBAB.test(options.action))) {
@@ -21,13 +23,16 @@ export async function generateFeature(options: GenerateFeatureOptions): Promise<
 	if (options.operation === 'query' && ((options.fields?.length ?? 0) > 0 || (options.nested?.length ?? 0) > 0 || (options.permissions?.length ?? 0) > 0)) {
 		throw new Error('Pass --field on generate, not on query.');
 	}
+	if (options.method !== undefined && !/^(?:get|post|patch|put|delete)$/.test(options.method)) throw new Error(`Method must be get, post, patch, put, or delete, received ${options.method}`);
+	if (options.method && options.transport !== 'rest') throw new Error('Pass --method with --transport rest.');
+	if (options.route && options.transport !== 'rest' && options.transport !== 'graphql') throw new Error('Pass --transport rest or --transport graphql.');
+	if (options.transport === 'rest' && !options.route) throw new Error('Pass --route for rest.');
 	if (options.operation) {
 		if (options.transport !== 'rest' && options.transport !== 'graphql') throw new Error('Pass --transport rest or --transport graphql.');
-		if (options.transport === 'rest' && !options.route) throw new Error('Pass --route for rest.');
 		await requireSubdomain(options);
 	}
 	if (options.operation && options.action) assertOperationName(camel(options.action), options.operation);
-	if (options.route !== undefined && !/^[A-Za-z][A-Za-z0-9-]*$/.test(options.route)) throw new Error(`Route must be a name, received ${options.route}`);
+	if (options.route !== undefined && !ROUTE.test(options.route)) throw new Error(`Route must be a path of names and :params, received ${options.route}`);
 	if (options.result !== undefined && !/^[A-Za-z0-9_|&[\]'". ,:{}<>]+$/.test(options.result)) throw new Error(`Return type must be a type, received ${options.result}`);
 	const writes = await writeNewFiles(options, plan(options));
 	const composed = await wireComposition(options);

@@ -18,7 +18,7 @@ import {
 } from './templates/composition/indexes.ts';
 import { schema } from './templates/graphql/schema.ts';
 import { modelsPackageJson, modelsTsconfig } from './templates/models/package-manifest.ts';
-import { actionKind, commandFields, graphqlFieldName, httpReadArgument, namespacePath, paramShape, serviceResult } from './text.ts';
+import { actionKind, azureRoute, commandFields, graphqlFieldName, httpMethod, httpReadArgument, mutationArgument, namespacePath, paramShape, serviceResult } from './text.ts';
 import type { GenerateFeatureOptions } from './types.ts';
 
 // Edits barrels and host files that already exist. New-file patterns live under src/templates. Disk helpers for a brand-new file are src/write/new-files.ts.
@@ -37,7 +37,6 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 	const kind = options.operation === 'query' ? 'read' : options.operation === 'update' ? 'update' : action ? actionKind(camel(action)) : 'create';
 	const shape = normalizeShape(entity, options.fields ?? [], options.permissions ?? [], options.nested ?? []);
 	const commandShape = options.operation ? paramShape(options.params ?? []) : shape;
-	const mutation = kind !== 'read';
 	const permissions = options.permissions && options.permissions.length > 0 ? options.permissions : [`canManage${entityPascal}`];
 	const scope = options.lint.scope;
 	const domainSrc = path.join(options.root, options.lint.layers.domain);
@@ -100,7 +99,7 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 			})),
 		);
 	}
-	if (options.operation) {
+	if (options.action) {
 		written.push(
 			...(await spliceEntityAction(path.join(applicationSrc, 'contexts', context, entity, 'index.ts'), {
 				scope,
@@ -114,22 +113,23 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 	}
 
 	const routeOperation = options.operation === 'query' || options.operation === 'update';
-	if (routeOperation && options.transport === 'rest') {
+	const method = httpMethod({ method: options.method, operation: options.operation, kind });
+	if (options.transport === 'rest' && options.route && (routeOperation || options.action)) {
 		if (await exists(restIndex)) {
 			written.push(
 				...(await spliceRest(restIndex, {
 					entity,
-					route: options.route ?? entity,
+					route: options.route,
 					contextPascal,
 					entityPascal,
 					actionCamel,
-					mutation,
-					readArgument: httpReadArgument(commandShape),
+					method,
+					readArgument: httpReadArgument(commandShape, options.route),
 				})),
 			);
 		}
 		const apiIndex = path.join(options.root, options.lint.apiComposition);
-		if (await exists(apiIndex)) written.push(...(await spliceApi(apiIndex, { scope, entity, action, route: options.route ?? entity, mutation })));
+		if (await exists(apiIndex)) written.push(...(await spliceApi(apiIndex, { scope, entity, action, route: options.route, method })));
 		written.push(...(await ensureApiWiring(options)));
 	}
 	if (routeOperation) {
@@ -291,15 +291,15 @@ function queryInputs(fields: { name: string; pascal: string; type: string }[]) {
 }
 
 function updateInputs(fields: { name: string; pascal: string; type: string }[]) {
-	return [{ name: 'id', pascal: 'Id', type: 'string' as const }, ...fields];
+	return [{ name: 'id', pascal: 'Id', type: 'string' as const }, ...fields.filter((field) => field.name !== 'id')];
 }
 
-async function spliceRest(file: string, input: { entity: string; route: string; contextPascal: string; entityPascal: string; actionCamel: string; mutation: boolean; readArgument: string }): Promise<WrittenFile[]> {
+async function spliceRest(file: string, input: { entity: string; route: string; contextPascal: string; entityPascal: string; actionCamel: string; method: string; readArgument: string }): Promise<WrittenFile[]> {
 	const current = await readFile(file, 'utf8');
 	const call = `applicationServices.${input.contextPascal}.${input.entityPascal}.${input.actionCamel}(`;
 	if (current.includes(call)) return [];
-	const method = input.mutation ? 'post' : 'get';
-	const command = input.mutation ? 'await c.req.json()' : input.readArgument;
+	const method = input.method;
+	const command = method === 'get' ? input.readArgument : mutationArgument(input.route);
 	const route = `\tapp.${method}('/api/${input.route}', async (c) => {\n\t\tconst authorization = c.req.header('Authorization');\n\t\tconst applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);\n\t\treturn c.json(await ${call}${command}));\n\t});\n\n`;
 	if (!current.includes('\treturn app;\n')) return [];
 	const next = current.replace('\treturn app;\n', `${route}\treturn app;\n`);
@@ -353,11 +353,11 @@ async function spliceGraphql(input: {
 	return written;
 }
 
-async function spliceApi(file: string, input: { scope: string; entity: string; action: string; route: string; mutation: boolean }): Promise<WrittenFile[]> {
+async function spliceApi(file: string, input: { scope: string; entity: string; action: string; route: string; method: string }): Promise<WrittenFile[]> {
 	let current = await readFile(file, 'utf8');
 	const handler = `'${input.entity}-${input.action}'`;
 	if (current.includes(handler) && current.includes('mongoose.connect') && current.includes('dataSourcesFactory:')) return [];
-	const method = input.mutation ? 'POST' : 'GET';
+	const method = input.method.toUpperCase();
 	if (!current.includes(`from '${input.scope}/persistence'`)) {
 		current = `import mongoose from 'mongoose';\nimport { Persistence } from '${input.scope}/persistence';\n${current}`;
 	}
@@ -369,7 +369,7 @@ async function spliceApi(file: string, input: { scope: string; entity: string; a
 		current = current.replace('Cellix.initializeInfrastructureServices', `${connect}Cellix.initializeInfrastructureServices`);
 	}
 	if (!current.includes(handler)) {
-		const registration = `\n\t.registerAzureFunctionHttpHandler('${input.entity}-${input.action}', { route: 'api/${input.route}', methods: ['${method}'], authLevel: 'anonymous' }, restHandlerCreator)`;
+		const registration = `\n\t.registerAzureFunctionHttpHandler('${input.entity}-${input.action}', { route: 'api/${azureRoute(input.route)}', methods: ['${method}'], authLevel: 'anonymous' }, restHandlerCreator)`;
 		current = current.replace('\t.startUp();', `${registration}\n\t.startUp();`);
 	}
 	await writeFile(file, current);

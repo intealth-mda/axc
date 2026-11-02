@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { findCellixRoot, loadGenerateLayout } from './config.js';
 import { filesToEdit } from './edit-targets.js';
 import { type GenerateFeatureOptions, generateFeature } from './generate.js';
-import { parseArgv, parseField, parseFieldsFile, parseNested, parsePermission } from './spec.js';
+import { mergeFields, parseArgv, parseField, parseFieldsFile, parseNested, parseParam, parsePermission } from './spec.js';
 
 const argv = process.argv.slice(2);
 const head = argv[0];
@@ -17,12 +17,13 @@ const lint = await loadGenerateLayout(root);
 const transport = args.get('transport');
 const fieldsFile = args.get('fields');
 const fromFile = fieldsFile ? parseFieldsFile(await readFile(path.resolve(fieldsFile), 'utf8')) : { fields: [], permissions: [], nested: [] };
-const fields = [...fromFile.fields, ...args.list('field').map((token) => parseField(token))];
-const params = args.list('param').map((token) => parseField(token));
+const fields = mergeFields([...fromFile.fields, ...args.list('field').map((token) => parseField(token))]);
+const params = args.list('param').map((token) => parseParam(token));
 const permissions = [...fromFile.permissions, ...args.list('permission').map((token) => parsePermission(token))];
 const nested = [...fromFile.nested, ...args.list('nested').map((token) => parseNested(token))];
 const result = args.get('return');
 const route = args.get('route');
+const method = args.get('method');
 if (args.get('entity') !== undefined) throw new Error('Use --subdomain.');
 if (argv.includes('--help') || argv.includes('-h')) {
 	console.log('generate builds the subdomain. It does not add a search route. Pass --field on generate, not on query.');
@@ -36,6 +37,9 @@ if (operation === 'query' && (fields.length > 0 || nested.length > 0 || permissi
 }
 if (operation && transport !== 'rest' && transport !== 'graphql') throw new Error('Pass --transport rest or --transport graphql.');
 if (operation && transport === 'rest' && route === undefined) throw new Error('Pass --route for rest.');
+if (method !== undefined && method !== 'get' && method !== 'post' && method !== 'patch' && method !== 'put' && method !== 'delete') {
+	throw new Error(`Method must be get, post, patch, put, or delete, received ${method}`);
+}
 const action = operation ? required(args, 'name') : args.get('action');
 const carryShape = operation !== 'query';
 const feature: GenerateFeatureOptions = {
@@ -52,6 +56,7 @@ const feature: GenerateFeatureOptions = {
 	...(args.has('resolver') ? { resolver: true } : {}),
 	...(result !== undefined ? { result } : {}),
 	...(route !== undefined ? { route } : {}),
+	...(method === 'get' || method === 'post' || method === 'patch' || method === 'put' || method === 'delete' ? { method } : {}),
 };
 const before = spawnSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
 const files = await generateFeature(feature);
