@@ -49,6 +49,10 @@ runs `lint-staged` followed by `pnpm run verify`, so do not run `pnpm run verify
 immediately before committing unless there is a specific reason to validate
 without committing.
 
+Do not run Knip, audit, or Snyk on their own. They are steps inside `verify`.
+When the hook fails, use its excerpt and the full log path it prints. Fix the
+cause and commit again. Do not use `--no-verify`.
+
 ## Failure Recovery
 
 When validation fails:

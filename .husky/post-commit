@@ -1,0 +1,6 @@
+# One success line per gated commit: "verify ok · acceptance N/N · <sha>".
+SUMMARY="${TMPDIR:-/tmp}/axc-verify-summary-$(basename "$PWD").txt"
+if [ -f "$SUMMARY" ]; then
+	echo "$(cat "$SUMMARY") · $(git rev-parse --short HEAD)"
+	rm -f "$SUMMARY"
+fi

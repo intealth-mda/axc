@@ -47,6 +47,14 @@ The application service owns orchestration around the domain operation.
 The domain owns the business operation itself.
 
 Application services should not implement domain rules or own application state.
+Do not put seed records or collection processing (`filter`, `sort`, `slice`) in
+a package `src/index.ts`. That file stays the composition root. Put use-case
+behavior under `src/contexts/{context}/{entity}/`.
+
+Stored catalog and enrollment state goes through `@axc/persistence` and
+`@axc/service-mongoose`, including when the backing store is in-memory Mongo.
+Do not keep that state in an application-service module because a database
+adapter is still unused.
 - Commands that change aggregate state execute domain behavior within the
   appropriate repository/Unit of Work flow.
 - Queries that do not require domain behavior may use established Cellix

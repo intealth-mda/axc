@@ -39,6 +39,18 @@ Use the project skills when applicable:
 - `serenity-tests` for Serenity/JS acceptance testing.
 - `run-validation` for development and final validation.
 
+`turborepo` and `portless` are slash-command skills. Do not load them for ordinary application work.
+
+## Feature slice
+
+Orient once. Read the task prompt and the requirements file it names, then the closest feature of the same shape. For HTTP, start from `GET /health`: `packages/axc/rest/src/index.ts`, `apps/api/src/index.ts`, `packages/axc/application-services/src/index.ts`, and `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`. Open another file only when that slice, the specification, or a compiler or test error names it. Do not list the repository, and do not open skill reference trees unless a skill names one file.
+
+Keep each `packages/axc/*/src/index.ts` a composition root. Put feature behavior under the Cellix context layout from `cellix-ddd`, and put stored catalog or enrollment state through `@axc/persistence` and `@axc/service-mongoose`. In-memory Mongo is the backing store. Do not park that state in an application-service array because an adapter is still unused.
+
+Add one acceptance scenario for each named acceptance criterion. For each validation rule, add one boundary test and one negative test at the cheapest layer that proves it. When a 400 lists several fields, assert the field set, not the order, unless the specification orders it. Re-export every type or value another package imports from that package's `src/index.ts`.
+
+While editing, run the narrowest test for the package you changed. Do not run `pnpm run verify`, Knip, audit, or Snyk yourself, and do not add a dependency or edit `pnpm-lock.yaml`. The pre-commit hook runs lint-staged and `pnpm run verify`. On failure it prints a short excerpt and the full log path. Fix the cause and commit again. Do not use `--no-verify` or weaken a guardrail.
+
 ## Completion
 
 Before completing a change:

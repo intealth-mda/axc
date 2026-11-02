@@ -1,0 +1,10 @@
+{
+	"hooks": {
+		"PostToolUse": [
+			{
+				"matcher": "Bash|run_terminal_command",
+				"hooks": [{ "type": "command", "command": "node scripts/trim-output.mjs", "timeout": 5 }]
+			}
+		]
+	}
+}

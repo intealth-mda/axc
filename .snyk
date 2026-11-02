@@ -5,43 +5,53 @@ ignore:
   SNYK-JS-BRACES-19963945:
     - '*':
         reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:43.527Z
+        expires: 2027-01-31T22:36:43.527Z
         created: 2026-09-28T22:36:43.528Z
   SNYK-JS-DEEPMERGE-19964053:
     - '*':
         reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:44.923Z
+        expires: 2027-01-31T22:36:44.923Z
         created: 2026-09-28T22:36:44.928Z
   SNYK-JS-HTTPCACHESEMANTICS-19964064:
     - '*':
         reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:46.295Z
+        expires: 2027-01-31T22:36:46.295Z
         created: 2026-09-28T22:36:46.299Z
   SNYK-JS-HTTPCACHESEMANTICS-19964068:
     - '*':
         reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:47.625Z
+        expires: 2027-01-31T22:36:47.625Z
         created: 2026-09-28T22:36:47.628Z
   SNYK-JS-URIJS-19963961:
     - '*':
         reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:48.966Z
+        expires: 2027-01-31T22:36:48.966Z
         created: 2026-09-28T22:36:48.969Z
   SNYK-JS-URIJS-19963963:
     - '*':
         reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:50.274Z
+        expires: 2027-01-31T22:36:50.274Z
         created: 2026-09-28T22:36:50.278Z
   SNYK-JS-UUID-16133035:
     - '*':
         reason: uuid 11+ is ESM-only and breaks the Azure Functions bundle
-        expires: 2026-10-28T22:44:29.364Z
+        expires: 2027-01-31T22:44:29.364Z
         created: 2026-09-28T22:44:29.367Z
   SNYK-JS-URIJS-20341609:
     - '*':
         reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:51.603Z
+        expires: 2027-01-31T22:36:51.603Z
         created: 2026-10-01T09:35:51.606Z
+  SNYK-JS-PICOMATCH-21248802:
+    - '*':
+        reason: No patched picomatch release (latest 2.3.2 and 4.0.7)
+        expires: 2027-01-31T22:36:52.000Z
+        created: 2026-11-02T15:00:00.000Z
+  SNYK-JS-MINIMATCH-22111072:
+    - '*':
+        reason: Fix exists only on minimatch 11, which breaks the minimatch 3 and 10 dependents
+        expires: 2027-01-31T22:36:52.000Z
+        created: 2026-11-02T15:00:00.000Z
   SNYK-JS-POSTCSSSELECTORPARSER-20510276:
     - '*':
         reason: Upgrade to 7.1.6 breaks @apps/docs build for docusaurus

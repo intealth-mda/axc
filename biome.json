@@ -17,7 +17,12 @@
 			"!**/*.tsbuildinfo",
 			"!**/generated.*",
 			"!**/*.generated.*",
-			"!**/graphql.schema.json"
+			"!**/graphql.schema.json",
+			"!**/__blobstorage__*",
+			"!**/__queuestorage__*",
+			"!**/__tablestorage__*",
+			"!**/AzuriteConfig",
+			"!**/__azurite_db_*"
 		]
 	},
 	"css": { "parser": { "cssModules": true } },

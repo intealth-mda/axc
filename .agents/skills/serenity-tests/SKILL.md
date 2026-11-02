@@ -46,6 +46,17 @@ for the boundary the scenario claims to verify.
 When used with outside-in TDD, establish the failing acceptance behavior before
 implementing the application behavior that satisfies it.
 
+## AXC acceptance suite
+
+Follow `packages/axc-verification/acceptance-api` rather than inventing a second style.
+
+- Import Serenity statically at the top of the step file, as `healthcheck.steps.ts` does. Do not use `await import()`.
+- Step patterns are global across every `.steps.ts`. Reuse an existing pattern. A second definition of the same text fails as ambiguous.
+- Name new steps `src/step-definitions/<feature>.steps.ts`. Cucumber loads only the paths in `cucumber.yaml`.
+- One host run shares in-memory state across scenarios. Give each scenario unique data. Do not assume an empty store.
+- `@serenity-js/assertions` provides `isGreaterThan` and `isLessThan`, not `OrEqualTo` forms.
+- Copy the local `resolved()` cast in `healthcheck.steps.ts` when asserting an async `Question`. `Question.about` that returns a promise is `Question<Promise<T>>`.
+
 ## References
 
 Read only the relevant reference:

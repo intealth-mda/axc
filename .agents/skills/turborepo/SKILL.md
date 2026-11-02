@@ -6,8 +6,8 @@ description: |
   variables, internal packages, monorepo structure/best practices, and boundaries.
 
   Use when user: configures tasks/workflows/pipelines, creates packages, sets up
-  monorepo, shares code between apps, runs changed/affected packages, debugs cache,
-  or has apps/packages directories.
+  monorepo, shares code between apps, runs changed/affected packages, or debugs cache.
+disable-model-invocation: true
 metadata:
   version: 2.11.3-canary.2
 ---

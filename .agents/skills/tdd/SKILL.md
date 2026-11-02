@@ -98,3 +98,12 @@ When implementation is complete, use `run-validation`.
 Architecture tests are repository guardrails, not part of the feature TDD loop.
 
 Do not add or modify architecture tests unless explicitly required.
+
+## Validation cases
+
+For each validation or error rule in the task, add one boundary test and one
+negative test at the cheapest layer that proves it. Prefer a unit test when it
+can prove the rule.
+
+When one response lists several field errors, assert the set of fields, not
+their order, unless the specification orders them.
