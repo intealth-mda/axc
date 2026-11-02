@@ -12,3 +12,4 @@ export type MongoConnection = Connection;
 export function createMemoryMongoServer(): MongoMemoryServer {
 	return new MongoMemoryServer();
 }
+export { courseSeed } from '@axc/data-sources-mongoose-models';
