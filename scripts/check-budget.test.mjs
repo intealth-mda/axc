@@ -325,6 +325,16 @@ describe('agent-check', () => {
 		assert.ok(block.startsWith('Error:'));
 		assert.ok(block.indexOf('Expected:') < block.indexOf('Found:'));
 	});
+
+	it('tells a missing-module failure to leave the manifest alone', () => {
+		const diagnostic = "course.model.ts(1,34): error TS2307: Cannot find module '@cellix/mongoose-seedwork'";
+		const evalSource = `console.error(${JSON.stringify(diagnostic)}); process.exit(1);`;
+		const result = spawnSync(process.execPath, ['scripts/agent-check.mjs', '--', process.execPath, '--eval', evalSource], { cwd: root, encoding: 'utf8' });
+		assert.equal(result.status, 1);
+		assert.match(result.stderr, /course\.model\.ts/);
+		assert.match(result.stderr, /already declared/);
+		assert.match(result.stderr, /Do not read node_modules/);
+	});
 });
 
 describe('wide shell dumps', () => {
@@ -334,5 +344,6 @@ describe('wide shell dumps', () => {
 		assert.match(wideShellReason("find packages/axc -name '*.ts' | while read f; do cat $f; done") ?? '', /one file/);
 		assert.equal(wideShellReason('find packages/axc -name package.json'), undefined);
 		assert.equal(wideShellReason('cat packages/axc/rest/src/index.ts'), undefined);
+		assert.equal(wideShellReason('biome check --write enrollment-request-find-enrollment-requests.steps.ts'), undefined);
 	});
 });

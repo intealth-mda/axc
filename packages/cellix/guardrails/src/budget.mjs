@@ -50,13 +50,18 @@ export function broadGlobReason(pattern) {
 	return undefined;
 }
 
+/** `find` the program. A filename such as find-enrollment-requests.steps.ts is not that program. */
+function findCommand(text) {
+	return /(?:^|[;&|`(]\s*)find(?:\s|$)/.test(text);
+}
+
 export function wideShellReason(text) {
 	const dumps = text.match(/\b(?:cat|head|tail)\b/g);
 	if (dumps && dumps.length > 2) return WIDE_SHELL_MESSAGE;
-	if (/\bfind\b/.test(text) && /\b(?:cat|head|tail)\b/.test(text)) return WIDE_SHELL_MESSAGE;
+	if (findCommand(text) && /\b(?:cat|head|tail)\b/.test(text)) return WIDE_SHELL_MESSAGE;
 	if (/\bwhile\b/.test(text) && /\bread\b/.test(text) && /\b(?:cat|head|tail)\b/.test(text)) return WIDE_SHELL_MESSAGE;
 	if (/\bxargs\b/.test(text) && /\b(?:cat|head|tail)\b/.test(text)) return WIDE_SHELL_MESSAGE;
-	if (/\bfind\b/.test(text) && !text.includes('-name') && !text.includes('-path')) return WIDE_SHELL_MESSAGE;
+	if (findCommand(text) && !text.includes('-name') && !text.includes('-path')) return WIDE_SHELL_MESSAGE;
 	return undefined;
 }
 

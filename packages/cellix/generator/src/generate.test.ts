@@ -909,8 +909,13 @@ describe('Cellix generator', () => {
 		expect(applicationJson).toContain('"@axc/domain": "workspace:*"');
 		expect(applicationJson).toContain('"@axc/persistence": "workspace:*"');
 		expect(await readFile(path.join(root, 'packages/axc/application-services/tsconfig.json'), 'utf8')).toBe(applicationTsconfig);
-		expect(await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/package.json'), 'utf8')).toContain('"name": "@axc/data-sources-mongoose-models"');
-		expect(await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/tsconfig.json'), 'utf8')).toContain('@cellix/config-typescript/node');
+		const modelsJson = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/package.json'), 'utf8');
+		expect(modelsJson).toContain('"name": "@axc/data-sources-mongoose-models"');
+		expect(modelsJson).toContain('"@cellix/mongoose-seedwork": "workspace:*"');
+		expect(modelsJson).toContain('"mongoose": "catalog:"');
+		const modelsTsconfig = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/tsconfig.json'), 'utf8');
+		expect(modelsTsconfig).toContain('@cellix/config-typescript/node');
+		expect(modelsTsconfig).toContain('../../cellix/mongoose-seedwork');
 
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
 
@@ -929,6 +934,20 @@ describe('Cellix generator', () => {
 		expect(readonlyAfter).toContain("from './user/staff-user/staff-user.read-repository.ts'");
 		expect(readonlyAfter).not.toContain('undefined');
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
+	});
+
+	it('adds mongoose-seedwork to a models package that already exists', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const lint = defaultGenerateLayout();
+		await writeStub(root, 'packages/axc/data-sources-mongoose-models/package.json', '{ "name": "@axc/data-sources-mongoose-models", "dependencies": { "@axc/domain": "workspace:*" } }\n');
+		await writeStub(root, 'packages/axc/data-sources-mongoose-models/tsconfig.json', '{ "extends": "@cellix/config-typescript/node" }\n');
+		await generateFeature({ root, lint, context: 'course', entity: 'course' });
+		const modelsJson = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/package.json'), 'utf8');
+		expect(modelsJson).toContain('"@cellix/mongoose-seedwork": "workspace:*"');
+		expect(modelsJson).toContain('"mongoose": "catalog:"');
+		expect(modelsJson).toContain('"@axc/domain": "workspace:*"');
+		expect(await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/tsconfig.json'), 'utf8')).toContain('../../cellix/mongoose-seedwork');
 	});
 });
 

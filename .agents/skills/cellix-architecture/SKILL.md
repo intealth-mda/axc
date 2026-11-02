@@ -68,7 +68,7 @@ Run `pnpm run agent-check -- pnpm run check` while those behavior files change. 
 
 ## Checks
 
-While files change, run `pnpm run agent-check -- pnpm run check`. That is lint and typecheck. The wrapper prints the first failure: the file, the rule, and the expected shape. Do not pipe it, and do not redirect it into a file. Read a file again only when that block names it. When the block says the file would be reformatted, run `pnpm exec biome check --write` on that one file.
+While files change, run `pnpm run agent-check -- pnpm run check`. That is lint and typecheck. The wrapper prints the first failure: the file, the rule, and the expected shape. Do not pipe it, and do not redirect it into a file. Read a file again only when that block names it. When the block says the file would be reformatted, run `pnpm exec biome check --write` on that one file. A `Cannot find module` error names a dependency the generator already declared. Do not read `node_modules`, `pnpm-lock.yaml`, or `package.json`. Do not run `pnpm install`.
 
 Read the files the task names. Do not list the tree. A new subdomain starts with `generate`. Add `query` only after that backend exists. Any other change edits the existing file. Do not assign `CELLIX_AGENT_ID`. A denial names a wrong path. Do not edit `ocom-write.config.json` or `.cellix/sessions`.
 

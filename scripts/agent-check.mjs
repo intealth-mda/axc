@@ -48,6 +48,9 @@ const failedCheck = findFailedCheck(lines);
 const block = errorBlock(lines);
 const useful = block.filter((line) => !line.includes('[ELIFECYCLE]') && !line.includes('node_modules'));
 const shown = useful.length > 0 ? useful : hints.slice(0, 8);
+if (log.includes('error TS2307')) {
+	shown.push('The import is a workspace dependency the generator already declared. Do not read node_modules, pnpm-lock.yaml, or package.json. Do not run pnpm install or node.');
+}
 const headline = shown.find((line) => line.includes('Expected:'));
 console.error(headline === undefined ? `FAIL: ${displayCommand}` : `FAIL: ${displayCommand} — ${headline}`);
 console.error(`Exit code: ${exitCode}`);

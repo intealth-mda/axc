@@ -403,6 +403,9 @@ async function ensureCatalogWiring(options: GenerateFeatureOptions): Promise<Wri
 	const acceptanceDir = path.join(options.root, options.lint.acceptance, '..');
 	const modelsDir = path.dirname(path.join(options.root, options.lint.layers.models));
 	return [
+		...(await ensureDependency(path.join(modelsDir, 'package.json'), '@cellix/mongoose-seedwork', 'workspace:*')),
+		...(await ensureDependency(path.join(modelsDir, 'package.json'), 'mongoose', 'catalog:')),
+		...(await ensureProjectReference(path.join(modelsDir, 'tsconfig.json'), path.relative(modelsDir, path.join(options.root, 'packages/cellix/mongoose-seedwork')))),
 		...(await ensureDependency(path.join(persistenceDir, 'package.json'), '@cellix/event-bus-seedwork-node', 'workspace:*')),
 		...(await ensureDependency(path.join(persistenceDir, 'package.json'), '@cellix/mongoose-seedwork', 'workspace:*')),
 		...(await ensureDependency(path.join(persistenceDir, 'package.json'), 'mongoose', 'catalog:')),
