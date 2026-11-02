@@ -316,6 +316,24 @@ export const courseCreate = async (applicationServices: ApplicationServices, com
 		expect(text).toContain('cellix/persistence-seed-import');
 		expect(text).not.toContain('course-create.ts');
 	});
+
+	it('allows an error details array in a REST handler', async () => {
+		const root = await scaffold({
+			'packages/axc/rest/src/index.ts': `import type { ApplicationServicesFactory } from '@axc/application-services';
+export function createRestApp(applicationServicesFactory: ApplicationServicesFactory) {
+  return async () => {
+    const applicationServices = await applicationServicesFactory.forRequest();
+    const details: { field: string; message: string }[] = [];
+    details.push({ field: 'body', message: 'courseId is required.' });
+    if (details.length > 0) return { error: { details } };
+    return applicationServices.Course.Course.create({ courseName: 'x' });
+  };
+}
+`,
+		});
+		const text = (await checkCellixLint({ root })).join('\n');
+		expect(text).not.toContain('cellix/transport-no-catalog');
+	});
 });
 
 const aggregateSource = `import { AggregateRoot } from '@cellix/domain-seedwork/aggregate-root';

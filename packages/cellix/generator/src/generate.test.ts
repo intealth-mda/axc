@@ -8,7 +8,7 @@ import { recordGeneratedSession } from '../../../../scripts/generator-after.mjs'
 import { ensureStartupSession, loadSession } from '../../guardrails/src/index.mjs';
 import { checkCellixLint } from '../../lint/src/index.ts';
 import { defaultGenerateLayout } from './config.ts';
-import { filesToEdit } from './edit-targets.ts';
+import { filesToEdit, readsForEdit } from './edit-targets.ts';
 import { generateFeature } from './generate.ts';
 import { mergeFields, parseField, parseFieldsFile, parseNested, parseParam, parsePermission } from './spec.ts';
 
@@ -399,6 +399,8 @@ describe('Cellix generator', () => {
 					'packages/axc/persistence/src/datasources/domain/course/course/course.domain-adapter.ts',
 					'packages/axc/persistence/src/datasources/readonly/course/course/course.read-repository.ts',
 					'packages/axc/domain/src/domain/contexts/course/course/course.repository.ts',
+					'packages/axc/domain/src/domain/contexts/course/course.domain-permissions.ts',
+					'packages/axc/domain/src/domain/contexts/course/course.visa.ts',
 					'packages/axc-verification/acceptance-api/src/features/course-search.feature',
 					'packages/axc-verification/acceptance-api/src/step-definitions/course-search.steps.ts',
 					'apps/docs/',
@@ -658,6 +660,36 @@ describe('Cellix generator', () => {
 		await generateFeature({ root, lint: defaultGenerateLayout(), context: 'course', entity: 'course', fields });
 		const model = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/models/course/course.model.ts'), 'utf8');
 		expect(model).toContain("status: 'pending' | 'approved';");
+	});
+
+	it('adds a second subdomain to the context permissions and the readonly root', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const lint = defaultGenerateLayout();
+		await generateFeature({ root, lint, context: 'catalog', entity: 'course' });
+		await generateFeature({
+			root,
+			lint,
+			context: 'catalog',
+			entity: 'enrollment-request',
+			nested: [parseNested('status-history:fromStatus:string,toStatus:string')],
+		});
+		const permissions = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/catalog/catalog.domain-permissions.ts'), 'utf8');
+		expect(permissions).toContain('canManageCourse: boolean;');
+		expect(permissions).toContain('canManageEnrollmentRequest: boolean;');
+		const readonlyRoot = await readFile(path.join(root, 'packages/axc/persistence/src/datasources/readonly/index.ts'), 'utf8');
+		expect(readonlyRoot.match(/Catalog: CatalogContext/g)).toHaveLength(1);
+		expect(readonlyRoot).toContain('CourseReadRepo:');
+		expect(readonlyRoot).toContain('EnrollmentRequestReadRepo:');
+		const session = readsForEdit({
+			root,
+			lint,
+			context: 'catalog',
+			entity: 'enrollment-request',
+			nested: [parseNested('status-history:fromStatus:string,toStatus:string')],
+		});
+		expect(session).toContain('packages/axc/domain/src/domain/contexts/catalog/catalog.domain-permissions.ts');
+		expect(session).toContain('packages/axc/domain/src/domain/contexts/catalog/enrollment-request/status-history.value-objects.ts');
 	});
 
 	it('adds a named query and update onto an entity that already exists', async () => {

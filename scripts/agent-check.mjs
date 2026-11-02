@@ -47,7 +47,7 @@ const lines = log.split(/\r?\n/);
 const failedCheck = findFailedCheck(lines);
 const block = errorBlock(lines);
 const useful = block.filter((line) => !line.includes('[ELIFECYCLE]') && !line.includes('node_modules'));
-const shown = useful.length > 0 ? useful.slice(0, 2) : hints.slice(0, 2);
+const shown = useful.length > 0 ? useful : hints.slice(0, 8);
 const headline = shown.find((line) => line.includes('Expected:'));
 console.error(headline === undefined ? `FAIL: ${displayCommand}` : `FAIL: ${displayCommand} — ${headline}`);
 console.error(`Exit code: ${exitCode}`);

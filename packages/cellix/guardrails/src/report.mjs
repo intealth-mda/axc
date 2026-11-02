@@ -1,17 +1,29 @@
-// The next turn sees this block. Expected is first, so the shape is not truncated away.
+// The next turn sees the first failure: the file, the rule, and the lines that say what to change.
 
-const DIAGNOSTIC = /Expected:|Found:|Found \d+ error|error TS\d+|Cellix lint|violation|Unused export|AssertionError|Formatter would have printed|\.[A-Za-z0-9]+:\d+:\d+|\(\d+,\d+\)|packages\/\S+\.(?:ts|tsx|mjs|js|json)/;
-const SUMMARY = /^(?:Found \d+ errors?\.?|Checked \d+ files.*)$/;
+const NOISE = /\[ELIFECYCLE\]|node_modules|^(?:Found \d+ errors?\.?|Checked \d+ files.*)$/;
+const ANCHOR = /Expected:|^Found:|^Rule:|error TS\d+|AssertionError|Formatter would have printed|lint\/|\bformat ━|packages\/\S+\.(?:ts|tsx|mjs|js|json)|\(\d+,\d+\)|:\d+:\d+/;
+const PATH = /packages\/\S+\.(?:ts|tsx|mjs|js|json)/;
 
-/** At most one screen. Lines that state Expected come before the rest. */
+/** The first failure, capped. A second file starts the next check. */
 export function errorBlock(lines) {
-	const trimmed = lines.map((line) => line.trim()).filter((line) => line.length > 0);
-	const diagnostic = [...new Set(trimmed.filter((line) => DIAGNOSTIC.test(line) && !SUMMARY.test(line) && !line.includes('node_modules')))];
-	if (diagnostic.length > 0) {
-		const expected = diagnostic.filter((line) => line.includes('Expected:') || line.includes('AssertionError') || line.includes('.feature:'));
-		const rest = diagnostic.filter((line) => !expected.includes(line));
-		return [...expected, ...rest].slice(0, 2);
+	const trimmed = lines.map((line) => line.trim()).filter((line) => line.length > 0 && !NOISE.test(line));
+	const start = trimmed.findIndex((line) => ANCHOR.test(line));
+	if (start < 0) return trimmed.slice(-4);
+	const block = [];
+	for (const line of trimmed.slice(start)) {
+		if (block.length >= 8) break;
+		if (block.length > 0 && laterFile(line, block[0])) break;
+		block.push(line);
 	}
-	const wrapper = trimmed.filter((line) => /\[ELIFECYCLE\]|\bFAIL\b|^\s*Failed:/.test(line));
-	return [...new Set([...wrapper, ...trimmed.slice(-2)])].slice(-2);
+	const lead = block.filter((line) => line.includes('Expected:') || line.includes('AssertionError') || line.includes('.feature:'));
+	const rest = block.filter((line) => !lead.includes(line));
+	return [...lead, ...rest];
+}
+
+function laterFile(line, first) {
+	const next = line.match(PATH);
+	const opened = first.match(PATH);
+	if (next === null || opened === null) return false;
+	if (line.startsWith('Rule:') || line.startsWith('Found:') || line.startsWith('Expected:')) return false;
+	return next[0] !== opened[0];
 }

@@ -1,3 +1,4 @@
+import type { NestedSpec } from './spec.ts';
 import type { GenerateFeatureOptions } from './types.ts';
 
 /** The files a person still has to fill in. Barrels are already wired. */
@@ -59,7 +60,28 @@ function modelAndBarrels(options: GenerateFeatureOptions): string[] {
 		`${persistence}/datasources/domain/${context}/${entity}/${entity}.uow.ts`,
 		`${persistence}/datasources/readonly/${context}/${entity}/${entity}.data.ts`,
 		`${persistence}/datasources/readonly/${context}/${entity}/${entity}.read-repository.ts`,
+		`${domain}/domain/contexts/${context}/${context}.domain-permissions.ts`,
+		`${domain}/domain/contexts/${context}/${context}.visa.ts`,
+		...nestedPaths(options),
 	];
+}
+
+function nestedPaths(options: GenerateFeatureOptions): string[] {
+	const dir = `${options.lint.layers.domain}/domain/contexts/${options.context}/${options.entity}`;
+	const files: string[] = [];
+	const walk = (items: readonly NestedSpec[]) => {
+		for (const item of items) {
+			files.push(`${dir}/${item.name}.value-objects.ts`);
+			if (item.kind === 'entity') files.push(`${dir}/${item.name}.entity.ts`);
+			walk(item.fields.filter(isNested));
+		}
+	};
+	walk(options.nested ?? []);
+	return files;
+}
+
+function isNested(member: NestedSpec['fields'][number]): member is NestedSpec {
+	return 'fields' in member;
 }
 
 /** Files the timed agent may read. Manifests and tsconfig stay off this list. A failing check names any other file. */

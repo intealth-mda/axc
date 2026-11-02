@@ -825,7 +825,8 @@ function hasObjectArray(content: string): boolean {
 		if (char !== '[') continue;
 		const end = matchDelim(content, index, '[', ']');
 		if (end < 0) return false;
-		if (content.slice(index + 1, end).includes('{')) return true;
+		const body = content.slice(index + 1, end);
+		if (body.includes('{') && /\bid\s*:/.test(body)) return true;
 		index = end;
 	}
 	return false;

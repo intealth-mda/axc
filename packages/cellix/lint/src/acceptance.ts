@@ -23,8 +23,8 @@ export async function checkAcceptanceShape(root: string, acceptance: string): Pr
 			violations.push(`${relative} needs ${stepsRelative} to send the request to the running application.`);
 			continue;
 		}
-		if (!steps.includes('GetRequest.to(')) {
-			violations.push(`${stepsRelative} must call GetRequest.to so the scenario hits the running application.`);
+		if (!['GetRequest.to(', 'PostRequest.to(', 'PatchRequest.to(', 'PutRequest.to(', 'DeleteRequest.to('].some((call) => steps.includes(call))) {
+			violations.push(`${stepsRelative} must call GetRequest.to, PostRequest.to, or PatchRequest.to so the scenario hits the running application.`);
 		}
 		if (!steps.includes('LastResponse.body')) {
 			violations.push(`${stepsRelative} must read LastResponse.body() and check the row the application returned.`);

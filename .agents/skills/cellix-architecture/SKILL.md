@@ -50,7 +50,7 @@ pnpm --filter @cellix/generator update -- --context <context> --subdomain <subdo
 
 `--subdomain` is the subdomain name. `--field` and `--param` are `name:type`. Write the type as given (`string`, `string[]`, `'small'|'large'`). Quote a value that contains `[]` or `|`. Repeat `--field` with the same name to build a union when a shell would split on `|`. A `--param` may be named `id`. A `--field` may not. Do not pass `createdAt` or `updatedAt`. The model sets those. `query` and `update` require `--transport rest` or `--transport graphql`. A REST create uses the same `--route` and `--transport rest` on `generate --action`. Rest requires `--route`. `--route` is a path of names and `:param` segments, and it writes `/api/<route>`. A `:param` stays in the Hono path. The Azure registration writes `{param}`. `--method` is `get`, `post`, `patch`, `put`, or `delete`. Omitted, a query is `get` and a write is `post`. Leave `--route` off for graphql. `--name` is kebab-case. Do not pass `--return`. GraphQL `generate --action` writes that mutation's resolver. A GraphQL `query` writes the query field, and the resolver when it is missing. A later update adds a mutation.
 
-The generator prints the files to fill in. The mongoose model, the barrels, the persistence adapter, the repositories, and the unit of work for this slice are on the session. Edit one when the change belongs there. The acceptance tree is readable. Leave the read method and the update assignment blank until you fill them in. Do not copy `<camel>Seed` into a handler or a read repository. Dependencies and tsconfig references are already added. Do not edit `package.json`. Do not run `pnpm install`. After `query`, `pnpm run agent-check -- pnpm run check` passes before you fill in behavior.
+The generator prints the files to fill in. The mongoose model, the barrels, the persistence adapter, the repositories, the unit of work, the context domain permissions, and each nested value-object file for this slice are on the session. Edit one when the change belongs there. The acceptance tree is readable. Leave the read method and the update assignment blank until you fill them in. Do not copy `<camel>Seed` into a handler or a read repository. Dependencies and tsconfig references are already added. Do not edit `package.json`. Do not run `pnpm install`. After `query`, `pnpm run agent-check -- pnpm run check` passes before you fill in behavior.
 
 The generator writes `packages/axc/data-sources-mongoose-models` when that package is missing. Do not write that manifest yourself.
 
@@ -64,11 +64,11 @@ Do not glob, grep, or read the tree first. Edit the files the generator printed,
 - Copy the `insertMany` line from the seed file. The cast is already on that line.
 - A Mongo filter is a typed object. Use dot access. `Record<string, unknown>` and bracket keys fail the check.
 
-Run `pnpm run agent-check -- pnpm run check` while those behavior files change. The wrapper prints one short failure. A passing check on the scaffold is not the end. Do not add a script under `apps/docs`.
+Run `pnpm run agent-check -- pnpm run check` while those behavior files change. The wrapper prints the first failure: the file, the rule, and the expected shape. A passing check on the scaffold is not the end. Do not add a script under `apps/docs`.
 
 ## Checks
 
-While files change, run `pnpm run agent-check -- pnpm run check`. That is lint and typecheck. The wrapper prints the next edit. Do not pipe it, and do not redirect it into a file. The `Expected` line is the shape to restore. Read a file again only when that line names it.
+While files change, run `pnpm run agent-check -- pnpm run check`. That is lint and typecheck. The wrapper prints the first failure: the file, the rule, and the expected shape. Do not pipe it, and do not redirect it into a file. Read a file again only when that block names it. When the block says the file would be reformatted, run `pnpm exec biome check --write` on that one file.
 
 Read the files the task names. Do not list the tree. A new subdomain starts with `generate`. Add `query` only after that backend exists. Any other change edits the existing file. Do not assign `CELLIX_AGENT_ID`. A denial names a wrong path. Do not edit `ocom-write.config.json` or `.cellix/sessions`.
 

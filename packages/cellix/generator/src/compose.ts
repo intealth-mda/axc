@@ -52,6 +52,7 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 		...(await writeIfAbsent(path.join(domainSrc, 'domain/index.ts'), domainBarrel())),
 		...(await ensureDomainDataSource(path.join(domainSrc, 'index.ts'), contextPascal, entityPascal)),
 		...(await ensurePassport(path.join(domainSrc, 'domain/contexts/passport.ts'), { context, contextPascal, entityPascal, permissions })),
+		...(await ensureDomainPermissions(path.join(domainSrc, 'domain/contexts', context, `${context}.domain-permissions.ts`), contextPascal, permissions)),
 		...(await ensureModelsIndex(path.join(modelsSrc, 'index.ts'), entity, entityPascal)),
 		...(await ensureModelsPackage(options)),
 		...(await ensureDependency(path.join(domainSrc, '..', 'package.json'), '@lucaspaganini/value-objects', '1.3.1')),
@@ -204,6 +205,20 @@ async function spliceApplicationHost(file: string, input: { scope: string; conte
 	if (next === current) return [];
 	await writeFile(file, next);
 	return [{ path: file, contents: next }];
+}
+
+async function ensureDomainPermissions(file: string, contextPascal: string, permissions: string[]): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	let current = await readFile(file, 'utf8');
+	const missing = permissions.filter((permission) => !current.includes(`${permission}:`));
+	if (missing.length === 0) return [];
+	const interfaceAt = current.indexOf(`export interface ${contextPascal}DomainPermissions`);
+	const interfaceEnd = interfaceAt < 0 ? -1 : current.indexOf('\n}', interfaceAt);
+	if (interfaceEnd < 0) return [];
+	const members = missing.map((permission) => `\n\t${permission}: boolean;`).join('');
+	current = `${current.slice(0, interfaceEnd)}${members}${current.slice(interfaceEnd)}`;
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
 }
 
 async function ensurePassport(file: string, input: { context: string; contextPascal: string; entityPascal: string; permissions: string[] }): Promise<WrittenFile[]> {
@@ -536,9 +551,12 @@ async function ensureReadonlyRoot(file: string, input: { context: string; entity
 		const lineEnd = lastImport === -1 ? 0 : current.indexOf('\n', lastImport + 1) + 1;
 		current = `${current.slice(0, lineEnd)}${importLine}${current.slice(lineEnd)}`;
 	}
-	const nested = `\n\t${input.contextPascal}: {\n\t\t${input.entityPascal}: {\n\t\t\t${input.entityPascal}ReadRepo: ${input.entityPascal}ReadRepository;\n\t\t};\n\t};`;
-	if (!current.includes(`${input.contextPascal}: {`)) current = insertBeforeClose(current, 'export interface ReadonlyDataSource {', nested);
-	current = insertBeforeClose(current, '=> ({', `\n\t${input.contextPascal}: ${input.contextPascal}Context(models, passport),`);
+	const entityMember = `\n\t\t${input.entityPascal}: {\n\t\t\t${input.entityPascal}ReadRepo: ${input.entityPascal}ReadRepository;\n\t\t};`;
+	if (!current.includes(`${input.contextPascal}: {`)) current = insertBeforeClose(current, 'export interface ReadonlyDataSource {', `\n\t${input.contextPascal}: {${entityMember}\n\t};`);
+	else current = insertIntoNthBlock(current, `${input.contextPascal}: {`, 0, entityMember);
+	if (!current.includes(`${input.contextPascal}: ${input.contextPascal}Context(`)) {
+		current = insertBeforeClose(current, '=> ({', `\n\t${input.contextPascal}: ${input.contextPascal}Context(models, passport),`);
+	}
 	await writeFile(file, current);
 	return [{ path: file, contents: current }];
 }

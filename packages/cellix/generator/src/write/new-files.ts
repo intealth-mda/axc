@@ -12,7 +12,7 @@ export async function writeNewFiles(options: GenerateFeatureOptions, files: Gene
 	const adding = options.operation === 'query' || options.operation === 'update' || options.action !== undefined;
 	for (const file of files) {
 		if (await exists(file.path)) {
-			if (shared.has(file.path)) continue;
+			if (shared.has(file.path) || !ownsThisEntity(file.path, options)) continue;
 			if (adding && !ownsThisFunction(file.path, options)) continue;
 			collisions.push(file.path);
 			continue;
@@ -26,6 +26,12 @@ export async function writeNewFiles(options: GenerateFeatureOptions, files: Gene
 		await writeFile(file.path, file.contents);
 	}
 	return writes;
+}
+
+/** Context barrels and a sibling subdomain stay. This call writes files whose path contains the subdomain. */
+function ownsThisEntity(file: string, options: GenerateFeatureOptions): boolean {
+	const relative = path.relative(options.root, file).split(path.sep).join('/');
+	return relative.includes(`/${options.entity}/`) || relative.includes(`/${options.entity}.`);
 }
 
 /** The action, its REST handler, and its acceptance files belong to this call. An existing entity stays. */

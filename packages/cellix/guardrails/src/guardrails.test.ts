@@ -281,15 +281,30 @@ describe('guardrails', () => {
 		expect(block.some((line) => line.includes('node_modules'))).toBe(false);
 	});
 
-	it('names the file when a format failure hides behind the word error', () => {
+	it('names the file and the formatted line', () => {
 		const block = errorBlock([
 			'packages/axc-verification/acceptance-api/src/step-definitions/course-search-courses.steps.ts format ━━━━━━━━━━',
 			'× Formatter would have printed the following content:',
 			"Then('the course error field is {string}', (field: string) =>",
 			'[ELIFECYCLE] Command failed with exit code 1.',
 		]);
-		expect(block.some((line) => line.includes('course-search-courses.steps.ts'))).toBe(true);
-		expect(block.some((line) => line.includes('course error field'))).toBe(false);
+		expect(block[0]).toContain('course-search-courses.steps.ts');
+		expect(block.some((line) => line.includes('Formatter would have printed'))).toBe(true);
+		expect(block.some((line) => line.includes('course error field'))).toBe(true);
+	});
+
+	it('keeps the rule, the found text, and the expected shape for one file', () => {
+		const block = errorBlock([
+			'packages/axc/rest/src/index.ts',
+			'  Rule: cellix/transport-no-catalog',
+			'  Found: array of objects',
+			'  Expected: call applicationServices and read rows from the database.',
+			'packages/axc/rest/src/other.ts',
+			'  Rule: cellix/rest-application-call',
+			'  Found: handler does not call applicationServices',
+			'  Expected: return applicationServices.Course.Course.query(command)',
+		]);
+		expect(block.map((line) => line.trim())).toEqual(['Expected: call applicationServices and read rows from the database.', 'packages/axc/rest/src/index.ts', 'Rule: cellix/transport-no-catalog', 'Found: array of objects']);
 	});
 
 	it('narrows read and write separately', async () => {
