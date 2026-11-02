@@ -5,12 +5,13 @@ description: >
   repository verification gate at completion. Use when verifying implementation
   changes, recovering from validation failures, or preparing completed work for
   commit.
+disable-model-invocation: true
 ---
 
 # Run Validation
 
-Use targeted validation while developing. Use the repository's authoritative
-verification gate for completed work.
+Write the change, then stop. The Stop hook runs the repository gate and commits.
+Do not invoke that gate yourself.
 
 ## Targeted Validation
 

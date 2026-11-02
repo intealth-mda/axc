@@ -1,5 +1,3 @@
 # AXC
 
-Follow `AGENTS.md`. It is the agent contract for this repository: Cellix layering, the feature-slice procedure, targeted tests, and the commit, push, and pull request completion steps.
-
-Do not restate those rules here. Do not weaken verify, husky, or architecture tests.
+Follow AGENTS.md. It names the one orientation file, the Stop hook, and how delivery works.

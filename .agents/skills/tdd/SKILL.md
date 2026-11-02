@@ -3,11 +3,12 @@ name: tdd
 description: >
   Outside-in test-driven development for AXC application changes. Use when
   adding or changing application behavior.
+disable-model-invocation: true
 ---
 
 # Test-Driven Development
 
-Develop application behavior outside-in.
+Develop application behavior outside-in. Write the test and the implementation, then stop. The Stop hook runs the suite. Do not invoke the test runner yourself.
 
 Use `cellix-ddd` to determine where behavior belongs.
 

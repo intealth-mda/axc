@@ -3,6 +3,7 @@ name: cellix-ddd
 description: >
   Apply CellixJS Domain-Driven Design when implementing AXC application
   behavior across domain, application services, persistence, or transport.
+disable-model-invocation: true
 ---
 
 # Cellix DDD

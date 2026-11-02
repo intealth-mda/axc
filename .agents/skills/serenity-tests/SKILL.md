@@ -5,6 +5,7 @@ description: >
   Screenplay, and @cellix/serenity-framework. Use for Gherkin scenarios, step
   definitions, Tasks, Interactions, Questions, Abilities, actor notes, managed
   worlds, test infrastructure, or acceptance-suite configuration.
+disable-model-invocation: true
 ---
 
 # Serenity Tests
