@@ -666,6 +666,7 @@ describe('Cellix generator', () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
 		const lint = defaultGenerateLayout();
+		await writeStub(root, 'packages/axc/service-mongoose/src/index.ts', "export { courseSeed } from '@axc/data-sources-mongoose-models';\n");
 		await generateFeature({ root, lint, context: 'catalog', entity: 'course' });
 		await generateFeature({
 			root,
@@ -674,9 +675,20 @@ describe('Cellix generator', () => {
 			entity: 'enrollment-request',
 			nested: [parseNested('status-history:fromStatus:string,toStatus:string')],
 		});
+		await generateFeature({ root, lint, context: 'catalog', entity: 'enrollment-request', action: 'create' });
 		const permissions = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/catalog/catalog.domain-permissions.ts'), 'utf8');
 		expect(permissions).toContain('canManageCourse: boolean;');
 		expect(permissions).toContain('canManageEnrollmentRequest: boolean;');
+		const domain = await readFile(path.join(root, 'packages/axc/domain/src/index.ts'), 'utf8');
+		expect(domain.match(/Catalog: \{/g)).toHaveLength(1);
+		expect(domain).toContain('CourseUnitOfWork:');
+		expect(domain).toContain('EnrollmentRequestUnitOfWork:');
+		const passport = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/passport.ts'), 'utf8');
+		expect(passport.match(/canManageCourse: true/g)).toHaveLength(2);
+		expect(passport.match(/canManageEnrollmentRequest: true/g)).toHaveLength(2);
+		const seeds = await readFile(path.join(root, 'packages/axc/service-mongoose/src/index.ts'), 'utf8');
+		expect(seeds.match(/courseSeed/g)).toHaveLength(1);
+		expect(seeds.match(/enrollmentRequestSeed/g)).toHaveLength(1);
 		const readonlyRoot = await readFile(path.join(root, 'packages/axc/persistence/src/datasources/readonly/index.ts'), 'utf8');
 		expect(readonlyRoot.match(/Catalog: CatalogContext/g)).toHaveLength(1);
 		expect(readonlyRoot).toContain('CourseReadRepo:');

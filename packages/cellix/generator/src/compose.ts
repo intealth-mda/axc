@@ -51,8 +51,14 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 		...(await ensureLine(path.join(domainSrc, 'domain/contexts/index.ts'), `export * as ${contextPascal} from './${context}/index.ts';\n`, contextsBarrel(context, contextPascal))),
 		...(await writeIfAbsent(path.join(domainSrc, 'domain/index.ts'), domainBarrel())),
 		...(await ensureDomainDataSource(path.join(domainSrc, 'index.ts'), contextPascal, entityPascal)),
-		...(await ensurePassport(path.join(domainSrc, 'domain/contexts/passport.ts'), { context, contextPascal, entityPascal, permissions })),
 		...(await ensureDomainPermissions(path.join(domainSrc, 'domain/contexts', context, `${context}.domain-permissions.ts`), contextPascal, permissions)),
+		...(await ensurePassport(path.join(domainSrc, 'domain/contexts/passport.ts'), {
+			context,
+			contextPascal,
+			entityPascal,
+			permissions,
+			permissionsFile: path.join(domainSrc, 'domain/contexts', context, `${context}.domain-permissions.ts`),
+		})),
 		...(await ensureModelsIndex(path.join(modelsSrc, 'index.ts'), entity, entityPascal)),
 		...(await ensureModelsPackage(options)),
 		...(await ensureDependency(path.join(domainSrc, '..', 'package.json'), '@lucaspaganini/value-objects', '1.3.1')),
@@ -161,7 +167,8 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 }
 
 async function ensureDomainDataSource(file: string, contextPascal: string, entityPascal: string): Promise<WrittenFile[]> {
-	const member = `\t${contextPascal}: {\n\t\t${entityPascal}: {\n\t\t\t${entityPascal}UnitOfWork: Contexts.${contextPascal}.${entityPascal}.${entityPascal}UnitOfWork;\n\t\t};\n\t};`;
+	const entityMember = `\n\t\t${entityPascal}: {\n\t\t\t${entityPascal}UnitOfWork: Contexts.${contextPascal}.${entityPascal}.${entityPascal}UnitOfWork;\n\t\t};`;
+	const member = `\t${contextPascal}: {${entityMember}\n\t};`;
 	const created = `import type { Repository } from '@cellix/domain-seedwork/repository';\nimport type { Contexts } from './domain/index.ts';\n\n/** Repositories added in this package implement the Cellix repository contract. */\nexport type DomainRepository<T> = Repository<T>;\n\nexport * as Domain from './domain/index.ts';\n\nexport interface DomainDataSource {\n${member}\n}\n`;
 	if (!(await exists(file))) return writeIfAbsent(file, created);
 	let current = await readFile(file, 'utf8');
@@ -170,7 +177,8 @@ async function ensureDomainDataSource(file: string, contextPascal: string, entit
 	if (!current.includes('export interface DomainDataSource')) {
 		current = `${current.trimEnd()}\n\nexport interface DomainDataSource {\n${member}\n}\n`;
 	} else if (!current.includes(`${entityPascal}UnitOfWork:`)) {
-		current = current.replace('export interface DomainDataSource {', `export interface DomainDataSource {\n${member}`);
+		if (current.includes(`${contextPascal}: {`)) current = insertIntoNthBlock(current, `${contextPascal}: {`, 0, entityMember);
+		else current = current.replace('export interface DomainDataSource {', `export interface DomainDataSource {\n${member}`);
 	}
 	await writeFile(file, current.endsWith('\n') ? current : `${current}\n`);
 	return [{ path: file, contents: current }];
@@ -221,23 +229,38 @@ async function ensureDomainPermissions(file: string, contextPascal: string, perm
 	return [{ path: file, contents: current }];
 }
 
-async function ensurePassport(file: string, input: { context: string; contextPascal: string; entityPascal: string; permissions: string[] }): Promise<WrittenFile[]> {
+async function ensurePassport(file: string, input: { context: string; contextPascal: string; entityPascal: string; permissions: string[]; permissionsFile: string }): Promise<WrittenFile[]> {
 	if (!(await exists(file))) return [];
 	let current = await readFile(file, 'utf8');
-	if (current.includes(`for${input.entityPascal}(`) || current.includes(`for${input.entityPascal}:`)) return [];
-	const visaImport = `import type { ${input.contextPascal}Visa } from './${input.context}/${input.context}.visa.ts';\n`;
-	if (!current.includes(visaImport.trim())) current = `${visaImport}${current}`;
+	const granted = await permissionNames(input.permissionsFile, input.contextPascal, input.permissions);
+	const checks = granted.map((permission) => `${permission}: true`).join(', ');
+	const determineIf = `determineIf: (check) => check({ ${checks} })`;
 	const contextKey = camel(input.context);
-	const checks = input.permissions.map((permission) => `${permission}: true`).join(', ');
-	if (current.includes(`${contextKey}: {`)) {
-		current = insertIntoNthBlock(current, `${contextKey}: {`, 0, `\n\t\tfor${input.entityPascal}(entity: unknown): ${input.contextPascal}Visa;`);
-		current = insertIntoNthBlock(current, `${contextKey}: {`, 1, `\n\t\t\t\tfor${input.entityPascal}: () => ({\n\t\t\t\t\tdetermineIf: (check) => check({ ${checks} }),\n\t\t\t\t}),`);
-	} else {
-		current = insertBeforeClose(current, 'export interface Passport {', `\n\t${contextKey}: {\n\t\tfor${input.entityPascal}(entity: unknown): ${input.contextPascal}Visa;\n\t};`);
-		current = insertBeforeClose(current, 'return {', `\n\t\t\t${contextKey}: {\n\t\t\t\tfor${input.entityPascal}: () => ({\n\t\t\t\t\tdetermineIf: (check) => check({ ${checks} }),\n\t\t\t\t}),\n\t\t\t},`);
+	if (!current.includes(`for${input.entityPascal}(`) && !current.includes(`for${input.entityPascal}:`)) {
+		const visaImport = `import type { ${input.contextPascal}Visa } from './${input.context}/${input.context}.visa.ts';\n`;
+		if (!current.includes(visaImport.trim())) current = `${visaImport}${current}`;
+		const factoryMember = `\n\t\t\t\tfor${input.entityPascal}: (): ${input.contextPascal}Visa => ({\n\t\t\t\t\t${determineIf},\n\t\t\t\t}),`;
+		if (current.includes(`${contextKey}: {`)) {
+			current = insertIntoNthBlock(current, `${contextKey}: {`, 0, `\n\t\tfor${input.entityPascal}(entity: unknown): ${input.contextPascal}Visa;`);
+			current = insertIntoNthBlock(current, `${contextKey}: {`, 1, factoryMember);
+		} else {
+			current = insertBeforeClose(current, 'export interface Passport {', `\n\t${contextKey}: {\n\t\tfor${input.entityPascal}(entity: unknown): ${input.contextPascal}Visa;\n\t};`);
+			current = insertBeforeClose(current, 'return {', `\n\t\t\t${contextKey}: {${factoryMember}\n\t\t\t},`);
+		}
 	}
+	current = withContextChecks(current, contextKey, determineIf);
 	await writeFile(file, current);
 	return [{ path: file, contents: current }];
+}
+
+async function permissionNames(file: string, contextPascal: string, fallback: string[]): Promise<string[]> {
+	if (!(await exists(file))) return fallback;
+	const current = await readFile(file, 'utf8');
+	const start = current.indexOf(`export interface ${contextPascal}DomainPermissions`);
+	const end = start < 0 ? -1 : current.indexOf('\n}', start);
+	if (end < 0) return fallback;
+	const names = [...current.slice(start, end).matchAll(/^\s*(\w+)\s*:\s*boolean\s*;/gm)].map((match) => match[1] ?? '').filter((name) => name.length > 0);
+	return names.length > 0 ? names : fallback;
 }
 
 async function spliceReadMethod(file: string, method: { entityPascal: string; name: string; command: string; result: string }): Promise<WrittenFile[]> {
@@ -437,7 +460,7 @@ async function ensureSeedExports(options: GenerateFeatureOptions): Promise<Writt
 	const scope = options.lint.scope;
 	return [
 		...(await ensureExport(path.join(options.root, options.lint.layers.models, 'index.ts'), `export { ${seed} } from './models/${entity}/${entity}.seed.ts';\n`)),
-		...(await ensureExport(path.join(options.root, options.lint.layers.serviceMongoose, 'index.ts'), `export { ${seed} } from '${scope}/data-sources-mongoose-models';\n`)),
+		...(await ensureNamedExport(path.join(options.root, options.lint.layers.serviceMongoose, 'index.ts'), seed, `${scope}/data-sources-mongoose-models`)),
 	];
 }
 
@@ -463,6 +486,33 @@ async function ensureProjectReference(file: string, reference: string): Promise<
 	let next: string;
 	if (/"references"\s*:\s*\[/.test(current)) next = current.replace(/"references"\s*:\s*\[/, (open) => `${open}${entry}, `);
 	else next = current.replace(/\}\s*$/, `,\n\t"references": [${entry}]\n}`);
+	await writeFile(file, next);
+	return [{ path: file, contents: next }];
+}
+
+async function ensureNamedExport(file: string, name: string, from: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	const current = await readFile(file, 'utf8');
+	const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const pattern = new RegExp(`export\\s*\\{([^}]*)\\}\\s*from\\s*['"]${escaped}['"];?`, 'g');
+	const matches = [...current.matchAll(pattern)];
+	if (matches.length === 0) return ensureExport(file, `export { ${name} } from '${from}';\n`);
+	const names: string[] = [];
+	for (const match of matches) {
+		for (const part of (match[1] ?? '').split(',')) {
+			const trimmed = part.trim();
+			if (trimmed.length > 0 && !names.includes(trimmed)) names.push(trimmed);
+		}
+	}
+	if (!names.includes(name)) names.push(name);
+	const replacement = `export { ${names.join(', ')} } from '${from}';`;
+	let replaced = false;
+	const next = current.replace(pattern, () => {
+		if (replaced) return '';
+		replaced = true;
+		return replacement;
+	});
+	if (next === current) return [];
 	await writeFile(file, next);
 	return [{ path: file, contents: next }];
 }
@@ -588,6 +638,35 @@ async function ensureLine(file: string, line: string, fallback: string): Promise
 	const contents = current.endsWith('\n') ? `${current}${line}` : `${current}\n${line}`;
 	await writeFile(file, contents);
 	return [{ path: file, contents }];
+}
+
+function withContextChecks(source: string, contextKey: string, determineIf: string): string {
+	const marker = `${contextKey}: {`;
+	let next = '';
+	let from = 0;
+	while (from < source.length) {
+		const start = source.indexOf(marker, from);
+		if (start < 0) return next + source.slice(from);
+		next += source.slice(from, start);
+		const end = closingBrace(source, start);
+		if (end < 0) return next + source.slice(start);
+		next += source.slice(start, end).replace(/determineIf:\s*\(check[\s\S]*?\)\s*=>\s*check\(\{[^}]*\}\)/g, determineIf);
+		from = end;
+	}
+	return next;
+}
+
+function closingBrace(source: string, start: number): number {
+	let depth = 0;
+	for (let index = start; index < source.length; index += 1) {
+		const char = source[index];
+		if (char === '{') depth += 1;
+		if (char === '}') {
+			depth -= 1;
+			if (depth === 0) return index;
+		}
+	}
+	return -1;
 }
 
 function insertIntoNthBlock(source: string, marker: string, occurrence: number, insertion: string): string {
