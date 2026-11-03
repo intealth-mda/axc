@@ -1,89 +1,11 @@
-# Cellix Alignment Review
+# Cellix alignment review
 
-Complete this review after implementation and before the final verification commands.
+Complete in the existing [run record](../../../harness-run-workflow.md#one-working-record), before final verification. Reference existing rows/evidence; do not copy requirements into another matrix. Mark each applicable rule in [shared architecture](shared-architecture.md), [command workflows](command-workflows.md) when triggered, and [behavioral evidence](behavioral-evidence.md) satisfied or open, with exact source/test evidence. Explain inapplicability. Missing or unexplained differences are defects.
 
-## Reference Evidence
-
-1. Which local Cellix files were inspected?
-2. Which reference is the closest analogous vertical slice, and why is it behaviorally closer than a simpler CRUD or read-model slice?
-3. Which applicable Cellix capability or package was reused?
-4. What are the applicable reference and planned destination trees, including parent and sibling composition files?
-5. Which reference files, suffixes, exports, tests, and behavior apply? Which were intentionally omitted, and why?
-6. For a command aggregate, where are the equivalents of the service-ticket props adapter, converter, repository `getNewInstance` and rehydration, unit-of-work converter/repository wiring, and entity persistence composition? Is `*.domain-adapter.ts` more than a storage collection?
-
-## Domain Modeling Classification
-
-1. Is each concept an aggregate root, child entity, value object, or derived projection based on its identity and lifecycle? What behavior supports that classification? Does any concept have only query endpoints today yet still own persisted identity and future lifecycle? For each such business object, identify its aggregate root, static `getNewInstance` factory and initial-state rules, props, entity reference, exports, applicable value objects, and focused tests. Is stored-object reconstruction distinct from new-instance creation? A persistence-only interface or a `DomainEntity` chosen solely because writes are absent is insufficient.
-2. Does any persisted concept support creation plus state transitions, audit or history, nested lifecycle, or transactional invariants? If so, where are its aggregate root, props, entity reference, constrained value objects, repository, unit of work, and focused tests?
-3. Do mutation repository and unit-of-work contracts reuse `@cellix/domain-seedwork` rather than a reduced project-local abstraction?
-4. Are nested records modeled according to identity and lifecycle? Are visa or passport rules, events, and versioning implemented when the selected Cellix behavior requires them, or explicitly omitted for a behavior-based reason?
-5. Are domain transitions methods on the aggregate or child entity rather than free functions over a public mutable record?
-
-## Responsibility Placement
-
-1. Where are domain concepts, invariants, entity references, and mutation-side repository or unit-of-work contracts defined?
-2. Where are application operations implemented?
-3. Where are read-repository interfaces and implementations defined? Are they in persistence rather than domain?
-4. Where is state or fixture data owned, and what abstraction hides it?
-5. Does each needed file follow the analogous Cellix folder structure, filename suffix, interface, and public export? Are repositories composed at the applicable entity, context, and data-source levels rather than assembled centrally without justification?
-6. Is one context name used across domain, application services, persistence, data-source namespaces, and public API types?
-7. Does application-service context composition alias entity APIs and declare explicit service interfaces, as in Cellix?
-8. Where are application-facing input, output, and error contracts defined? Does production transport avoid importing persistence contracts and unnecessary domain internals?
-   Does each public operation declare its input in an application-service file, without exposing persistence query, page, filter, or repository types? Is each public method implemented by its own curried operation file rather than inline in the entity `index.ts`?
-9. Where are request validation and HTTP error mapping implemented?
-   Do application failures contain only codes and details, with HTTP status numbers mapped in REST? Are the direct application error and transport status/code both tested?
-10. Are package root `index.ts` files limited to public contracts, exports, and composition?
-
-## Dependency Direction
-
-1. Does domain avoid application, transport, persistence, and infrastructure dependencies?
-2. Does API composition inject the data-sources factory through context, and do application services avoid constructing a concrete persistence adapter or depending on concrete infrastructure?
-3. Does production transport depend on application services as its feature boundary, without importing persistence contracts or accessing persistence directly? Is every direct domain import supported by the selected Cellix pattern?
-4. Are queries read through a read-side data source?
-5. Are mutations executed through the appropriate unit-of-work or transaction boundary?
-
-## Behavioral Evidence
-
-1. Is each requirement mapped to an owning layer and a focused test or justified alternative?
-2. For each material rule, what plausible incorrect implementation does its test reject? Would omitting, weakening, inverting, or incorrectly ordering the rule cause at least one test to fail?
-3. Where multiple rules are exercised together, do focused cases or independently discriminating data prove each rule rather than allowing one result to mask another?
-4. Do predicate-based behaviors include counterexamples that satisfy the other relevant conditions, and do assertions identify the complete expected result or ordering?
-   For every quantified acceptance criterion, how many distinct executed test inputs are present, and what exact expected result does each assert? For Task Set A's A-AC11, identify two separate course-search filter combinations and the counterexamples that expose an ignored `q`, `modality`, or `status` predicate.
-5. Do composed public-path tests prove the externally visible workflow?
-6. For each specified failure, do tests assert both the status or result and the error code, as well as any required absence of state change or side effect?
-7. Do tests verify material response, state-transition, and audit fields directly rather than only counts or broad status checks?
-8. If an adapter differs from the Cellix reference technology, which observable semantics must match, and where are the relevant commit, rollback, isolation, serialization, or copying behaviors tested?
-   Where do focused adapter/converter tests prove stored-record ↔ aggregate round trips, including nested audit or history data? Where do repository tests prove creation through the repository factory, retrieval, and save through conversion, and where does a composition test prove the initialized unit of work?
-9. For high-risk rules, would targeted mutation testing or fault injection materially strengthen the evidence, and if so, was it performed or explicitly justified as unnecessary?
-10. When contract documentation is required, does it cover every affected operation's input, success output, status or result, and specified errors?
-
-## Deviations
-
-Number every deviation from the selected Cellix references. For each deviation, state:
-
-- the affected file or package;
-- why the reference pattern does not apply directly;
-- the alternative chosen;
-- the cost of changing to the reference pattern later.
-
-An unexplained deviation is a defect. A justified deviation is review evidence, not an automatic failure.
-
-## Completion Decision
-
-Do not report completion until:
-
-- architecture tests pass;
-- no feature data or business operation remains in a composition root;
-- every persisted command workflow has the applicable Cellix aggregate, value-object, child-entity, repository, unit-of-work, persistence-adapter, export, and focused-test shape; any omission has a behavior-based rationale;
-- mutation repositories and units of work reuse the Cellix domain seedwork contracts, and domain transitions are not implemented as free functions over mutable records;
-- read-side repository contracts are in persistence, and context, composition, and filename conventions match the applicable Cellix slice;
-- every persisted read-side business object with independent identity and lifecycle has a matching domain aggregate and public reference, even when it has no commands; a derived projection classification has an explicit ownership and lifecycle rationale;
-- production transport does not depend on persistence contracts, and any direct domain dependency is justified by the reference;
-- required feature behavior and files have been implemented or their omission justified;
-- required tests and documentation are complete against the task evidence matrix;
-- every material rule has evidence that rejects at least one plausible incorrect implementation, and combined scenarios do not obscure whether individual rules are enforced;
-- focused tests cover rules at their owning layer; composed HTTP tests do not substitute for domain transition tests, application-service invariant tests, or applicable custom-adapter commit, rollback, isolation/serialization, and defensive-copy tests;
-- no available Cellix capability has been unnecessarily recreated;
-- all deviations are documented;
-- `pnpm run verify` has passed, or an external security scan is accurately reported as unavailable after every non-external stage passes;
-- Biome and Knip have no patch-introduced findings, including formatting, import-order, unused-export, and unused-type findings.
+1. **Reference:** Which exact source slice was inspected, why is it behaviorally closest, and which Cellix capabilities are reused? Compare planned/reference/implemented trees, parent/sibling composition, suffixes, exports, interfaces, context names, seedwork inheritance, tests, and behavior. Account for every omission.
+2. **Domain:** Confirm identity/lifecycle classification for every concept, including query-only business objects versus derived projections; aggregate creation versus reconstruction, props/references, constrained values, child lifecycle, authorization/events/versioning, and transition ownership.
+3. **Layers:** Trace API-injected factories, named service interfaces/API aliases, separate curried operation files and public contracts, query/domain data sources, repository composition, fixtures, thin transport, and independent application failure codes mapped to HTTP. No persistence types leak into public service contracts or transport.
+4. **Commands:** Trace record → props adapter → converter → aggregate, repository creation/retrieval/save, scoped transactions, unit-of-work wiring, and entity exports. Inspect focused tests for each responsibility and nested history round trips, plus applicable commit/rollback/isolation/serialization/copy semantics. Unit-of-work or HTTP tests alone are insufficient.
+5. **Evidence:** For each acceptance criterion and material rule, identify the owning-layer evidence and plausible wrong implementation it rejects. Check independent predicates/counterexamples, exact results, quantified executed inputs/counts (including A-AC11), direct invalid mutations with unchanged state, composed host acceptance, specified status/code, and material audit fields. Record high-risk mutation/fault-injection decisions. Check required rendered docs against endpoint contracts.
+6. **Deviations:** Number each affected file/package, why the reference does not apply, chosen alternative, and cost of later alignment. Justified deviations are review evidence, not automatic failures.
+7. **Completion:** Resolve all applicable architecture/evidence obligations above; no recreated Cellix capability or business/fixture logic in composition roots. Follow AGENTS completion and security policy. Record full-gate/focused results, final Biome and Knip findings versus baseline, unavailable scans, remaining issues, and boundary/whitespace checks. Do not report completion while product failures or missing applicable evidence remain.

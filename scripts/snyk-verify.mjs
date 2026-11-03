@@ -6,10 +6,10 @@ function run(args) {
 
 const version = run(['--version']);
 if (version.status !== 0) {
-	console.log('Snyk: SKIPPED');
+	console.log('Snyk: UNAVAILABLE');
 	console.log('Reason: the snyk CLI is not available on PATH.');
-	console.log('This is NON-BLOCKING for the first scaffold only. Install the Snyk CLI and authenticate before treating security results as enforced.');
-	process.exit(0);
+	console.log('Install the Snyk CLI and authenticate; an unavailable scan is not a pass.');
+	process.exit(1);
 }
 
 console.log('Snyk: running snyk test --all-projects --policy-path=.snyk (local CLI, no monitor, no --remote-repo-url)');

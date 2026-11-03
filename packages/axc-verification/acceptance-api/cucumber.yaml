@@ -16,3 +16,8 @@ default:
     snippetInterface: async-await
     specDirectory: src/features
   parallel: 0
+
+# Use with --profile default --profile agent to retain all evidence formatters.
+agent:
+  format:
+    - '@cellix/serenity-framework/formatters/agent'
