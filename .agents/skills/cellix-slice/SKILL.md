@@ -16,7 +16,9 @@ packages/axc/domain/src/
   domain/contexts/index.ts                   export * as <Context> from './<context>/index.ts'
   domain/contexts/<context>/index.ts         export * as <Entity> from './<entity>/index.ts'
   domain/contexts/<context>/<entity>/
-    <entity>.ts                              props, entity reference type, constants (allowed values) and rules
+    <entity>.ts                              read-only entity: props, entity reference type, constants (allowed values) and rules
+    <entity>.aggregate.ts                    instead of <entity>.ts when the class extends AggregateRoot
+    features/<entity>.feature                required next to every aggregate
     <entity>.value-objects.ts                only when a field has its own validation rule
     <entity>.repository.ts                   write side only: extends Repository<T> from @cellix/domain-seedwork
     <entity>.uow.ts                          write side only: extends UnitOfWork / InitializedUnitOfWork
@@ -26,14 +28,16 @@ packages/axc/persistence/src/
   datasources/index.ts                       DataSources = { readonlyDataSource, domainDataSource? }
   datasources/readonly/index.ts              ReadonlyDataSource = { <Context>: { <Entity>: { <Entity>ReadRepo } } }
   datasources/readonly/<context>/index.ts
-  datasources/readonly/<context>/<entity>/<entity>.read-repository.ts   interface + in-memory implementation
-  datasources/readonly/<context>/<entity>/<entity>.data.ts              seed or fixture records
-  datasources/domain/<context>/<entity>/...  write side: in-memory repository and unit of work
+  datasources/readonly/<context>/<entity>/<entity>.read-repository.ts   interface + Mongoose-backed implementation
+  datasources/domain/<context>/<entity>/     write side: <entity>.repository.ts, <entity>.domain-adapter.ts, <entity>.uow.ts
+  models/<context>/<entity>.model.ts         Mongoose model
+  seed/<context>/<entity>.ts                 seed records (never a *.data.ts under readonly/)
 packages/axc/application-services/src/
   index.ts                                   ApplicationServices = { <Context>: <Context>ContextApplicationService, health }
   contexts/<context>/index.ts                <Context>(dataSources) composes entity services
   contexts/<context>/<entity>/index.ts       <Entity>ApplicationService interface + <Entity>(dataSources)
   contexts/<context>/<entity>/<operation>.ts one file per use case (query-by-x.ts, create.ts, update.ts)
+  contexts/<context>/<entity>/features/<operation>.feature   one per use case file
 packages/axc/rest/src/
   index.ts                                   createRestApp only registers routes; keep /health as is
   features/<resource>.ts                     one module per resource: parsing, validation, error mapping
@@ -72,7 +76,7 @@ Rules:
 - The aggregate extends `AggregateRoot<Props, Passport>` from `@cellix/domain-seedwork/aggregate-root`. Create through a static `getNewInstance(...)`, and change state through methods that enforce the rules and throw a domain error when one is broken (for example an invalid transition).
 - axc has no identity or permissions yet. Define one `Passport` type in `domain/src/domain/contexts/passport.ts` (an empty interface is fine) and a system passport in persistence. Do not add permission checks.
 - `<entity>.repository.ts`: `interface XRepository extends Repository<X> { getNewInstance(...); getById(id) }`. Throw `NotFoundError` from `@cellix/domain-seedwork/repository` for a missing id.
-- In-memory implementations live in `persistence/src/datasources/domain/<context>/<entity>/`. Copy objects on read and write so callers can't mutate stored state, and keep the store per process.
+- Write-side implementations live in `persistence/src/datasources/domain/<context>/<entity>/` and are backed by MongoDB through `service-mongoose` (mongodb-memory-server locally).
 
 ## Validation and error contract (REST boundary)
 
@@ -94,6 +98,17 @@ Rules:
 
 - Assert concrete results: expected ids, counts or field values. A check like `every item matches` passes on an empty list, so also assert that the list isn't empty.
 - A package without Vitest copies the setup from `application-services` (`vitest.config.ts`, `tsconfig.vitest.json`, `test` script, `vitest` / `@vitest/coverage-istanbul` / `@cellix/config-vitest` dev dependencies). Domain tests must not import infrastructure, because the architecture test scans them.
+
+## Enforced by test:arch (Stop hook)
+
+These fail the gate, so build them in from the start:
+- A class extending `AggregateRoot` lives in `<entity>.aggregate.ts`, with sibling `<entity>.repository.ts`, `<entity>.uow.ts` and `features/<entity>.feature`. Domain UoW files import the Passport, entity, repository and aggregate.
+- Persistence write side: `<entity>.repository.ts` extends `MongooseSeedwork.MongoRepositoryBase`, `<entity>.domain-adapter.ts` has a `MongoTypeConverter`, and `<entity>.uow.ts` exports `get<Entity>UnitOfWork` returning `new MongooseSeedwork.MongoUnitOfWork(InProcEventBusInstance, NodeEventBusInstance, ...)`. No hand-rolled units of work.
+- Models: `models/<context>/<entity>.model.ts` exporting `<Entity>ModelFactory`, `<Entity>ModelType` and `<Entity>ModelName`.
+- Every operation file is `export const op = (dataSources: DataSources) => async (input) => ...` and has `features/<op>.feature`.
+- Feature files: each scenario has a When and a Then, one When per scenario, unique titles; parameterise a `Then` instead of reusing the same unparameterised one.
+- Only persistence and service-mongoose import mongoose; `apps/api` imports packages by name, never `.../src/...`.
+- Every docs page is in `sidebars.ts` and every sidebar id resolves.
 
 ## Docs
 
