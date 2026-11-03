@@ -2,6 +2,11 @@
 version: v1.25.1
 # ignores vulnerabilities until expiry date; change duration by modifying expiry date
 ignore:
+  SNYK-JS-FLAT-22148819:
+    - '*':
+        reason: No upgrade or patch available. Only path is webpack-merge (5.10.0 and 6.0.1) under @docusaurus/core and @docusaurus/types, i.e. the docs site build (devDependency); flat 6 is ESM-only and webpack-merge requires it as CJS. Build input is repo-authored config. Review by 2026-12-31 (checked 2026-11-03).
+        expires: 2026-12-31T00:00:00.000Z
+        created: 2026-11-03T00:00:00.000Z
   SNYK-JS-MINIMATCH-22111072:
     - '*':
         reason: Fixed only in minimatch 11.0.1+, which drops makeRe and AST; archunit 2.5.4, ts-morph and glob 13 call them (archunit tests fail with 11), and serve-handler needs the 3.x default export. All paths are dev and docs tooling matching repo-authored globs. Review by 2026-12-31 (checked 2026-11-02).
