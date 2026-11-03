@@ -14,9 +14,7 @@ file you are about to change.
 ```
 apps/api/                      composition root (Azure Functions host; routePrefix is "")
 apps/docs/docs/*.md            Docusaurus docs; sidebars.ts lists doc ids: docs: ['intro', 'healthcheck']
-packages/axc/domain            entities/value objects — NO hono, @azure/, mongoose, mongodb, @axc/rest,
-                               @axc/persistence, @axc/service-mongoose, @axc/application-services imports
-                               (test:arch greps every .ts under domain/src, tests included)
+packages/axc/domain            entities/value objects — pure (import ban in CLAUDE.md)
 packages/axc/persistence       repository contracts, in-memory implementations
 packages/axc/service-mongoose  mongoose/mongodb implementations only
 packages/axc/application-services  use cases; ApplicationServices interface + factory
@@ -52,8 +50,7 @@ The repo is a DDD stack and every layer is pre-wired (deps, tsconfig references,
 vitest). Build a capability top-down through all of them:
 
 1. `packages/axc/domain` — the entity and its value objects, built on
-   `@cellix/domain-seedwork`. Pure: no IO, no framework imports (test:arch greps
-   every `.ts` under `domain/src`, tests included).
+   `@cellix/domain-seedwork`. Pure: no IO, no framework imports.
 2. `packages/axc/persistence` — the repository contract for that entity plus an
    in-memory implementation. May import `@axc/domain`.
 3. `packages/axc/application-services` — the use case: extend
@@ -89,14 +86,13 @@ own unit test (rest is test-wired too).
   every `packages/axc/*` layer has one wired (domain, persistence, application-services);
   `health.test.ts` in application-services is the pattern. Tests live next to the code in
   the layer they test. Run one package: `corepack pnpm --filter @axc/domain run test`.
-- One owner per rule. Each acceptance criterion is proven once, by its acceptance scenario.
+- One owner per rule. Each acceptance criterion is proven once, by its own acceptance
+  scenario (see Acceptance below).
   Unit tests cover what a scenario cannot reach cheaply: domain invariants and edge cases
   (value-object validation, state transitions) in the domain tests; in persistence,
   application-services and rest, one or two tests per module for wiring and error mapping,
   not a re-run of the criteria. Cases that differ only by data go in one `it.each` or one
   `Scenario Outline` with `Examples`.
-  Every criterion id still gets its own scenario in the capability's feature file, including
-  criteria about existing tests or docs.
 - Acceptance: `packages/axc-verification/acceptance-api/src/features/*.feature` +
   `src/step-definitions/*.steps.ts`. `cucumber.yaml` already globs both — new files need no
   registration. Name the feature/step files after the capability under test (as `healthcheck.feature`
@@ -108,34 +104,22 @@ own unit test (rest is test-wired too).
   `containAtLeastOneItemThat(equals(x))` (all from `@serenity-js/assertions`).
   The suite boots the real Functions host on :7071 (minutes) — it is the slowest gate.
   Cover every row of the task's acceptance-criteria table (`task-set-*-requirements.md`,
-  ids `A-AC1…`) with its own scenario, and put the criterion id in the scenario name
+  ids `A-AC1…`) with its own scenario in the capability's feature file — criteria about
+  existing tests or docs included — and put the criterion id in the scenario name
   (`Scenario: A-AC8 invalid query parameters return 400`); a feature with fewer scenarios
-  than criteria is incomplete and will be sent back. Before finishing, run
+  than criteria, or any id unnamed, is incomplete and will be sent back. Before finishing, run
   `python3 .claude/hooks/coverage_gate.py --check` — it lists any criteria still uncovered.
   Run `python3 .claude/hooks/cellix_check.py` too: it checks EVERY aggregate you created
   (second and third ones included) is in the contexts/<ctx>/<agg>/ shape above.
   Also run `python3 .claude/hooks/knip_check.py` (~12s) before the full gate — it
   names unused files/exports that knip will reject, so verify passes first time.
-  Run the full gate as `python3 .claude/hooks/gate_digest.py` (wraps `pnpm run verify`).
-- Architecture: `archunit-tests/src/dependency-rules.test.ts` — see the domain list above.
+  Then the full gate (`gate_digest.py`, see CLAUDE.md).
+- Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in CLAUDE.md.
 
 ## Docs
 
 `apps/docs/docs/` holds `intro.md` (`slug: /`) and `healthcheck.md` (request, response JSON,
 field table, curl example). A new page needs its id added to `docs: [...]` in `sidebars.ts`.
-
-## Gates and what they cost
-
-`pnpm run verify` = script policy → biome check . → typecheck → build → knip → e18e →
-test:arch → test + test:acceptance → audit → snyk. Minutes, dominated by acceptance.
-Cheap equivalents while iterating:
-
-| need | command |
-|---|---|
-| format + lint one path | `corepack pnpm exec biome check --write <path>` (biome wants TABS) |
-| typecheck one package | `cd packages/axc/<pkg> && ../../../node_modules/.bin/tsgo --noEmit` |
-| unit tests one package | `corepack pnpm --filter @axc/<pkg> run test` |
-| architecture rules only | `corepack pnpm exec turbo run test:arch --force` |
 
 ## TypeScript flags (from `@cellix/config-typescript`)
 
@@ -151,8 +135,7 @@ properties), `verbatimModuleSyntax` (type-only imports need `import type`).
 `@cellix/config-vitest`; `@serenity-js/*`, `@cucumber/cucumber` (acceptance);
 `@cellix/domain-seedwork`, `@cellix/mongoose-seedwork`, `mongodb-memory-server-core`
 (service-mongoose). Cross-layer imports (`@axc/domain`, `@axc/persistence`) are already
-declared where allowed. Adding a NEW package still writes `pnpm-lock.yaml`, which is
-outside every task boundary.
+declared where allowed.
 
 ## Do not read `.claude/`
 

@@ -43,13 +43,15 @@ work) · `serenity-framework` (Screenplay/Cucumber plumbing) ·
 
 `pnpm run verify` is ten gates: script policy, biome, typecheck, build, knip,
 e18e, architecture tests, unit + acceptance tests, audit, snyk. It takes
-minutes — it is the enforcement boundary, not a search tool. While iterating,
-reach for the cheapest thing that answers the question:
+minutes, dominated by acceptance — it is the enforcement boundary, not a search
+tool. While iterating, reach for the cheapest thing that answers the question:
 
 | need | command |
 |---|---|
-| lint or format one area | `pnpm exec biome check <path>` |
-| test one package | `pnpm --filter <pkg> run test` |
+| format + lint one path | `corepack pnpm exec biome check --write <path>` (biome wants TABS) |
+| typecheck one package | `cd packages/axc/<pkg> && ../../../node_modules/.bin/tsgo --noEmit` |
+| unit tests one package | `corepack pnpm --filter @axc/<pkg> run test` |
+| architecture rules only | `corepack pnpm exec turbo run test:arch --force` |
 | everything, before you claim done | `python3 .claude/hooks/gate_digest.py` |
 
 `gate_digest.py` runs `pnpm run verify` once and prints the exit code, every
@@ -72,8 +74,9 @@ commands you ran with their real output, and any limitations.
 Apply the **ponytail** skill to every implementation decision: the laziest
 solution that satisfies every numbered requirement and passes `pnpm run
 verify`. Reuse before writing, one file before four, no abstraction with one
-caller. Report in **caveman** style — terse, no filler, technical substance
-intact.
+caller. The map's four layers and per-entity file shapes are the house standard,
+not abstractions to skip: be minimal inside them. Report in **caveman** style —
+terse, no filler, technical substance intact.
 
 Requirements and gates are not negotiable; everything above them is.
 
@@ -86,4 +89,7 @@ scored.
 - Never echo back a file you just wrote, and never summarise a diff the reader
   can read.
 - One line of intent before a batch of tool calls, not one per call.
+- Every turn re-reads the whole context, so batch independent work into one
+  turn: write several files in one Bash call (one heredoc per file), and send
+  independent reads and checks together in one response.
 - If a sentence would not change what a reviewer does next, cut it.

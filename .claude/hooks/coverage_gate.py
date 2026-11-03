@@ -72,8 +72,10 @@ def main():
     crit, missing, n = scan(root)
     if not crit:
         return
-    # pass bar unchanged from the proven version: one scenario per criterion.
-    if n >= len(crit):
+    # pass bar: every criterion id named in a capability feature file, and at
+    # least one scenario per criterion. Count alone let 21 scenarios pass with
+    # two criteria unnamed.
+    if not missing and n >= len(crit):
         return
 
     state = os.path.join(os.path.expanduser("~"), ".claude", "metrics", "coverage-gate.json")
