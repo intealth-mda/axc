@@ -89,6 +89,12 @@ own unit test (rest is test-wired too).
   every `packages/axc/*` layer has one wired (domain, persistence, application-services);
   `health.test.ts` in application-services is the pattern. Tests live next to the code in
   the layer they test. Run one package: `corepack pnpm --filter @axc/domain run test`.
+- One owner per rule. Each acceptance criterion is proven once, by its acceptance scenario.
+  Unit tests cover what a scenario cannot reach cheaply: domain invariants and edge cases
+  (value-object validation, state transitions) in the domain tests; in persistence,
+  application-services and rest, one or two tests per module for wiring and error mapping,
+  not a re-run of the criteria. Cases that differ only by data go in one `it.each` or one
+  `Scenario Outline` with `Examples`.
 - Acceptance: `packages/axc-verification/acceptance-api/src/features/*.feature` +
   `src/step-definitions/*.steps.ts`. `cucumber.yaml` already globs both — new files need no
   registration. Name the feature/step files after the capability under test (as `healthcheck.feature`
