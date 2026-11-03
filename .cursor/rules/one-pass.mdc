@@ -10,7 +10,6 @@ alwaysApply: true
 - Before the first write, do not open monorepo tooling or config tours: knip, turbo, biome, cucumber, serenity, rolldown, host.json, or every package.json. Open a tooling file only when a failed check names it.
 - Do not reopen a file or successful command, summarize intermediate work, inspect `git diff` / `git status` for progress, or start a second exploration, review pass, or subagent.
 - Write each new file once. Make a follow-up edit only to resolve a specific unknown or failed check.
-- Dependencies are preinstalled. Do not run `pnpm install`.
 - Ponytail and Caveman apply in full. This rule limits tool calls only.
 
 ## Scoped edits
