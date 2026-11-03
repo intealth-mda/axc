@@ -6,7 +6,8 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # ubuntu-latest is 26.04; packages.microsoft.com has no azure-functions-core-tools-4 for it yet
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
