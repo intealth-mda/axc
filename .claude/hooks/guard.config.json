@@ -42,7 +42,8 @@
 		["\\.(min\\.js|min\\.css|pb\\.go|generated\\.ts|g\\.dart)$", "Generated file. Edit the source."],
 		["(^|/)(migrations)/.*\\.(sql|py|js|ts)$", "Applied migration. Add a new one instead."],
 		["(^|/)(azure-pipelines\\.ya?ml|\\.github/workflows/.*|build-pipeline/.*|Dockerfile|host\\.json)$", "Deployment pipeline / production configuration (SRD Do-Not-Modify)."],
-		["(^|/)(auth|authentication)/.*", "Authentication code (SRD Do-Not-Modify)."]
+		["(^|/)(auth|authentication)/.*", "Authentication code (SRD Do-Not-Modify)."],
+		["(^|/)packages/cellix/", "Vendored CellixJS framework; it must match upstream. Reuse it, do not edit it."]
 	],
 	"max_bash_output_chars": 30000,
 	"path_ask": [],

@@ -1,50 +1,38 @@
 # agentCourses (axc) — working notes for coding agents
 
-A "dark software factory": your change is not done until `pnpm run verify`
-passes. Read this before starting; it is short on purpose.
+Your change is done when `pnpm run verify` passes.
 
-## The write boundary is the scored constraint
+## Stay inside the write boundary
 
-The task prompt names the paths you may write. Three traps that have already
-caught a run here:
+The task prompt names the paths you may write.
 
-- **Adding a dependency forces a lockfile write.** `pnpm-lock.yaml` sits at the
-  repo root, outside every task boundary. If you add a package, the lockfile
-  changes and you have written outside the boundary. Prefer what is already in
-  the workspace. If a dependency is genuinely unavoidable, say so in your
-  summary rather than discovering it at commit time.
-- **`packages/axc/domain/**` must not import infrastructure.** `test:arch`
-  reads every `.ts` under `domain/src` — **tests included** — and fails on the
-  literal strings `hono`, `@azure/`, `mongoose`, `mongodb`, `@axc/rest`,
-  `@axc/persistence`, `@axc/service-mongoose`, `@axc/application-services`. A
-  domain test that needs a database belongs in `packages/axc-verification/**`.
-- **`packages/cellix/**` is vendored** from the CellixJS upstream. The prompt
-  says it must never deviate from its source. Read it, reuse it, do not edit it.
+- Use packages already in the workspace. Adding one rewrites `pnpm-lock.yaml`
+  at the repo root, outside every task boundary; if one is unavoidable, say so
+  in your summary.
+- Keep `packages/axc/domain/**` free of infrastructure. `test:arch` reads every
+  `.ts` under `domain/src`, tests included, and fails on the strings `hono`,
+  `@azure/`, `mongoose`, `mongodb`, `@axc/rest`, `@axc/persistence`,
+  `@axc/service-mongoose`, `@axc/application-services`. A domain test that
+  needs a database goes in `packages/axc-verification/**`.
+- Reuse `packages/cellix/**` as it is: it is vendored from CellixJS upstream
+  and must match its source. An app-specific copy of one of its packages is a
+  review failure: `api-core` (bootstrap, service lifecycle) · `api-services-spec` ·
+  `domain-seedwork` (DDD primitives) · `mongoose-seedwork` (repository, unit of
+  work) · `serenity-framework` (Screenplay/Cucumber) ·
+  `server-mongodb-memory-mock-seedwork` · `event-bus-seedwork-node` ·
+  `local-dev` · `config-typescript` / `config-vitest` / `config-rolldown` ·
+  `archunit-tests`.
 
 ## Start with the map
 
-Read the **axc-orientation** skill before exploring. It is the repo's own layout,
-route/service/test patterns and gate costs in one place, and replaces the dozen
-file reads a session otherwise starts with. Then read only the files you will change.
+Read the **axc-orientation** skill first: layout, route/service/test patterns
+and self-checks in one place. Then read only the files you will change.
 
-## Reuse before you build
+## Gates
 
-Twelve packages already exist under `packages/cellix/`. Writing an
-application-specific version of one is a review failure:
-
-`api-core` (bootstrap, service lifecycle) · `api-services-spec` ·
-`domain-seedwork` (DDD primitives) · `mongoose-seedwork` (repository, unit of
-work) · `serenity-framework` (Screenplay/Cucumber plumbing) ·
-`server-mongodb-memory-mock-seedwork` · `event-bus-seedwork-node` ·
-`local-dev` (portless, worktrees) · `config-typescript` / `config-vitest` /
-`config-rolldown` · `archunit-tests`.
-
-## What the gates cost
-
-`pnpm run verify` is ten gates: script policy, biome, typecheck, build, knip,
-e18e, architecture tests, unit + acceptance tests, audit, snyk. It takes
-minutes, dominated by acceptance — it is the enforcement boundary, not a search
-tool. While iterating, reach for the cheapest thing that answers the question:
+`pnpm run verify` runs ten gates (script policy, biome, typecheck, build, knip,
+e18e, architecture, unit + acceptance tests, audit, snyk) and takes minutes,
+mostly acceptance. While iterating, use the cheapest check:
 
 | need | command |
 |---|---|
@@ -54,42 +42,29 @@ tool. While iterating, reach for the cheapest thing that answers the question:
 | architecture rules only | `corepack pnpm exec turbo run test:arch --force` |
 | everything, before you claim done | `python3 .claude/hooks/gate_digest.py` |
 
-`gate_digest.py` runs `pnpm run verify` once and prints the exit code, every
-gate's result, test and scenario counts, and the failing gate's error lines.
-It is the evidence for your summary: quote it, do not grep the full log
-(`/tmp/verify.log`) for counts it already shows.
-
-A gate reporting **SKIPPED** is not a pass. Say so explicitly rather than
-implying the suite was green.
-
-## Finish with evidence, not narration
-
-End with a table: one row per numbered requirement and per acceptance
-criterion, each with PASS/FAIL and the test or file that proves it. A
-requirement whose only evidence is your own assertion is not done. Then the
-commands you ran with their real output, and any limitations.
+`gate_digest.py` runs verify once and prints the exit code, each gate's result,
+test and scenario counts, and the failing gate's errors. Quote it as your
+evidence instead of grepping `/tmp/verify.log`. Report a SKIPPED gate as
+skipped, not passed.
 
 ## Build the smallest thing that passes
 
-Apply the **ponytail** skill to every implementation decision: the laziest
-solution that satisfies every numbered requirement and passes `pnpm run
-verify`. Reuse before writing, one file before four, no abstraction with one
-caller. The map's four layers and per-entity file shapes are the house standard,
-not abstractions to skip: be minimal inside them. Report in **caveman** style —
-terse, no filler, technical substance intact.
+Apply the **ponytail** skill: the laziest solution that meets every numbered
+requirement and passes verify. Reuse before writing, one file before four, no
+abstraction with one caller. The map's four layers and per-entity file shapes
+are the house standard: be minimal inside them.
 
-Requirements and gates are not negotiable; everything above them is.
+## Output
 
-## Prose is the expensive part
+Code and tests are the deliverable; output tokens are scored. Write in
+**caveman** style.
 
-Code and tests are the deliverable. Prose is overhead and output tokens are
-scored.
-
-- No preamble, no restating the task, no announcing what you are about to do.
-- Never echo back a file you just wrote, and never summarise a diff the reader
-  can read.
-- One line of intent before a batch of tool calls, not one per call.
-- Every turn re-reads the whole context, so batch independent work into one
-  turn: write several files in one Bash call (one heredoc per file), and send
-  independent reads and checks together in one response.
-- If a sentence would not change what a reviewer does next, cut it.
+- Batch independent work into one turn: several files in one Bash call (one
+  heredoc per file), independent reads and checks in one response. Every turn
+  re-reads the whole context.
+- One line of intent before a batch of tool calls. No preamble, no restating
+  the task, no echo of a file you wrote or a diff the reader can read.
+- Finish with a table: one row per numbered requirement and per acceptance
+  criterion, PASS/FAIL, and the test or file that proves it. A requirement
+  with only your word as evidence is not done. Then the commands you ran with
+  their real output, and any limitations.

@@ -5,9 +5,7 @@ description: Repo map for agentCourses (axc). Read this FIRST, before any explor
 
 # agentCourses (axc) — orientation
 
-Everything below is read from the repo as it stands. It replaces the dozen
-file reads every session otherwise starts with; it does not replace reading a
-file you are about to change.
+Read from the repo as it stands. Still read a file before you change it.
 
 ## Layout
 
@@ -47,7 +45,7 @@ packages/cellix/*              vendored framework — read, reuse, never edit
 ## Layering a new capability
 
 The repo is a DDD stack and every layer is pre-wired (deps, tsconfig references,
-vitest). Build a capability top-down through all of them:
+vitest). Build a capability top-down through all of them, each piece in its own layer:
 
 1. `packages/axc/domain` — the entity and its value objects, built on
    `@cellix/domain-seedwork`. Pure: no IO, no framework imports.
@@ -55,12 +53,9 @@ vitest). Build a capability top-down through all of them:
    in-memory implementation. May import `@axc/domain`.
 3. `packages/axc/application-services` — the use case: extend
    `ApplicationServices` and the factory object. May import `@axc/domain` and
-   `@axc/persistence` (already declared, no package.json change needed).
+   `@axc/persistence`.
 4. `packages/axc/rest` — a thin Hono handler that only parses the request,
    calls the service, shapes the response.
-
-Code that skips layers (query logic in the rest handler, entities inlined in
-application-services) will read as misplaced in review.
 
 House file shapes (how CellixJS codebases lay a context out — match these):
 
@@ -82,10 +77,8 @@ own unit test (rest is test-wired too).
 
 ## Tests
 
-- Unit: vitest per package. `vitest.config.ts` is 9 lines using `@cellix/config-vitest`;
-  every `packages/axc/*` layer has one wired (domain, persistence, application-services);
-  `health.test.ts` in application-services is the pattern. Tests live next to the code in
-  the layer they test. Run one package: `corepack pnpm --filter @axc/domain run test`.
+- Unit: vitest, wired in every `packages/axc/*` layer. Tests live next to the code they
+  test; `health.test.ts` in application-services is the pattern.
 - One owner per rule. Each acceptance criterion is proven once, by its own acceptance
   scenario (see Acceptance below).
   Unit tests cover what a scenario cannot reach cheaply: domain invariants and edge cases
@@ -107,13 +100,14 @@ own unit test (rest is test-wired too).
   ids `A-AC1…`) with its own scenario in the capability's feature file — criteria about
   existing tests or docs included — and put the criterion id in the scenario name
   (`Scenario: A-AC8 invalid query parameters return 400`); a feature with fewer scenarios
-  than criteria, or any id unnamed, is incomplete and will be sent back. Before finishing, run
-  `python3 .claude/hooks/coverage_gate.py --check` — it lists any criteria still uncovered.
-  Run `python3 .claude/hooks/cellix_check.py` too: it checks EVERY aggregate you created
-  (second and third ones included) is in the contexts/<ctx>/<agg>/ shape above.
-  Also run `python3 .claude/hooks/knip_check.py` (~12s) before the full gate — it
-  names unused files/exports that knip will reject, so verify passes first time.
-  Then the full gate (`gate_digest.py`, see CLAUDE.md).
+  than criteria, or any id unnamed, is incomplete and will be sent back.
+- Before the full gate (`gate_digest.py`), run these; each takes seconds:
+  1. `python3 .claude/hooks/coverage_gate.py --check` — lists criteria still uncovered.
+  2. `python3 .claude/hooks/cellix_check.py` — checks EVERY aggregate you created (second
+     and third included) is in the contexts/<ctx>/<agg>/ shape above.
+  3. `python3 .claude/hooks/knip_check.py` — names unused files/exports knip will reject.
+  4. `tsgo --noEmit` in each package you changed (command in CLAUDE.md) — otherwise type
+     errors surface only in the full gate.
 - Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in CLAUDE.md.
 
 ## Docs
@@ -137,7 +131,6 @@ properties), `verbatimModuleSyntax` (type-only imports need `import type`).
 (service-mongoose). Cross-layer imports (`@axc/domain`, `@axc/persistence`) are already
 declared where allowed.
 
-## Do not read `.claude/`
+## Harness files
 
-It is harness tooling (a write-boundary guard and these skills). Nothing in it is part of
-the task, and reading it costs context.
+`.claude/` is harness tooling. The only files there a task uses are the check scripts above.
