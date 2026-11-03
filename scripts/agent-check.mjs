@@ -2,7 +2,14 @@ import { spawnSync } from 'node:child_process';
 import { closeSync, mkdtempSync, openSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { commandText, isVerify, readBudget, recordVerify, rejectionReason } from './check-budget.mjs';
+import {
+	commandText,
+	isTerminalAdvisoryFailure,
+	isVerify,
+	readBudget,
+	recordVerify,
+	rejectionReason,
+} from './check-budget.mjs';
 
 const args = process.argv.slice(2);
 if (args[0] === '--') {
@@ -34,8 +41,12 @@ const result = spawnSync(command, commandArgs, {
 });
 closeSync(logFile);
 
+const exitCode = result.status ?? 1;
+const log = result.status === 0 ? '' : stripAnsi(readFileSync(logPath, 'utf8'));
+const terminal = isVerify(requestedText) && exitCode !== 0 && isTerminalAdvisoryFailure(log);
+
 if (isVerify(requestedText)) {
-	recordVerify(result.status ?? 1);
+	recordVerify(exitCode, { terminal });
 }
 
 if (result.status === 0) {
@@ -43,8 +54,6 @@ if (result.status === 0) {
 	process.exit(0);
 }
 
-const exitCode = result.status ?? 1;
-const log = stripAnsi(readFileSync(logPath, 'utf8'));
 const lines = log.split(/\r?\n/);
 const failedCheck = findFailedCheck(lines);
 const errorBlock = findErrorBlock(lines);
@@ -53,6 +62,11 @@ console.error(`FAIL: ${displayCommand}`);
 console.error(`Exit code: ${exitCode}`);
 if (failedCheck !== undefined) {
 	console.error(`Failed check: ${failedCheck}`);
+}
+if (terminal) {
+	console.error(
+		'Terminal: dependency advisory failure. Do not rerun verify or acceptance; report findings and stop.',
+	);
 }
 if (result.error !== undefined) {
 	console.error(`Cause: ${result.error.message}`);

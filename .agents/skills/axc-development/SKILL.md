@@ -16,6 +16,7 @@ description: Implements and validates agentCourses features with repository laye
 7. Complete one pass across code, exports, project references, tests, and required documentation. Do not tour tooling configs before the first write.
 8. Before verification, check the task requirements once and keep that checklist internal.
 9. Validate with only the new or changed test file(s) for the edit through `node scripts/agent-check.mjs -- <command>`, then one wrapped `pnpm run verify`.
-10. Report what changed, the commands, results, limitations, any dependency justification, and security findings.
+10. If that verify fails only on dependency audit or advisory scan, stop; do not rerun verify or acceptance. Report advisories as security findings.
+11. Report what changed, the commands, results, limitations, any dependency justification, and security findings.
 
 The one-pass rule controls tool calls. Ponytail and Caveman still apply in full. Do not restate those rules.

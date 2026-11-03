@@ -3,14 +3,16 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { rawBroadCommandReason } from '../../scripts/check-budget.mjs';
+import { budgetTamperReason, rawBroadCommandReason } from '../../scripts/check-budget.mjs';
 
 const CLOSED_TREES = ['node_modules', 'packages/cellix'];
 const INSPECTION_COMMAND = /(?:^|[;&|]\s*|\s)(?:cat|less|more|head|tail|sed|awk|rg|grep|find|ls|stat|readlink|wc|tree)(?:\s|$)/;
 
 try {
 	const input = await readInput();
-	const broadCommand = rawBroadCommandReason(shellCommand(input) ?? '');
+	const command = shellCommand(input) ?? '';
+	const tamper = budgetTamperReason(command);
+	const broadCommand = tamper ?? rawBroadCommandReason(command);
 	if (broadCommand !== undefined) {
 		deny(broadCommand, input.hook_event_name);
 	} else {
