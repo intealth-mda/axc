@@ -47,6 +47,20 @@ Navigation only: source priority and mandatory loading are in the [skill](../SKI
 | Read repository interface and implementation | `packages/ocom/persistence/src/datasources/readonly/community/community/community.read-repository.ts` |
 | Read data source | `packages/ocom/persistence/src/datasources/readonly/community/community/community.data.ts` |
 
+## Mongoose Storage Models
+
+| Pattern | Reference |
+| --- | --- |
+| Model context builder and registration | `packages/ocom/data-sources-mongoose-models/src/index.ts` |
+| Standalone record, typed schema, factory, name and type | `packages/ocom/data-sources-mongoose-models/src/models/community/community.model.ts` |
+| Shared base model and discriminator ordering | `packages/ocom/data-sources-mongoose-models/src/models/case/ticket.model.ts`; `packages/ocom/data-sources-mongoose-models/src/models/case/service-ticket.model.ts` |
+| Nested audit/history subdocuments and nested paths | `packages/ocom/data-sources-mongoose-models/src/models/case/service-ticket.model.ts` |
+| Model context consumed by persistence | `packages/ocom/persistence/src/index.ts`; `packages/ocom/persistence/src/datasources/index.ts` |
+| Reusable schema/factory and boundary checks | `packages/cellix/archunit-tests/src/checks/data-sources-mongoose-models-conventions.ts`; `packages/cellix/archunit-tests/src/test-suites/data-sources-mongoose-models-conventions.ts` |
+| Upstream suite configuration | `packages/ocom/data-sources-mongoose-models/src/archunit-tests/data-sources-mongoose-models-conventions.test.ts` |
+
+Inspect these models alongside the selected domain/persistence slice, including query-only and fixture-backed features. Record storage fields, nested lifecycle choice, exports, context registration, consumers, and focused schema/round-trip evidence. The reference has no colocated model unit tests in these example directories; add focused tests for AXC schema behavior rather than inventing reference companions.
+
 ## Command-Side Persistence
 
 | Pattern | Reference |

@@ -20,7 +20,7 @@ Use only the allowed write boundary:
 - packages/axc/application-services/** application services
 - packages/axc/persistence/** data storage
 - packages/axc/service-mongoose/** data storage
-- packages/axc/** do not create any additional directories beyond what already exist
+- packages/axc/data-sources-mongoose-models/** Mongoose storage models and factories aligned with Cellix
 - packages/axc-verification/** unit, integration, architectural and acceptance tests
 - apps/docs/** any configuration necessary to get documentational functional
 - apps/docs/** MADR / API documentation

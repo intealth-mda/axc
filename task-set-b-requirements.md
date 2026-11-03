@@ -42,7 +42,7 @@ The harness may create or modify files only in these locations:
 | `packages/axc/domain/**` | DDD domain logic |
 | `packages/axc/persistence/**` | Data storage |
 | `packages/axc/service-mongoose/**` | Data storage |
-| `packages/axc/**` | Do not create any additional directories beyond what already exist |
+| `packages/axc/data-sources-mongoose-models/**` | Mongoose storage models and factories aligned with Cellix |
 | `packages/axc-verification/**` | Unit, integration, architectural, and acceptance tests |
 | `apps/docs/**` | MADR / API documentation |
 

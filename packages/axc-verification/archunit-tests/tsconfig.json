@@ -2,8 +2,8 @@
 	"extends": "@cellix/config-typescript/node",
 	"compilerOptions": {
 		"noEmit": true,
-		"rootDir": "src"
+		"rootDir": "../.."
 	},
-	"include": ["src/**/*.ts"],
+	"include": ["src/**/*.ts", "../../axc/data-sources-mongoose-models/src/**/*.ts"],
 	"exclude": []
 }

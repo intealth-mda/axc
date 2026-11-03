@@ -33,3 +33,7 @@ pnpm exec serenity-bdd run --source target/site/serenity --destination target/si
 The agent profile uses Cellix's public `@cellix/serenity-framework/formatters/agent` export. Default JSON, HTML, and Serenity evidence remain enabled. Run the report command even when inspecting a failed acceptance run; formatter console diagnostics are condensed, while the report artifacts retain detailed evidence. This focused command supplements the full gate.
 
 For a controlled comparison, use the evaluation-only [comparison guidance](evaluation-comparison.md) and the existing [evaluation form](../evaluation-run-record.md). File-size changes alone are not token or cost savings.
+
+## Task B storage model alignment
+
+Task B allows `packages/axc/data-sources-mongoose-models/**`, including new context directories. Persisted business features require Cellix-aligned schemas/factories and model context composition alongside domain, persistence, and application services, even when backed by fixtures. The scaffold remains empty until those features exist; the harness does not introduce a live database. See [shared architecture](skills/cellix-architecture/references/shared-architecture.md) and the [model reference anchors](skills/cellix-architecture/references/architecture-map.md#mongoose-storage-models). Architecture checks reject missing model coverage and apply Cellix's reusable model conventions plus AXC-specific dependency boundaries.
