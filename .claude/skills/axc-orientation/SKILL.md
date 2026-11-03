@@ -95,6 +95,8 @@ own unit test (rest is test-wired too).
   application-services and rest, one or two tests per module for wiring and error mapping,
   not a re-run of the criteria. Cases that differ only by data go in one `it.each` or one
   `Scenario Outline` with `Examples`.
+  Every criterion id still gets its own scenario in the capability's feature file, including
+  criteria about existing tests or docs.
 - Acceptance: `packages/axc-verification/acceptance-api/src/features/*.feature` +
   `src/step-definitions/*.steps.ts`. `cucumber.yaml` already globs both — new files need no
   registration. Name the feature/step files after the capability under test (as `healthcheck.feature`
