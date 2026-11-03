@@ -12,6 +12,23 @@ export function createRestApp(applicationServicesFactory: ApplicationServicesFac
 		return c.json(applicationServices.health.getStatus());
 	});
 
+	app.get('/api/courses', async (c) => {
+		const applicationServices = await applicationServicesFactory.forRequest();
+		const result = applicationServices.courses.search({
+			q: c.req.query('q'),
+			modality: c.req.query('modality'),
+			status: c.req.query('status'),
+			tag: c.req.query('tag'),
+			page: c.req.query('page'),
+			pageSize: c.req.query('pageSize'),
+			sort: c.req.query('sort'),
+		});
+		if (!result.ok) {
+			return c.json(result.error, 400);
+		}
+		return c.json(result.page);
+	});
+
 	return app;
 }
 
