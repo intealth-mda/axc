@@ -64,6 +64,18 @@ pnpm --filter @cellix/generator run update -- --context <context> --subdomain <s
 
 pnpm --filter @cellix/generator run update -- --context <context> --subdomain <subdomain> --name <name> \
   --param <param>:<type> --transport graphql
+
+pnpm --filter @cellix/generator generate -- --context <context> --subdomain <subdomain> \
+  --nested activity-log:id:id,activityType:string
+
+pnpm --filter @cellix/generator extend -- --context <context> --subdomain <subdomain> \
+  --field level:string --nested display-name:label:string
+
+pnpm --filter @cellix/generator extend -- --context <context> --subdomain <subdomain> \
+  --nested activity-log:id:id,activityType:string
+
+pnpm --filter @cellix/generator extend -- --context <context> --subdomain <subdomain> \
+  --name <name> --param reason?:string
 ```
 
 `query` adds `<name>` on the read repository and calls it from the action. The method rejects with `not implemented`. The result is `EntityReference[]`. Leave that array as it is in domain, persistence, and the application service. Shape the HTTP body in the REST index. `query` and `update` require `--transport rest` or `--transport graphql`. `--route` is required for rest. It is a path of names and `:param` segments, and `--route <route>` writes `/api/<route>`. A `:param` stays in the Hono path. The Azure registration writes `{param}`. Leave `--route` off for graphql. A later `generate --action` with a different action adds that action. It leaves the existing subdomain files in place. A REST create passes `--route` and `--transport rest` on `generate --action` and writes that route. `--method patch` selects PATCH. Omitted, a query is GET and a write is POST. Repeat `--field` or `--param` with the same name to build a union. A `|` outside double quotes is a shell pipe. A later field or nested object uses `extend`. A nested object with `id:id` is a PropArray collection. A nested object without an id is one value object. `extend --name <name> --param <name>:<type>` adds a parameter to a query or update that already exists. `name?:type` is optional. `generate` does not change a subdomain that already exists. Do not pass `--return`. `update` loads with `getById` inside `withScopedTransaction`, leaves a comment where the assignment goes, and `save`s. Its command is `id` plus the params. With `--transport rest`, each of those commands adds one route to `packages/axc/rest/src/index.ts`. A query is `app.get`. An update is `app.post`. The route calls `applicationServices.<Context>.<Entity>.<name>`. It does not write a resolver file. When a resolver already exists, `query` adds a GraphQL query and `update` adds a mutation. Pass `--field` on `generate`, not on `query`. `query` adds the function on the subdomain `generate` already wrote. A query name cannot start with `create`, `update`, or `delete`. An update name cannot start with `query`, `get`, or `find`.
