@@ -1,5 +1,8 @@
 {
 	"read": {
+		"packages/cellix/**": false,
+		"scripts/**": false,
+		".cursor/**": false,
 		"factory.json": false,
 		"**/node_modules/**": false,
 		"node_modules/**": false,
@@ -7,9 +10,6 @@
 		"dist/**": false,
 		"**/agent-transcripts/**": false,
 		"agent-transcripts/**": false,
-		"packages/cellix/**": false,
-		"scripts/**": false,
-		".cursor/**": false,
 		".git/**": false,
 		".cellix/**": true,
 		"patches/**": true,
@@ -33,7 +33,8 @@
 		"apps/api/tsconfig.json": true,
 		"apps/api/host.json": true,
 		"apps/api/start-dev.ts": true,
-		"apps/docs/**": true
+		"apps/docs/**": true,
+		".snyk": true
 	},
 	"write": {
 		"packages/cellix/**": false,

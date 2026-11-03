@@ -7,6 +7,8 @@ export {
 	commandCap,
 	HEAVY_MESSAGE,
 	heavyCommandReason,
+	INSTALL_MESSAGE,
+	installReason,
 	isWrapped,
 	logAllowsPath,
 	logAllowsReference,

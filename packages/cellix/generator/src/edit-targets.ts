@@ -84,17 +84,15 @@ function isNested(member: NestedSpec['fields'][number]): member is NestedSpec {
 	return 'fields' in member;
 }
 
-/** Files the timed agent may read. Manifests and tsconfig stay off this list. A failing check names any other file. */
+/** Files the timed agent may read. Other subdomains, manifests, and tsconfig stay off this list. A failing check names any other file. */
 export function readsForEdit(options: GenerateFeatureOptions): string[] {
 	const { lint, context, entity } = options;
 	const acceptance = lint.acceptance;
 	const behavior = [
 		`${lint.layers.domain}/domain/contexts/${context}/${entity}/${entity}.value-objects.ts`,
-		...(acceptance ? [`${acceptance}/`, `${acceptance}/infrastructure.ts`, `${acceptance}/cucumber-lifecycle-hooks.ts`] : []),
+		...(acceptance ? [`${acceptance}/infrastructure.ts`, `${acceptance}/cucumber-lifecycle-hooks.ts`] : []),
 		...(lint.apiComposition ? [lint.apiComposition] : []),
 		'apps/docs/',
-		`${lint.layers.domain}/`,
-		`${lint.layers.models}/`,
 		'.agents/skills/cellix-architecture/',
 		'AGENTS.md',
 		'.agents/skills/cellix-architecture/SKILL.md',
@@ -106,7 +104,7 @@ export function readsForEdit(options: GenerateFeatureOptions): string[] {
 
 const INSTRUCTION = new Set(['AGENTS.md', '.agents/skills/cellix-architecture/SKILL.md', '.agents/skills/cellix-architecture/REFERENCE.md', '.cellix/factory.json']);
 
-/** Same slice as the read list. Instruction files and the layer prefixes stay readable and are not writable. */
+/** Same slice as the read list. Instruction files stay readable and are not writable. */
 export function writesForEdit(options: GenerateFeatureOptions): string[] {
 	return readsForEdit(options).filter((entry) => !INSTRUCTION.has(entry) && !(entry.endsWith('/') && entry !== 'apps/docs/'));
 }

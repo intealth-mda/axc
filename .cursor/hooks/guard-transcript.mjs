@@ -4,15 +4,17 @@
 import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { agentIdFromEnv, decideRead, ensureStartupSession, loadSession, policyFromConfig } from '../../packages/cellix/guardrails/src/index.mjs';
-import { broadGlobReason, closedReferenceInText, commandCap, heavyCommandReason, logNames, noteRepeat, OPEN_ROOTS, repeatMessage, wideShellReason } from '../../scripts/check-budget.mjs';
+import { broadGlobReason, closedReferenceInText, commandCap, heavyCommandReason, installReason, logNames, noteRepeat, OPEN_ROOTS, repeatMessage, wideShellReason } from '../../scripts/check-budget.mjs';
 import { factoryEnabled } from './factory.mjs';
 
 try {
 	const input = await readPayload();
 	const command = shellCommand(input);
+	const install = command === undefined ? undefined : installReason(command);
 	const heavy = command === undefined ? undefined : heavyCommandReason(command);
 	const wide = command === undefined ? undefined : wideShellReason(command);
-	if (heavy !== undefined) deny(heavy, input.hook_event_name);
+	if (install !== undefined) deny(install, input.hook_event_name);
+	else if (heavy !== undefined) deny(heavy, input.hook_event_name);
 	else if (wide !== undefined) deny(wide, input.hook_event_name);
 	else {
 		const broad = broadPattern(input);

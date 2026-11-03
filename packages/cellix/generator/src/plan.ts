@@ -21,7 +21,7 @@ import { persistenceRepository } from './templates/persistence/entity.repository
 import { persistenceUnitOfWork } from './templates/persistence/entity.uow.ts';
 import { mongoDataSource } from './templates/persistence/mongo-data-source.ts';
 import { entityData, readContextIndex, readEntityIndex, readonlyIndex, readRepository } from './templates/persistence/readonly.ts';
-import { actionKind, commandFields, graphqlFieldName, namespacePath, paramShape, serviceResult } from './text.ts';
+import { actionKind, commandFields, graphqlFieldName, httpMethod, namespacePath, paramShape, serviceResult } from './text.ts';
 import type { GeneratedFile, GenerateFeatureOptions } from './types.ts';
 
 export function plan(options: GenerateFeatureOptions): GeneratedFile[] {
@@ -99,9 +99,10 @@ function actionFiles(options: GenerateFeatureOptions): GeneratedFile[] {
 		files.push({ path: path.join(applicationDir, 'index.ts'), contents: entityServiceIndex(actionName, actionCamel, command, contextPascal, entityPascal, result, scope) });
 	}
 	const acceptanceName = `${entity}-${actionName}`;
+	const request = options.route === undefined ? undefined : { method: httpMethod({ method: options.method, operation: options.operation, kind }), route: options.route };
 	files.push(
 		{ path: path.join(root, lint.acceptance, 'features', `${acceptanceName}.feature`), contents: feature(entity, actionName) },
-		{ path: path.join(root, lint.acceptance, 'step-definitions', `${acceptanceName}.steps.ts`), contents: steps(entity, actionName) },
+		{ path: path.join(root, lint.acceptance, 'step-definitions', `${acceptanceName}.steps.ts`), contents: steps(entity, actionName, request) },
 	);
 	if (resolver) {
 		const typesDir = path.join(root, lint.layers.graphql);

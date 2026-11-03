@@ -160,6 +160,9 @@ describe('the transcript hook', () => {
 			hook_event_name: 'beforeShellExecution',
 		});
 		assert.equal(generate.permission, 'allow');
+		const install = await hookDecision({ command: 'pnpm install --offline --frozen-lockfile', hook_event_name: 'beforeShellExecution' });
+		assert.equal(install.permission, 'deny');
+		assert.match(install.user_message ?? install.agent_message ?? '', /already installed/);
 		const byId = await hookDecision({
 			command: 'pnpm --filter @cellix/generator query -- --context enrollment --subdomain enrollment-request --name find-enrollment-request --param id:string --route enrollment-requests/:id --transport rest',
 			hook_event_name: 'beforeShellExecution',

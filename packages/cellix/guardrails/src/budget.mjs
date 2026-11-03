@@ -12,6 +12,8 @@ export const OPEN_ROOTS = 'packages/axc, packages/axc-verification, apps/api/src
 
 export const HEAVY_MESSAGE = 'Run that command through pnpm run agent-check so its log stays out of the chat. Example: pnpm run agent-check -- pnpm run verify';
 
+export const INSTALL_MESSAGE = 'The generator already installed dependencies. Do not run pnpm install. Do not read node_modules, pnpm-lock.yaml, or package.json.';
+
 export const BROAD_MESSAGE = 'That glob covers a whole tree. Name a directory and a filename, for example packages/axc/rest/src/**/*.ts.';
 
 export const WIDE_SHELL_MESSAGE = 'Read one file. A multi-file dump stays in the transcript for the rest of the run.';
@@ -24,6 +26,13 @@ const TREE = /(?:^|[/\\\s`'"(=])((?:node_modules|packages\/cellix|dist|agent-tra
 
 export function isWrapped(text) {
 	return text.includes('agent-check');
+}
+
+/** An agent install. The generator runs its own install inside a generate command. */
+export function installReason(text) {
+	if (typeof text !== 'string') return undefined;
+	if (/(?:^|[;&|`(]\s*)(?:pnpm|npm)\s+install(?:\s|$)/.test(text)) return INSTALL_MESSAGE;
+	return undefined;
 }
 
 /** verify, check, and the full test scripts. Their logs are the cache. A tail pipe is refused even when wrapped. */

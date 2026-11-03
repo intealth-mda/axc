@@ -49,4 +49,11 @@ ignore:
           and is still affected.
         expires: 2027-01-26T15:00:00.000Z
         created: 2026-10-26T15:16:00.000Z
+  SNYK-JS-FLAT-22148819:
+    - '*':
+        reason: >-
+          No upgrade or patch available. flat through 6.0.1 is still affected.
+          webpack-merge uses it while Docusaurus builds.
+        expires: 2027-02-03T00:00:00.000Z
+        created: 2026-11-03T14:13:00.000Z
 patch: {}

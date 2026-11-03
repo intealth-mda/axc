@@ -429,13 +429,13 @@ describe('Cellix generator', () => {
 					'packages/axc-verification/acceptance-api/src/step-definitions/course-search.steps.ts',
 					'apps/api/src/index.ts',
 					'apps/docs/',
-					'packages/axc/domain/src/',
-					'packages/axc/data-sources-mongoose-models/src/',
 					'.agents/skills/cellix-architecture/',
-					'packages/axc-verification/acceptance-api/src/',
 					'packages/axc/persistence/src/datasources/domain/course/course/course.domain-adapter.ts',
 				]),
 			);
+			expect(session?.read).not.toContain('packages/axc/domain/src/');
+			expect(session?.read).not.toContain('packages/axc/data-sources-mongoose-models/src/');
+			expect(session?.read).not.toContain('packages/axc-verification/acceptance-api/src/');
 			expect(session?.read?.some((entry) => entry.endsWith('package.json'))).toBe(false);
 		} finally {
 			if (previous === undefined) delete process.env.CELLIX_AGENT_ID;
@@ -631,6 +631,7 @@ describe('Cellix generator', () => {
 		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'create', fields: [parseField('title:string')], route: 'courses', transport: 'rest' });
 		const rest = await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8');
 		expect(rest).toContain("app.post('/api/courses'");
+		expect(await readFile(path.join(root, 'packages/axc-verification/acceptance-api/src/step-definitions/course-create.steps.ts'), 'utf8')).toContain("PostRequest.to('/api/courses')");
 		expect(rest).toContain('applicationServices.Course.Course.create(await c.req.json())');
 		const api = await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8');
 		expect(api).toContain("methods: ['POST']");
@@ -648,6 +649,7 @@ describe('Cellix generator', () => {
 		});
 		const updated = await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8');
 		expect(updated).toContain("app.patch('/api/courses/:id/status'");
+		expect(await readFile(path.join(root, 'packages/axc-verification/acceptance-api/src/step-definitions/course-publish.steps.ts'), 'utf8')).toContain("PatchRequest.to('/api/courses/:id/status')");
 		expect(updated).toContain("id: c.req.param('id') ?? ''");
 		expect(await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8')).toContain("methods: ['PATCH']");
 	});
