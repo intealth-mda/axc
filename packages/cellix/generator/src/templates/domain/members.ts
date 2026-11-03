@@ -12,7 +12,7 @@ export function scalarMembers(field: ShapeField, permission: string): string {
 
 export function nestedMembers(item: ShapeNested, permission: string): string {
 	if (item.kind === 'entity') {
-		return `\tget ${item.camel}(): ${item.pascal}EntityReference {\n\t\treturn new ${item.pascal}(this.props.${item.camel}, this.visa);\n\t}\n\tset ${item.camel}(${item.camel}: ${item.pascal}Props) {\n\t\t${setterGuard(permission, item.camel)}\n\t\tthis.props.${item.camel} = ${item.camel};\n\t}`;
+		return `\tget ${item.camel}(): ReadonlyArray<${item.pascal}EntityReference> {\n\t\treturn this.props.${item.camel}.items.map((entry) => new ${item.pascal}(entry, this.visa));\n\t}`;
 	}
 	return `\tget ${item.camel}(): ${item.pascal}Props {\n\t\treturn this.props.${item.camel};\n\t}\n\tset ${item.camel}(${item.camel}: ${item.pascal}Props) {\n\t\t${setterGuard(permission, item.camel)}\n\t\tthis.props.${item.camel} = ${valueCopy(item, item.camel)};\n\t}`;
 }
@@ -23,7 +23,7 @@ export function createdMembers(): string {
 
 export function entityReference(entityPascal: string, nests: ShapeNested[]): string {
 	const keys = nests.map((item) => `'${item.camel}'`).join(' | ');
-	const lines = nests.map((item) => `\treadonly ${item.camel}: ${item.pascal}EntityReference;`).join('\n');
+	const lines = nests.map((item) => `\treadonly ${item.camel}: ReadonlyArray<${item.pascal}EntityReference>;`).join('\n');
 	return `export interface ${entityPascal}EntityReference extends Readonly<Omit<${entityPascal}Props, ${keys}>> {\n${lines}\n}`;
 }
 

@@ -19,7 +19,7 @@ export async function writeNewFiles(options: GenerateFeatureOptions, files: Gene
 		}
 		writes.push(file);
 	}
-	if (collisions.length > 0) throw new Error(`Refusing to overwrite:\n${collisions.join('\n')}`);
+	if (collisions.length > 0 && writes.length === 0) throw new Error(`Refusing to overwrite:\n${collisions.join('\n')}`);
 	for (const file of writes) {
 		assertInsideLayers(file.path, options);
 		await mkdir(path.dirname(file.path), { recursive: true });

@@ -12,7 +12,8 @@ export function nestedEntity(item: ShapeNested, context: string, permission: str
 		...item.fields.filter((member): member is ShapeField => !isShapeNested(member)).map((field) => scalarMembers(field, permission)),
 		...item.fields.filter(isShapeNested).map((child) => nestedMembers(child, permission)),
 	].join('\n\n');
-	return `import { DomainEntity, type DomainEntityProps, PermissionError } from '@cellix/domain-seedwork/domain-entity';
+	const propArrayImport = childEntities.length > 0 ? "import type { PropArray } from '@cellix/domain-seedwork/prop-array';\n" : '';
+	return `${propArrayImport}import { DomainEntity, type DomainEntityProps, PermissionError } from '@cellix/domain-seedwork/domain-entity';
 import type { ${visa} } from '../${context}.visa.ts';
 ${imports}
 

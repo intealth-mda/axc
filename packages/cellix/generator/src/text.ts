@@ -1,12 +1,25 @@
 import { isShapeNested, type ShapeField, type ShapeMember, type ShapeNested } from './shape.ts';
 import type { FieldSpec } from './spec.ts';
 
+const PASSTHROUGH = new Set(['null', 'undefined', 'object', 'unknown', 'any', 'void', 'never', 'bigint', 'symbol']);
+
 export function tsType(type: string): string {
-	if (type === 'boolean') return 'boolean';
-	if (type === 'date') return 'Date';
-	if (type === 'number') return 'number';
-	if (type === 'string' || type === 'id') return 'string';
-	return type;
+	const trimmed = type.trim();
+	if (trimmed === 'boolean') return 'boolean';
+	if (trimmed === 'date') return 'Date';
+	if (trimmed === 'number') return 'number';
+	if (trimmed === 'string' || trimmed === 'id') return 'string';
+	if (PASSTHROUGH.has(trimmed)) return trimmed;
+	if (trimmed.endsWith('[]')) return `${tsType(trimmed.slice(0, -2))}[]`;
+	if (trimmed.includes('|')) {
+		return trimmed
+			.split('|')
+			.map((part) => tsType(part))
+			.join(' | ');
+	}
+	if (/^'[^']*'$/.test(trimmed) || /^"[^"]*"$/.test(trimmed)) return trimmed;
+	if (/^[a-z][A-Za-z0-9]*$/.test(trimmed)) return `'${trimmed}'`;
+	return trimmed;
 }
 
 export function mongooseField(field: ShapeField): string {
@@ -27,7 +40,7 @@ export function gqlType(type: string): string {
 	return 'String!';
 }
 
-export function serviceResult(input: { result?: string | undefined; operation?: 'query' | 'update' | undefined; kind: ActionKind; actionCamel: string; reference: string }): string {
+export function serviceResult(input: { result?: string | undefined; operation?: 'query' | 'update' | 'extend' | undefined; kind: ActionKind; actionCamel: string; reference: string }): string {
 	if (input.result) return input.result;
 	if (input.operation === 'query' || input.kind === 'read') {
 		if (input.operation !== 'query' && /^get(?:[A-Z]|$)/.test(input.actionCamel)) return `${input.reference} | null`;
@@ -46,8 +59,12 @@ export function namespacePath(contextPascal: string, entityPascal: string): stri
 	return `${contextPascal}.${entityPascal}.${entityPascal}`;
 }
 
+export function nestedPropType(item: ShapeNested): string {
+	return item.kind === 'entity' ? `PropArray<${item.pascal}Props>` : `${item.pascal}Props`;
+}
+
 export function propLines(members: ShapeMember[]): string {
-	return members.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${member.pascal}Props;` : `\t${member.name}: ${tsType(member.type)};`)).join('\n');
+	return members.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${nestedPropType(member)};` : `\t${member.name}: ${tsType(member.type)};`)).join('\n');
 }
 
 export function structuralType(item: ShapeNested): string {
@@ -75,18 +92,43 @@ export function assertOperationName(actionCamel: string, operation: 'query' | 'u
 }
 
 export function paramShape(params: FieldSpec[]): { fields: ShapeField[]; nested: ShapeNested[] } {
-	return { fields: params.map((field) => ({ name: field.name, pascal: field.name, type: field.type === 'id' ? 'string' : field.type })), nested: [] };
+	return {
+		fields: mergeParams(params).map((field) => ({
+			name: field.name,
+			pascal: field.name,
+			type: field.type === 'id' ? 'string' : field.type,
+			...(field.optional ? { optional: true } : {}),
+		})),
+		nested: [],
+	};
+}
+
+export function mergeParams(params: FieldSpec[]): FieldSpec[] {
+	const merged: FieldSpec[] = [];
+	for (const field of params) {
+		const existing = merged.find((item) => item.name === field.name);
+		if (!existing) {
+			merged.push({ name: field.name, type: field.type, ...(field.optional ? { optional: true } : {}) });
+			continue;
+		}
+		if (field.optional) existing.optional = true;
+		if (existing.type === field.type) continue;
+		existing.type = `${existing.type}|${field.type}`;
+	}
+	return merged;
+}
+
+function commandLine(field: ShapeField, optional: boolean): string {
+	return `${field.name}${optional || field.optional ? '?' : ''}: ${tsType(field.type)};`;
 }
 
 export function commandFields(shape: { fields: ShapeField[]; nested: ShapeNested[] }, kind: ActionKind): string {
-	const lines = (optional: boolean) => [
-		...shape.fields.map((field) => `${field.name}${optional ? '?' : ''}: ${tsType(field.type)};`),
-		...shape.nested.map((item) => `${item.camel}${optional ? '?' : ''}: ${structuralType(item)};`),
-	];
+	const nested = shape.nested.filter((item) => item.kind !== 'entity');
+	const lines = (optional: boolean) => [...shape.fields.map((field) => commandLine(field, optional)), ...nested.map((item) => `${item.camel}${optional ? '?' : ''}: ${structuralType(item)};`)];
 	if (kind === 'read') return (lines(true).length > 0 ? lines(true) : ['id: string;']).join('\n\t');
 	if (kind === 'update') {
 		const extras = shape.fields.filter((field) => field.name !== 'id');
-		return ['id: string;', ...extras.map((field) => `${field.name}: ${tsType(field.type)};`), ...shape.nested.map((item) => `${item.camel}: ${structuralType(item)};`)].join('\n\t');
+		return ['id: string;', ...extras.map((field) => commandLine(field, false)), ...nested.map((item) => `${item.camel}: ${structuralType(item)};`)].join('\n\t');
 	}
 	return lines(false).join('\n\t');
 }
@@ -97,7 +139,7 @@ export function azureRoute(route: string): string {
 }
 
 /** A query defaults to get. A write defaults to post. `--method` wins. */
-export function httpMethod(input: { method?: string | undefined; operation?: 'query' | 'update' | undefined; kind: ActionKind }): string {
+export function httpMethod(input: { method?: string | undefined; operation?: 'query' | 'update' | 'extend' | undefined; kind: ActionKind }): string {
 	if (input.method) return input.method;
 	if (input.operation === 'query' || input.kind === 'read') return 'get';
 	return 'post';
@@ -122,7 +164,7 @@ export function httpReadArgument(shape: { fields: ShapeField[]; nested: ShapeNes
 			.filter((name) => !shape.fields.some((field) => field.name === name))
 			.map((name) => `${name}: c.req.param('${name}') ?? ''`),
 		...shape.fields.map((field) => (pathParams.has(field.name) ? `${field.name}: c.req.param('${field.name}') ?? ''` : httpSpread(field))),
-		...shape.nested.map((item) => `${item.camel}: {} as ${structuralType(item)}`),
+		...shape.nested.filter((item) => item.kind !== 'entity').map((item) => `${item.camel}: {} as ${structuralType(item)}`),
 	];
 	if (parts.length === 0) return "{ id: c.req.query('id') ?? '' }";
 	return `{ ${parts.join(', ')} }`;

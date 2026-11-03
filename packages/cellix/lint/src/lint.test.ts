@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { checkAcceptanceShape } from './acceptance.ts';
 import { checkCellixLint } from './check.js';
 
 const roots: string[] = [];
@@ -333,6 +334,19 @@ export function createRestApp(applicationServicesFactory: ApplicationServicesFac
 		});
 		const text = (await checkCellixLint({ root })).join('\n');
 		expect(text).not.toContain('cellix/transport-no-catalog');
+	});
+
+	it('rejects a step phrase defined in two files', async () => {
+		const root = await scaffold({
+			'packages/axc-verification/acceptance-api/src/features/one.feature': 'Feature: One\n\n  Scenario: one\n    When the client requests the row\n    Then the row responds with status 200\n',
+			'packages/axc-verification/acceptance-api/src/features/two.feature': 'Feature: Two\n\n  Scenario: two\n    When the client requests the row\n    Then the row responds with status 200\n',
+			'packages/axc-verification/acceptance-api/src/step-definitions/one.steps.ts':
+				"When('the client requests the row', () => undefined);\nThen('the row responds with status 200', () => undefined);\nGetRequest.to('/api/one');\nLastResponse.body();\n",
+			'packages/axc-verification/acceptance-api/src/step-definitions/two.steps.ts': "When('the client requests the row', () => undefined);\nGetRequest.to('/api/two');\nLastResponse.body();\n",
+		});
+		const text = (await checkAcceptanceShape(root, 'packages/axc-verification/acceptance-api/src')).join('\n');
+		expect(text).toContain('repeats a step defined in');
+		expect(text).toContain('the client requests the row');
 	});
 });
 

@@ -4,16 +4,33 @@
 import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { agentIdFromEnv, decideRead, ensureStartupSession, loadSession, policyFromConfig } from '../../packages/cellix/guardrails/src/index.mjs';
-import { broadGlobReason, closedReferenceInText, commandCap, heavyCommandReason, installReason, logNames, noteRepeat, OPEN_ROOTS, repeatMessage, wideShellReason } from '../../scripts/check-budget.mjs';
+import {
+	broadGlobReason,
+	closedReferenceInText,
+	commandCap,
+	heavyCommandReason,
+	installReason,
+	logNames,
+	noteRepeat,
+	OPEN_ROOTS,
+	packageUpdateReason,
+	repeatMessage,
+	shellPipeReason,
+	wideShellReason,
+} from '../../scripts/check-budget.mjs';
 import { factoryEnabled } from './factory.mjs';
 
 try {
 	const input = await readPayload();
 	const command = shellCommand(input);
+	const packageUpdate = command === undefined ? undefined : packageUpdateReason(command);
+	const shellPipe = command === undefined ? undefined : shellPipeReason(command);
 	const install = command === undefined ? undefined : installReason(command);
 	const heavy = command === undefined ? undefined : heavyCommandReason(command);
 	const wide = command === undefined ? undefined : wideShellReason(command);
-	if (install !== undefined) deny(install, input.hook_event_name);
+	if (packageUpdate !== undefined) deny(packageUpdate, input.hook_event_name);
+	else if (shellPipe !== undefined) deny(shellPipe, input.hook_event_name);
+	else if (install !== undefined) deny(install, input.hook_event_name);
 	else if (heavy !== undefined) deny(heavy, input.hook_event_name);
 	else if (wide !== undefined) deny(wide, input.hook_event_name);
 	else {

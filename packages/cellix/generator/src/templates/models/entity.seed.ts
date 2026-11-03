@@ -1,5 +1,6 @@
 import { camel } from '../../names.ts';
 import { isShapeNested, type Shape, type ShapeField, type ShapeNested } from '../../shape.ts';
+import { tsType } from '../../text.ts';
 
 export function seed(entity: string, entityPascal: string, shape: Shape): string {
 	const seedName = `${camel(entity)}Seed`;
@@ -24,9 +25,18 @@ function seedEntries(shape: Shape): [string, string][] {
 	return [...entries];
 }
 
+export function seedScalar(field: ShapeField): string {
+	return sampleScalar(field);
+}
+
+export function seedNested(item: ShapeNested): string {
+	return sampleNested(item);
+}
+
 function sampleNested(item: ShapeNested): string {
 	const parts = item.fields.map((member) => (isShapeNested(member) ? `${member.camel}: ${sampleNested(member)}` : `${member.name}: ${sampleScalar(member)}`));
-	return `{ ${parts.join(', ')} }`;
+	const object = `{ ${parts.join(', ')} }`;
+	return item.kind === 'entity' ? `[${object}]` : object;
 }
 
 function sampleScalar(field: ShapeField): string {
@@ -34,7 +44,10 @@ function sampleScalar(field: ShapeField): string {
 	if (field.type === 'date') return "new Date('2024-01-01T00:00:00.000Z')";
 	if (field.type === 'number') return '1';
 	if (field.type.endsWith('[]')) return `['Example ${field.name}']`;
-	const quoted = field.type.split('|').find((part) => /^'[^']+'$/.test(part.trim()));
-	if (quoted) return quoted.trim();
+	const quoted = field.type
+		.split('|')
+		.map((part) => tsType(part.trim()))
+		.find((part) => /^'[^']*'$/.test(part));
+	if (quoted) return quoted;
 	return `'Example ${field.name}'`;
 }

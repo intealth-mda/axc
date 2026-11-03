@@ -33,7 +33,39 @@ export async function checkAcceptanceShape(root: string, acceptance: string): Pr
 			violations.push(`${stepsRelative} keeps a document array. Read the row from the database through the running application.`);
 		}
 	}
+	violations.push(...(await duplicateStepPhrases(root, stepsRoot)));
 	return violations;
+}
+
+/** Cucumber rejects the run when two files define one phrase. The check names both files. */
+async function duplicateStepPhrases(root: string, stepsRoot: string): Promise<string[]> {
+	const files = await walk(path.join(root, stepsRoot), '.steps.ts');
+	const seen = new Map<string, string>();
+	const violations: string[] = [];
+	for (const file of files) {
+		const relative = toPosix(path.relative(root, file));
+		const text = await readFile(file, 'utf8');
+		for (const phrase of stepPhrases(text)) {
+			const prior = seen.get(phrase);
+			if (prior === undefined) {
+				seen.set(phrase, relative);
+				continue;
+			}
+			if (prior === relative) continue;
+			violations.push(`${relative} repeats a step defined in ${prior}. A step phrase belongs to one file. Add the scenario to that feature, or use a different phrase. Found: ${phrase}`);
+			seen.set(phrase, relative);
+		}
+	}
+	return violations;
+}
+
+function stepPhrases(text: string): string[] {
+	const phrases: string[] = [];
+	for (const match of text.matchAll(/\b(?:Given|When|Then)\(\s*(['"`])([\s\S]*?)\1/g)) {
+		const phrase = (match[2] ?? '').replace(/\s+/g, ' ').trim();
+		if (phrase.length > 0) phrases.push(phrase);
+	}
+	return phrases;
 }
 
 /** An array of objects is a catalog. A list of strings is not. */

@@ -3,12 +3,15 @@ import { mongooseField, tsType } from '../../text.ts';
 
 export function model(entityPascal: string, shape: Shape): string {
 	const nestedTypes = modelInterfaces(entityPascal, shape.nested);
-	const fields = [...shape.fields.map((field) => `\t${field.name}: ${tsType(field.type)};`), ...shape.nested.map((item) => `\t${item.camel}: ${entityPascal}${item.pascal};`)].join('\n');
-	const schemaFields = [...shape.fields.map((field) => `\t\t${field.name}: ${mongooseField(field)},`), ...shape.nested.map((item) => `\t\t${item.camel}: {\n${mongooseMembers(item, '\t\t')}\n\t\t},`)].join('\n');
+	const schemas = nestedSchemaConsts(entityPascal, shape.nested);
+	const fields = [...shape.fields.map((field) => `\t${field.name}: ${tsType(field.type)};`), ...shape.nested.map((item) => `\t${modelField(entityPascal, item)};`)].join('\n');
+	const schemaFields = [...shape.fields.map((field) => `\t\t${field.name}: ${mongooseField(field)},`), ...shape.nested.map((item) => modelSchemaField(entityPascal, item))].join('\n');
+	const mongooseImport = containsEntity(shape.nested) ? "import { type Model, Schema, Types } from 'mongoose';" : "import { type Model, Schema } from 'mongoose';";
+	const schemaBlock = schemas.length > 0 ? `${schemas}\n\n` : '';
 	return `import { MongooseSeedwork } from '@cellix/mongoose-seedwork';
-import { type Model, Schema } from 'mongoose';
+${mongooseImport}
 
-${nestedTypes}export interface ${entityPascal} extends MongooseSeedwork.Base {
+${nestedTypes}${schemaBlock}export interface ${entityPascal} extends MongooseSeedwork.Base {
 ${fields}
 }
 
@@ -26,11 +29,37 @@ export type ${entityPascal}ModelType = ReturnType<typeof ${entityPascal}ModelFac
 `;
 }
 
-function modelInterfaces(prefix: string, items: ShapeNested[]): string {
+export function modelField(prefix: string, item: ShapeNested): string {
+	return item.kind === 'entity' ? `${item.camel}: Types.DocumentArray<${prefix}${item.pascal}>` : `${item.camel}: ${prefix}${item.pascal}`;
+}
+
+export function modelSchemaField(prefix: string, item: ShapeNested): string {
+	if (item.kind === 'entity') return `\t\t${item.camel}: [${prefix}${item.pascal}Schema],`;
+	return `\t\t${item.camel}: {\n${mongooseMembers(item, '\t\t', prefix)}\n\t\t},`;
+}
+
+export function nestedSchemaConsts(prefix: string, items: ShapeNested[]): string {
+	const chunks: string[] = [];
+	const walk = (list: ShapeNested[]) => {
+		for (const item of list) {
+			walk(item.fields.filter(isShapeNested));
+			if (item.kind !== 'entity') continue;
+			chunks.push(`const ${prefix}${item.pascal}Schema = new Schema(\n\t{\n${mongooseMembers(item, '\t', prefix)}\n\t},\n\t{ timestamps: true, versionKey: 'version' },\n);`);
+		}
+	};
+	walk(items);
+	return chunks.join('\n\n');
+}
+
+export function modelInterfaces(prefix: string, items: ShapeNested[]): string {
 	const text = items
 		.flatMap((item) => {
-			const lines = item.fields.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${prefix}${member.pascal};` : `\t${member.name}: ${tsType(member.type)};`));
-			const self = `export interface ${prefix}${item.pascal} {\n${lines.join('\n')}\n}`;
+			const lines = item.fields.map((member) => {
+				if (!isShapeNested(member)) return `\t${member.name}: ${tsType(member.type)};`;
+				return `\t${modelField(prefix, member)};`;
+			});
+			const base = item.kind === 'entity' ? ' extends MongooseSeedwork.SubdocumentBase' : '';
+			const self = `export interface ${prefix}${item.pascal}${base} {\n${lines.join('\n')}\n}`;
 			return [modelInterfaces(prefix, item.fields.filter(isShapeNested)), self];
 		})
 		.filter((part) => part.length > 0)
@@ -38,11 +67,18 @@ function modelInterfaces(prefix: string, items: ShapeNested[]): string {
 	return text.length > 0 ? `${text}\n` : '';
 }
 
-function mongooseMembers(item: ShapeNested, indent: string): string {
+function mongooseMembers(item: ShapeNested, indent: string, prefix = ''): string {
 	return item.fields
 		.map((member) => {
-			if (isShapeNested(member)) return `${indent}\t${member.camel}: {\n${mongooseMembers(member, `${indent}\t`)}\n${indent}\t},`;
+			if (isShapeNested(member)) {
+				if (member.kind === 'entity') return `${indent}\t${member.camel}: [${prefix}${member.pascal}Schema],`;
+				return `${indent}\t${member.camel}: {\n${mongooseMembers(member, `${indent}\t`, prefix)}\n${indent}\t},`;
+			}
 			return `${indent}\t${member.name}: ${mongooseField(member)},`;
 		})
 		.join('\n');
+}
+
+function containsEntity(items: ShapeNested[]): boolean {
+	return items.some((item) => item.kind === 'entity' || containsEntity(item.fields.filter(isShapeNested)));
 }

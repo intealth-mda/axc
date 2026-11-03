@@ -10,7 +10,7 @@ import { mergeFields, parseArgv, parseField, parseFieldsFile, parseNested, parse
 
 const argv = process.argv.slice(2);
 const head = argv[0];
-const operation = head === 'query' || head === 'update' ? head : undefined;
+const operation = head === 'query' || head === 'update' || head === 'extend' ? head : undefined;
 const args = parseArgv(operation ? argv.slice(1) : argv);
 const root = await findCellixRoot(process.cwd());
 const lint = await loadGenerateLayout(root);
@@ -30,17 +30,29 @@ if (argv.includes('--help') || argv.includes('-h')) {
 	console.log('pnpm --filter @cellix/generator generate -- --context <context> --subdomain <subdomain> --field <field>:<type>');
 	console.log('pnpm --filter @cellix/generator query -- --context <context> --subdomain <subdomain> --name <name> --param <param>:<type> --route <route> --transport rest');
 	console.log('pnpm --filter @cellix/generator query -- --context <context> --subdomain <subdomain> --name <name> --param <param>:<type> --transport graphql');
+	console.log('pnpm --filter @cellix/generator extend -- --context <context> --subdomain <subdomain> --field <field>:<type> --nested <name>:<field>:<type>');
+	console.log('pnpm --filter @cellix/generator extend -- --context <context> --subdomain <subdomain> --name <name> --param <param>:<type>');
 	process.exit(0);
 }
 if (operation === 'query' && (fields.length > 0 || nested.length > 0 || permissions.length > 0 || fieldsFile !== undefined)) {
 	throw new Error('Pass --field on generate, not on query.');
 }
-if (operation && transport !== 'rest' && transport !== 'graphql') throw new Error('Pass --transport rest or --transport graphql.');
-if (operation && transport === 'rest' && route === undefined) throw new Error('Pass --route for rest.');
+if (operation === 'extend' && (transport !== undefined || route !== undefined || method !== undefined)) {
+	throw new Error('extend adds fields, nested objects, or parameters. Leave --route and --transport off.');
+}
+const extendName = operation === 'extend' ? (args.get('name') ?? args.get('action')) : undefined;
+if (operation === 'extend' && extendName && (fields.length > 0 || nested.length > 0)) {
+	throw new Error('extend --name adds --param values to that query or update. Leave --field and --nested off.');
+}
+if (operation === 'extend' && extendName && params.length === 0) throw new Error('Pass --param.');
+if (operation === 'extend' && !extendName && params.length > 0) throw new Error('Pass --name with --param.');
+if (operation === 'extend' && !extendName && fields.length === 0 && nested.length === 0) throw new Error('Pass --field or --nested.');
+if (operation && operation !== 'extend' && transport !== 'rest' && transport !== 'graphql') throw new Error('Pass --transport rest or --transport graphql.');
+if (operation && operation !== 'extend' && transport === 'rest' && route === undefined) throw new Error('Pass --route for rest.');
 if (method !== undefined && method !== 'get' && method !== 'post' && method !== 'patch' && method !== 'put' && method !== 'delete') {
 	throw new Error(`Method must be get, post, patch, put, or delete, received ${method}`);
 }
-const action = operation ? required(args, 'name') : args.get('action');
+const action = operation === 'extend' ? extendName : operation ? required(args, 'name') : args.get('action');
 const carryShape = operation !== 'query';
 const feature: GenerateFeatureOptions = {
 	root,
@@ -48,7 +60,8 @@ const feature: GenerateFeatureOptions = {
 	context: required(args),
 	entity: required(args, 'subdomain'),
 	...(action ? { action } : {}),
-	...(operation ? { operation, params } : {}),
+	...(operation === 'extend' ? { operation, ...(params.length > 0 ? { params } : {}) } : {}),
+	...(operation && operation !== 'extend' ? { operation, params } : {}),
 	...(transport === 'rest' || transport === 'graphql' ? { transport } : {}),
 	...(carryShape && fields.length > 0 ? { fields } : {}),
 	...(carryShape && permissions.length > 0 ? { permissions } : {}),

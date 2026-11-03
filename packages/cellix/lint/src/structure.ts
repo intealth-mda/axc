@@ -242,7 +242,15 @@ function checkValueObjects(file: string, content: string): string[] {
 		}
 	}
 	const pascal = kebabToPascal(path.basename(file, '.value-objects.ts'));
-	violations.push(...rejectUnexpectedTypes(file, content, new Set([`${pascal}Props`]), 'cellix/value-object-types'));
+	violations.push(
+		...rejectUnexpectedTypes(
+			file,
+			content,
+			new Set([`${pascal}Props`]),
+			'cellix/value-object-types',
+			`only ${pascal}Props. A nested object is its own file. Pass --nested name:field:type on generate. Do not add another type to this file.`,
+		),
+	);
 	return violations;
 }
 
@@ -689,7 +697,15 @@ function checkModels(files: string[], domainFiles: string[]): string[] {
 		if (!new RegExp(`export\\s+interface\\s+${pascal}\\b`).test(content)) {
 			violations.push(report(file, 'cellix/model-types', `missing interface ${pascal}`, `export interface ${pascal} extends MongooseSeedwork.Base. The document type is the entity`));
 		}
-		violations.push(...rejectUnexpectedTypes(file, content, modelTypeNames(pascal, content), 'cellix/model-types'));
+		violations.push(
+			...rejectUnexpectedTypes(
+				file,
+				content,
+				modelTypeNames(pascal, content),
+				'cellix/model-types',
+				`only ${pascal} and ${pascal}ModelType, or a type that starts with ${pascal}, is used as a field type, and is not a Document, Props, or Command`,
+			),
+		);
 		violations.push(...banTopLevelFunctions(file, content, 'cellix/model-no-helper'));
 	}
 
@@ -981,7 +997,9 @@ function banHelperFile(file: string): string[] {
 function banTopLevelFunctions(file: string, content: string, rule: string): string[] {
 	const names = [...content.matchAll(/^(?:export\s+)?(?:async\s+)?function\s+(\w+)/gm)].map((match) => match[1]);
 	if (names.length === 0) return [];
-	return [report(file, rule, names.join(', '), 'no top-level functions. Behavior belongs on the role class, the action const, or the unit-of-work factory')];
+	const expected =
+		rule === 'cellix/application-action-no-helper' ? 'no function keyword. A local helper is an unexported arrow const' : 'no top-level functions. Behavior belongs on the role class, the action const, or the unit-of-work factory';
+	return [report(file, rule, names.join(', '), expected)];
 }
 
 function banExecutable(file: string, content: string, rule: string, expected: string): string[] {
@@ -1024,11 +1042,11 @@ function declaredTypes(content: string): string[] {
 	return names;
 }
 
-function rejectUnexpectedTypes(file: string, content: string, allowed: ReadonlySet<string>, rule: string): string[] {
+function rejectUnexpectedTypes(file: string, content: string, allowed: ReadonlySet<string>, rule: string, expectedText?: string): string[] {
 	const violations: string[] = [];
 	for (const name of declaredTypes(content)) {
 		if (allowed.has(name)) continue;
-		const expected = allowed.size === 0 ? 'no local type. Refer to the entity type' : `only ${[...allowed].join(', ')}`;
+		const expected = expectedText ?? (allowed.size === 0 ? 'no local type. Refer to the entity type' : `only ${[...allowed].join(', ')}`);
 		violations.push(report(file, rule, name, /Document$/.test(name) ? `the entity type. ${name} is a stub` : expected));
 	}
 	return violations;
@@ -1038,7 +1056,7 @@ function modelTypeNames(entityName: string, content: string): Set<string> {
 	const allowed = new Set<string>([entityName, `${entityName}ModelType`]);
 	for (const name of declaredTypes(content)) {
 		if (allowed.has(name) || !name.startsWith(entityName) || /Document$|Props$|EntityReference$|Command$|ModelType$|Model$/.test(name)) continue;
-		if (new RegExp(`:\\s*${name}\\b`).test(content)) allowed.add(name);
+		if (new RegExp(`:\\s*(?:[\\w.]+<)?${name}\\b`).test(content)) allowed.add(name);
 	}
 	return allowed;
 }

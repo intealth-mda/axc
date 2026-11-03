@@ -174,7 +174,7 @@ function checkActionContent(file: string, content: string, scope: string): strin
 		violations.push(report(file, 'cellix/content-action-console', 'console call', 'throw an Error or return a result. Logging stays outside the action'));
 	}
 	if (/\bfunction\b/.test(content)) {
-		violations.push(report(file, 'cellix/content-action-function', 'function declaration', 'export const <action> = (dataSources: DataSources) => { return async (command: <Command>): Promise<...> => { ... } }'));
+		violations.push(report(file, 'cellix/content-action-function', 'function keyword', 'no function keyword. A local helper is an unexported arrow const. The file exports one Command and one action const'));
 	}
 	const commands = [...content.matchAll(/export\s+(?:interface|type)\s+(\w*Command)\b/g)].map((match) => match[1] ?? '');
 	if (commands.length !== 1) {

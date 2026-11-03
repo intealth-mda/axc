@@ -3,6 +3,8 @@ export type FieldType = string;
 export interface FieldSpec {
 	name: string;
 	type: FieldType;
+	/** `name?:type` may be omitted. A query parameter is optional either way. */
+	optional?: boolean;
 }
 
 export type NestedMember = FieldSpec | NestedSpec;
@@ -75,9 +77,10 @@ export function mergeFields(fields: FieldSpec[]): FieldSpec[] {
 	for (const field of fields) {
 		const existing = merged.find((item) => item.name === field.name);
 		if (!existing) {
-			merged.push({ name: field.name, type: field.type });
+			merged.push({ name: field.name, type: field.type, ...(field.optional ? { optional: true } : {}) });
 			continue;
 		}
+		if (field.optional) existing.optional = true;
 		if (existing.type === field.type) continue;
 		existing.type = `${existing.type}|${field.type}`;
 	}
@@ -137,11 +140,14 @@ function readField(token: string): FieldSpec {
 	if (separator <= 0 || separator === token.length - 1) {
 		throw new Error(`Field must be name:type, received ${token}`);
 	}
-	const name = camel(token.slice(0, separator));
+	let rawName = token.slice(0, separator);
+	const optional = rawName.endsWith('?');
+	if (optional) rawName = rawName.slice(0, -1);
+	const name = camel(rawName);
 	const type = token.slice(separator + 1);
 	if (!CAMEL.test(name) && name !== 'id') throw new Error(`Field name must be camelCase, received ${token}`);
 	if (!FIELD_TYPES.has(type) && !PASSED_TYPE.test(type)) throw new Error(`Field type must be a type name, received ${token}`);
-	return { name, type };
+	return { name, type, ...(optional ? { optional: true } : {}) };
 }
 
 function parseNestedValue(entry: unknown): NestedSpec {

@@ -14,7 +14,8 @@ export function action(input: {
 }): string {
 	const { actionCamel, command, contextPascal, entityPascal, kind, result, scope, shape } = input;
 	const commandSource = input.commandShape ?? shape;
-	const inputLiteral = [...shape.fields.map((field) => `${field.name}: command.${field.name}`), ...shape.nested.map((item) => `${item.camel}: command.${item.camel}`)].join(', ');
+	const owned = shape.nested.filter((item) => item.kind !== 'entity');
+	const inputLiteral = [...shape.fields.map((field) => `${field.name}: command.${field.name}`), ...owned.map((item) => `${item.camel}: command.${item.camel}`)].join(', ');
 	const domainPath = namespacePath(contextPascal, entityPascal);
 	const reference = `Domain.Contexts.${domainPath}EntityReference`;
 	const transaction = `dataSources.domainDataSource.${domainPath}UnitOfWork.withScopedTransaction`;

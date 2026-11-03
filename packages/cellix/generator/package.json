@@ -17,6 +17,7 @@
 		"generate": "tsx src/cli.ts",
 		"query": "tsx src/cli.ts query",
 		"update": "tsx src/cli.ts update",
+		"extend": "tsx src/cli.ts extend",
 		"lint": "biome lint",
 		"prebuild": "biome lint",
 		"build": "tsgo --build",

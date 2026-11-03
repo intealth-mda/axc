@@ -4,7 +4,8 @@ import { namespacePath, structuralType, tsType } from '../../text.ts';
 export function persistenceRepository(input: { entity: string; entityPascal: string; contextPascal: string; scope: string; shape: Shape }): string {
 	const { entity, entityPascal, contextPascal, scope, shape } = input;
 	const domainPath = namespacePath(contextPascal, entityPascal);
-	const inputType = `{ ${[...shape.fields.map((field) => `${field.name}: ${tsType(field.type)}`), ...shape.nested.map((item) => `${item.camel}: ${structuralType(item)}`)].join('; ')} }`;
+	const owned = shape.nested.filter((item) => item.kind !== 'entity');
+	const inputType = `{ ${[...shape.fields.map((field) => `${field.name}: ${tsType(field.type)}`), ...owned.map((item) => `${item.camel}: ${structuralType(item)}`)].join('; ')} }`;
 	return `import type { ${entityPascal} } from '${scope}/data-sources-mongoose-models';
 import { Domain } from '${scope}/domain';
 import { MongooseSeedwork } from '@cellix/mongoose-seedwork';

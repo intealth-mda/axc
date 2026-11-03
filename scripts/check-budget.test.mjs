@@ -170,10 +170,30 @@ describe('the transcript hook', () => {
 		assert.equal(byId.permission, 'allow');
 		const statusRoute = await hookDecision({
 			command:
-				"pnpm --filter @cellix/generator update -- --context enrollment --subdomain enrollment-request --name change-enrollment-request-status --param status:string --route 'enrollment-requests/:id/status' --transport rest",
+				"pnpm --filter @cellix/generator run update -- --context enrollment --subdomain enrollment-request --name change-enrollment-request-status --param status:string --route 'enrollment-requests/:id/status' --transport rest",
 			hook_event_name: 'beforeShellExecution',
 		});
 		assert.equal(statusRoute.permission, 'allow');
+		const updater = await hookDecision({
+			command: 'pnpm --filter @cellix/generator update -- --context enrollment --subdomain enrollment-request --name change-enrollment-request-status',
+			hook_event_name: 'beforeShellExecution',
+		});
+		assert.equal(updater.permission, 'deny');
+		assert.match(updater.user_message ?? '', /rewrites the lockfile/);
+		const added = await hookDecision({ command: 'pnpm --filter @axc/domain add mongoose', hook_event_name: 'beforeShellExecution' });
+		assert.equal(added.permission, 'deny');
+		assert.match(added.user_message ?? '', /already has its dependencies/);
+		const piped = await hookDecision({
+			command: "pnpm --filter @cellix/generator generate -- --field status:'pending'|'approved'",
+			hook_event_name: 'beforeShellExecution',
+		});
+		assert.equal(piped.permission, 'deny');
+		assert.match(piped.user_message ?? '', /shell pipe/);
+		const quoted = await hookDecision({
+			command: "pnpm --filter @cellix/generator generate -- --field \"status:'pending'|'approved'\"",
+			hook_event_name: 'beforeShellExecution',
+		});
+		assert.equal(quoted.permission, 'allow');
 		const revision = await hookDecision({
 			command: 'git show HEAD:packages/axc/rest/src/index.ts',
 			hook_event_name: 'beforeShellExecution',

@@ -19,12 +19,20 @@ export function schema(input: { entityPascal: string; actionPascal: string; acti
 		'\tcreatedAt: DateTime!',
 		'\tupdatedAt: DateTime!',
 		...shape.fields.map((field) => `\t${field.name}: ${gqlFieldType(field)}`),
-		...shape.nested.map((item) => `\t${item.camel}: ${entityPascal}${item.pascal}!`),
+		...shape.nested.map((item) => `\t${item.camel}: ${gqlNestedType(entityPascal, item)}`),
 	].join('\n');
-	const inputFields = [...shape.fields.map((field) => `\t${field.name}: ${gqlFieldType(field)}`), ...shape.nested.map((item) => `\t${item.camel}: ${entityPascal}${item.pascal}Input!`)].join('\n');
+	const inputFields = [
+		...shape.fields.map((field) => `\t${field.name}: ${gqlFieldType(field)}`),
+		...shape.nested.filter((item) => item.kind !== 'entity').map((item) => `\t${item.camel}: ${entityPascal}${item.pascal}Input!`),
+	].join('\n');
 	const typeName = operation === 'Query' ? 'Query' : 'Mutation';
 	const resultFields = operation === 'Query' ? '\tid: ID!' : '\tstatus: MutationStatus!';
 	return `${prefix}type ${entityPascal} {\n${documentFields}\n}\n\ninput ${entityPascal}${actionPascal}Input {\n${inputFields}\n}\n\ntype ${resultName} {\n${resultFields}\n}\n\nextend type ${typeName} {\n\t${fieldName}(input: ${entityPascal}${actionPascal}Input!): ${resultName}!\n}\n`;
+}
+
+function gqlNestedType(entityPascal: string, item: ShapeNested): string {
+	const name = `${entityPascal}${item.pascal}`;
+	return item.kind === 'entity' ? `[${name}!]!` : `${name}!`;
 }
 
 function gqlFieldType(field: { name: string; type: string }): string {
@@ -35,7 +43,7 @@ function gqlFieldType(field: { name: string; type: string }): string {
 function graphqlNestedBlocks(entityPascal: string, items: ShapeNested[]): string {
 	return items
 		.flatMap((item) => {
-			const outputFields = item.fields.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${entityPascal}${member.pascal}!` : `\t${member.name}: ${gqlFieldType(member)}`));
+			const outputFields = item.fields.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${gqlNestedType(entityPascal, member)}` : `\t${member.name}: ${gqlFieldType(member)}`));
 			const inputFields = item.fields.map((member) => (isShapeNested(member) ? `\t${member.camel}: ${entityPascal}${member.pascal}Input!` : `\t${member.name}: ${gqlFieldType(member)}`));
 			const output = `type ${entityPascal}${item.pascal} {\n${outputFields.join('\n')}\n}`;
 			const input = `input ${entityPascal}${item.pascal}Input {\n${inputFields.join('\n')}\n}`;

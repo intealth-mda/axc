@@ -110,12 +110,19 @@ describe('Cellix generator', () => {
 		const aggregate = files.find((file) => file.path.endsWith('staff-user.aggregate.ts'));
 		expect(aggregate?.contents).toContain('displayName: DisplayNameProps');
 		expect(aggregate?.contents).toContain('new DisplayNameValues.Label');
-		expect(aggregate?.contents).toContain('ActivityLogEntityReference');
+		expect(aggregate?.contents).toContain('activityLog: PropArray<ActivityLogProps>');
+		expect(aggregate?.contents).toContain('ReadonlyArray<ActivityLogEntityReference>');
+		expect(aggregate?.contents).not.toContain('set activityLog(');
 		const readonlyIndex = files.find((file) => file.path.endsWith('datasources/readonly/index.ts'));
 		expect(readonlyIndex?.contents).toContain('StaffUserReadRepo: StaffUserReadRepository');
 		expect(readonlyIndex?.contents).toContain('User: {');
 		const adapter = files.find((file) => file.path.endsWith('staff-user.domain-adapter.ts'));
 		expect(adapter?.contents).toContain('Domain.Contexts.User.StaffUser.StaffUser');
+		expect(adapter?.contents).toContain('MongoosePropArray');
+		expect(adapter?.contents).toContain('class ActivityLogDomainAdapter');
+		const model = files.find((file) => file.path.endsWith('staff-user.model.ts'));
+		expect(model?.contents).toContain('activityLog: Types.DocumentArray<StaffUserActivityLog>');
+		expect(model?.contents).toContain('activityLog: [StaffUserActivityLogSchema]');
 		expect(adapter?.contents).not.toContain('Domain.Contexts.StaffUser.StaffUser.StaffUser');
 
 		const violations = await checkCellixLint({ root, lint });
@@ -210,7 +217,7 @@ describe('Cellix generator', () => {
 		const seed = files.find((file) => file.path.endsWith('staff-user.seed.ts'));
 		expect(seed?.contents).toContain('export const staffUserSeed = [');
 		expect(seed?.contents).toContain("label: 'Example label'");
-		expect(seed?.contents).toContain('activityLog: { activityType:');
+		expect(seed?.contents).toContain('activityLog: [{ activityType:');
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
 		expectBiomeClean(files);
 	});
@@ -550,6 +557,97 @@ describe('Cellix generator', () => {
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
 	});
 
+	it('extends an existing subdomain with fields and a nested object', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const lint = defaultGenerateLayout();
+		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'create', fields: [parseField('title:string')] });
+		await expect(generateFeature({ root, lint, context: 'course', entity: 'course', nested: [parseNested('status-history:fromStatus:string,toStatus:string')] })).rejects.toThrow('extend');
+		const added = await generateFeature({
+			root,
+			lint,
+			context: 'course',
+			entity: 'course',
+			operation: 'extend',
+			fields: [parseField('level:string'), parseField('status:pending'), parseField('status:approved')],
+			nested: [parseNested('status-history:fromStatus:string,toStatus:string')],
+		});
+		expect(added.map((file) => file.path).join('\n')).toContain('status-history.value-objects.ts');
+		expect(added.map((file) => file.path).join('\n')).toContain('course.aggregate.ts');
+		const aggregate = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts'), 'utf8');
+		expect(aggregate).toContain('title: string;');
+		expect(aggregate).toContain('level: string;');
+		expect(aggregate).toContain("status: 'pending' | 'approved';");
+		expect(aggregate).toContain('statusHistory: StatusHistoryProps;');
+		expect(aggregate).toContain('newInstance.level = input.level;');
+		expect(aggregate).toContain('newInstance.statusHistory = input.statusHistory;');
+		const nested = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/course/course/status-history.value-objects.ts'), 'utf8');
+		expect(nested).toContain('export interface StatusHistoryProps');
+		const values = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/course/course/course.value-objects.ts'), 'utf8');
+		expect(values).toContain('export class Level ');
+		expect(values).not.toContain('export class Status ');
+		const model = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/models/course/course.model.ts'), 'utf8');
+		expect(model).toContain('export interface CourseStatusHistory');
+		expect(model).toContain('statusHistory: CourseStatusHistory;');
+		const seed = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/models/course/course.seed.ts'), 'utf8');
+		expect(seed).toContain("status: 'pending'");
+		expect(seed).toContain('statusHistory:');
+		const action = await readFile(path.join(root, 'packages/axc/application-services/src/contexts/course/course/create.ts'), 'utf8');
+		expect(action).toContain('level: command.level');
+		expect(action).toContain('statusHistory: command.statusHistory');
+		await expect(
+			generateFeature({
+				root,
+				lint,
+				context: 'course',
+				entity: 'course',
+				operation: 'extend',
+				fields: [parseField('level:string')],
+				nested: [parseNested('status-history:fromStatus:string,toStatus:string')],
+			}),
+		).rejects.toThrow('Nothing to add');
+		const withLog = await generateFeature({
+			root,
+			lint,
+			context: 'course',
+			entity: 'course',
+			operation: 'extend',
+			nested: [parseNested('activity-log:id:id,activityType:string')],
+		});
+		expect(withLog.map((file) => file.path).join('\n')).toContain('activity-log.entity.ts');
+		const withAggregate = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts'), 'utf8');
+		expect(withAggregate).toContain('activityLog: PropArray<ActivityLogProps>');
+		expect(withAggregate).not.toContain('newInstance.activityLog');
+		const withModel = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/models/course/course.model.ts'), 'utf8');
+		expect(withModel).toContain('activityLog: [CourseActivityLogSchema]');
+		const withSeed = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/models/course/course.seed.ts'), 'utf8');
+		expect(withSeed).toContain('activityLog: [{');
+	});
+
+	it('adds a parameter to an existing query or update', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const lint = defaultGenerateLayout();
+		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'create', fields: [parseField('title:string')] });
+		await generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'query', action: 'search', params: [parseParam('q:string')], route: 'course', transport: 'rest' });
+		await generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'update', action: 'change-status', params: [parseParam('id:string')], route: 'course/:id/status', method: 'patch', transport: 'rest' });
+		const search = await generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'extend', action: 'search', params: [parseParam('reason?:string')] });
+		expect(search.map((file) => file.path).join('\n')).toContain('/search.ts');
+		expect(search.map((file) => file.path).join('\n')).not.toContain('course.aggregate.ts');
+		const searchAction = await readFile(path.join(root, 'packages/axc/application-services/src/contexts/course/course/search.ts'), 'utf8');
+		expect(searchAction).toContain('reason?: string;');
+		expect(searchAction).toContain('readonlyDataSource');
+		const readRepo = await readFile(path.join(root, 'packages/axc/persistence/src/datasources/readonly/course/course/course.read-repository.ts'), 'utf8');
+		expect(readRepo).toContain('reason?: string');
+		const change = await generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'extend', action: 'change-status', params: [parseParam('reason?:string')] });
+		expect(change.map((file) => file.path).join('\n')).toContain('/change-status.ts');
+		const changeAction = await readFile(path.join(root, 'packages/axc/application-services/src/contexts/course/course/change-status.ts'), 'utf8');
+		expect(changeAction).toContain('reason?: string;');
+		expect(changeAction).toContain('// assign the command onto current');
+		await expect(generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'extend', action: 'change-status', params: [parseParam('reason?:string')] })).rejects.toThrow('Nothing to add');
+		await expect(generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'extend', action: 'missing', params: [parseParam('reason?:string')] })).rejects.toThrow('query or run update');
+	});
+
 	it('adds another action onto a subdomain that already exists', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
@@ -652,6 +750,26 @@ describe('Cellix generator', () => {
 		expect(await readFile(path.join(root, 'packages/axc-verification/acceptance-api/src/step-definitions/course-publish.steps.ts'), 'utf8')).toContain("PatchRequest.to('/api/courses/:id/status')");
 		expect(updated).toContain("id: c.req.param('id') ?? ''");
 		expect(await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8')).toContain("methods: ['PATCH']");
+	});
+
+	it('quotes bare words and joins repeated params into one union', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const lint = defaultGenerateLayout();
+		await generateFeature({ root, lint, context: 'course', entity: 'course' });
+		await generateFeature({
+			root,
+			lint,
+			context: 'course',
+			entity: 'course',
+			operation: 'update',
+			action: 'publish',
+			params: [parseParam('status:pending'), parseParam('status:approved'), parseParam('status:rejected'), parseParam('status:cancelled')],
+			transport: 'graphql',
+		});
+		const action = await readFile(path.join(root, 'packages/axc/application-services/src/contexts/course/course/publish.ts'), 'utf8');
+		expect(action).toContain("status: 'pending' | 'approved' | 'rejected' | 'cancelled';");
+		expect(action.match(/\bstatus:/g)).toHaveLength(1);
 	});
 
 	it('joins repeated field names into one union', async () => {

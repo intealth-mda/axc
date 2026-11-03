@@ -14,6 +14,13 @@ export const HEAVY_MESSAGE = 'Run that command through pnpm run agent-check so i
 
 export const INSTALL_MESSAGE = 'The generator already installed dependencies. Do not run pnpm install. Do not read node_modules, pnpm-lock.yaml, or package.json.';
 
+export const UPDATE_MESSAGE =
+	'pnpm update rewrites the lockfile. The generator command is pnpm --filter @cellix/generator run update -- --context <context> --subdomain <subdomain> --name <name> --param <param>:<type> --route <route> --method patch --transport rest';
+
+export const LOCKFILE_MESSAGE = 'That pnpm command rewrites the lockfile. A generated slice already has its dependencies. Do not run pnpm add, pnpm remove, or pnpm link.';
+
+export const SHELL_PIPE_MESSAGE = "A | in a generator argument is a shell pipe. Repeat --field or --param with the same name, or wrap the whole argument in double quotes: --field \"status:'pending'|'approved'\"";
+
 export const BROAD_MESSAGE = 'That glob covers a whole tree. Name a directory and a filename, for example packages/axc/rest/src/**/*.ts.';
 
 export const WIDE_SHELL_MESSAGE = 'Read one file. A multi-file dump stays in the transcript for the rest of the run.';
@@ -26,6 +33,40 @@ const TREE = /(?:^|[/\\\s`'"(=])((?:node_modules|packages\/cellix|dist|agent-tra
 
 export function isWrapped(text) {
 	return text.includes('agent-check');
+}
+
+/** A pipe between quoted words is still a pipe. Double quotes around the whole argument are not. */
+export function shellPipeReason(text) {
+	if (typeof text !== 'string' || !/@cellix\/generator\b/.test(text) || !/--(?:field|param)\b/.test(text)) return undefined;
+	const unquoted = text.replace(/"(?:[^"\\]|\\.)*"/g, '');
+	if (!unquoted.includes('|')) return undefined;
+	return SHELL_PIPE_MESSAGE;
+}
+
+/** `pnpm update` is the dependency updater. The generator script is `pnpm run update`. */
+export function packageUpdateReason(text) {
+	if (typeof text !== 'string') return undefined;
+	for (const command of text.split(/(?:&&|\|\||;|\n)/)) {
+		const tokens = command.trim().split(/\s+/);
+		const pnpmAt = tokens.findIndex((token) => token === 'pnpm' || token.endsWith('/pnpm'));
+		if (pnpmAt < 0) continue;
+		const positional = [];
+		const args = tokens.slice(pnpmAt + 1).filter((token) => token !== '--');
+		for (let index = 0; index < args.length; index += 1) {
+			const token = args[index];
+			if (token === '--filter' || token === '-F' || token === '-C' || token === '--dir') {
+				index += 1;
+				continue;
+			}
+			if (token.startsWith('--filter=')) continue;
+			if (token.startsWith('-')) continue;
+			positional.push(token);
+		}
+		if (positional[0] === 'run') continue;
+		if (positional[0] === 'update' || positional[0] === 'upgrade' || positional[0] === 'up') return UPDATE_MESSAGE;
+		if (positional[0] === 'add' || positional[0] === 'remove' || positional[0] === 'rm' || positional[0] === 'uninstall' || positional[0] === 'link' || positional[0] === 'unlink') return LOCKFILE_MESSAGE;
+	}
+	return undefined;
 }
 
 /** An agent install. The generator runs its own install inside a generate command. */

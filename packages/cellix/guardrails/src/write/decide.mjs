@@ -51,7 +51,9 @@ export function decideRead(file, workspace, policy) {
 	if (standingRule !== true) return deny(`${relativePath} is not readable. Open ${OPEN_ROOTS}. Leave ocom-write.config.json unchanged.`);
 	if (exactOpen(relativePath, policy.read)) return allow();
 	if (sessionAllowsRead(relativePath, policy.session)) return allow();
-	return deny(`${relativePath} is outside the ${policy.session.agentId} read session (.cellix/sessions/${policy.session.agentId}.json). Other agents are unchanged. An exact true path in ocom-write.config.json stays readable.`);
+	return deny(
+		`${relativePath} is outside the ${policy.session.agentId} read session (.cellix/sessions/${policy.session.agentId}.json). Other agents are unchanged. An exact true path in ocom-write.config.json stays readable. Do not open another subdomain to copy a pattern. Edit a file this generate printed, or a file the check names.`,
+	);
 }
 
 /** A command that does not match WRITE_COMMAND is not a write, so it is allowed. A write must name at least one path. */

@@ -10,7 +10,7 @@ export interface GenerateFeatureOptions {
 	/** Omitted, `generate` writes the subdomain and no action. */
 	action?: string;
 	/** Set by the query and update commands. The action name stays whatever --name is. */
-	operation?: 'query' | 'update';
+	operation?: 'query' | 'update' | 'extend';
 	/** Command fields for a query or update. Aggregate fields stay on `fields`. */
 	params?: FieldSpec[];
 	transport?: 'rest' | 'graphql';

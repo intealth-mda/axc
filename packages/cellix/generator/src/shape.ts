@@ -5,6 +5,7 @@ export interface ShapeField {
 	name: string;
 	pascal: string;
 	type: string;
+	optional?: boolean;
 }
 
 export interface ShapeNested {
@@ -25,6 +26,15 @@ export interface Shape {
 
 export function normalizeShape(entity: string, fields: FieldSpec[], permissions: string[], nested: NestedSpec[]): Shape {
 	const source = fields.length > 0 ? fields : [{ name: `${camel(entity)}Name`, type: 'string' as const }];
+	return membersFrom(entity, source, permissions, nested);
+}
+
+/** Fields and nested objects passed to extend. An empty field list stays empty. */
+export function extendMembers(entity: string, fields: FieldSpec[], nested: NestedSpec[]): Shape {
+	return membersFrom(entity, fields, [], nested);
+}
+
+function membersFrom(entity: string, source: FieldSpec[], permissions: string[], nested: NestedSpec[]): Shape {
 	const scalars: ShapeField[] = source.map((field) => {
 		if (field.type === 'id') throw new Error(`${field.name}:id belongs on --nested. Root id comes from the aggregate`);
 		return { name: field.name, pascal: pascal(field.name), type: field.type };
