@@ -34,8 +34,9 @@ packages/cellix/*              vendored framework — read, reuse, never edit
 2. `packages/axc/rest/src/index.ts` — `createRestApp(applicationServicesFactory): Hono`;
    each handler does `await applicationServicesFactory.forRequest(c.req.header('Authorization'))`
    then calls a service. `restHandlerCreator` wraps it with `azureHonoHandler`.
-   Query string: `c.req.query()` returns `Record<string,string>` (read keys as `query['page']`
-   or destructure; `query.page` is TS4111); `c.json(body, status)`.
+   Query string: `c.req.query()` returns `Record<string,string>`; destructure it
+   (`const { page, sort = 'title' } = query`). `query.page` is TS4111 and `query['page']`
+   trips biome `useLiteralKeys`. Respond with `c.json(body, status)`.
 3. `packages/axc/application-services/src/index.ts` — `interface ApplicationServices { health: {...} }`,
    `interface ApiContext { environment }`, `buildApplicationServicesFactory(context)` returns
    `{ forRequest }`. Add a capability by extending `ApplicationServices` and the object the
@@ -75,6 +76,28 @@ persistence implements the repository contract (in-memory here); application-ser
 exposes one use-case entry per capability; rest stays a parser-caller-shaper, with its
 own unit test (rest is test-wired too).
 
+## Cross-layer decisions (house defaults; the task's spec wins where it says otherwise)
+
+- **Errors.** Value objects and aggregates throw named `Error` subclasses. The capability's
+  service module catches them and throws one `ServiceError(code, message, details)`, where
+  `code` is a string-literal union. rest maps code to status once (`Record<Code, 400 | 404 | 409>`)
+  in `app.onError` and returns `{ error: { code, message, details } }`. A body that is not
+  valid JSON goes through the same path as a 400. Define `ServiceError` once in
+  application-services and export it; later capabilities add codes to it.
+- **Ids and time.** The service creates them (`randomUUID()` from `node:crypto`,
+  `new Date().toISOString()`) and passes them in: `getNewInstance(id, input, now)`,
+  `changeX(…, now)`. The domain never reads a clock or a random source, so its tests are
+  deterministic.
+- **Repository lifetime.** Build in-memory repositories once in
+  `buildApplicationServicesFactory`, outside `forRequest`, so state survives across requests.
+  Seed data lives in the in-memory repository.
+- **One capability, one module per layer.** application-services gets `<capability>.ts`
+  (use cases) and one key on `ApplicationServices`. rest gets one route line per endpoint.
+  Create returns 201.
+- **Write order.** Batch 1 is domain and persistence. Batch 2 is application-services, rest,
+  acceptance and docs. Write each batch's tests in the same batch, then run the precheck
+  once (Tests below).
+
 ## Tests
 
 - Unit: vitest, wired in every `packages/axc/*` layer. Tests live next to the code they
@@ -89,31 +112,47 @@ own unit test (rest is test-wired too).
 - Acceptance: `packages/axc-verification/acceptance-api/src/features/*.feature` +
   `src/step-definitions/*.steps.ts`. `cucumber.yaml` already globs both — new files need no
   registration. Name the feature/step files after the capability under test (as `healthcheck.feature`
-  is), not the entity, and keep them consistent with the doc slug you register. Copy the shape of `healthcheck.steps.ts`:
-  `actorCalled('API client').attemptsTo(Send.a(GetRequest.to('/path?x=y')))`,
-  `Ensure.that(resolved(LastResponse.status()), equals(200))`,
-  `Question.about('…', async a => (await a.answer(LastResponse.body<T>())).field)`.
+  is), not the entity, and keep them consistent with the doc slug you register. Copy the shape of `healthcheck.steps.ts`,
+  including its local `resolved` helper (a cast; serenity types answers as `Promise<T>`):
+  `actorCalled('API client').attemptsTo(Send.a(GetRequest.to('/path?x=y')))`;
+  `Send.a(PostRequest.to('/path').with(body))` and `PatchRequest` the same way (all from `@serenity-js/rest`);
+  `Ensure.that(resolved(LastResponse.status()), equals(200))`;
+  `Ensure.that(resolved(Question.about('…', async a => (await a.answer(LastResponse.body<T>())).field)), equals(x))`.
+  Every `Question` passed to `Ensure.that` needs `resolved(...)`, or tsgo reports TS2345.
   `includes(x)` is for strings only; for an array answer use `contain(x)` or
   `containAtLeastOneItemThat(equals(x))` (all from `@serenity-js/assertions`).
   The suite boots the real Functions host on :7071 (minutes) — it is the slowest gate.
-  Cover every row of the task's acceptance-criteria table (`task-set-*-requirements.md`,
-  ids `A-AC1…`) with its own scenario in the capability's feature file — criteria about
-  existing tests or docs included — and put the criterion id in the scenario name
+  The task's requirements file is `task-set-<x>-requirements.md` at the repo root. Cover every
+  row of its acceptance-criteria table (ids `<X>-AC<n>`) with its own scenario in the
+  capability's feature file, and put the criterion id in the scenario name
   (`Scenario: A-AC8 invalid query parameters return 400`); a feature with fewer scenarios
-  than criteria, or any id unnamed, is incomplete and will be sent back.
-- Before the full gate (`gate_digest.py`), run these; each takes seconds:
-  1. `python3 .claude/hooks/coverage_gate.py --check` — lists criteria still uncovered.
-  2. `python3 .claude/hooks/cellix_check.py` — checks EVERY aggregate you created (second
-     and third included) is in the contexts/<ctx>/<agg>/ shape above.
-  3. `python3 .claude/hooks/knip_check.py` — names unused files/exports knip will reject.
-  4. `tsgo --noEmit` in each package you changed (command in CLAUDE.md) — otherwise type
-     errors surface only in the full gate.
+  than criteria, or any id unnamed, is incomplete and will be sent back. A criterion HTTP
+  cannot observe directly (existing tests pass, docs complete) still gets its scenario: assert
+  what the suite can see (the healthcheck still answers, the doc page lists each endpoint
+  and error code).
+- Self-check: after all files are written, run `python3 .claude/hooks/precheck.py` once
+  before the full gate. It runs biome `--write` on changed files, typecheck and unit tests of
+  every changed package (acceptance-api included), then the three checks below, and prints
+  only problems, ending `precheck OK` or `precheck FAIL: <steps>`. Re-run it after fixes.
+  Run biome `--write` before patching a file with sed or python: reformatting moves the text
+  a later patch would match. The checks enforce these rules, so code to them:
+  - coverage: every criterion id of the task's table is named in a capability `.feature`
+    (not `healthcheck.feature`), and there are at least as many scenarios as criteria.
+  - cellix: every layer (domain, persistence, application-services, rest) changed; each
+    aggregate under `domain/src/domain/contexts/<ctx>/<agg>/` has the five files above; no
+    domain file directly in `domain/src/` except `index.ts`; every changed `src/*.ts` with
+    runtime code has a colocated `<name>.test.ts` (exempt: `index.ts`, `*.d.ts`, files whose
+    name contains `seed` or `fixture`, type-only files); at least one rest `src/*.test.ts`.
+  - knip: every new file and export is reachable from its package's `src/index.ts` and used.
 - Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in CLAUDE.md.
 
 ## Docs
 
 `apps/docs/docs/` holds `intro.md` (`slug: /`) and `healthcheck.md` (request, response JSON,
 field table, curl example). A new page needs its id added to `docs: [...]` in `sidebars.ts`.
+If a requirements file names a docs path outside the task's write boundary (a root `docs/`
+folder, say), the boundary wins: write the page under `apps/docs/docs/` and say so in the
+summary.
 
 ## TypeScript flags (from `@cellix/config-typescript`)
 
@@ -131,6 +170,16 @@ properties), `verbatimModuleSyntax` (type-only imports need `import type`).
 (service-mongoose). Cross-layer imports (`@axc/domain`, `@axc/persistence`) are already
 declared where allowed.
 
+`@cellix/domain-seedwork` is imported by subpath (there is no root export):
+
+| import | what you get |
+| --- | --- |
+| `@cellix/domain-seedwork/aggregate-root` | `abstract class AggregateRoot<Props extends DomainEntityProps, Passport>`; constructor `(props, passport)`; `addDomainEvent(EventClass, payload)` |
+| `@cellix/domain-seedwork/domain-entity` | `interface DomainEntityProps { readonly id: string }`; entities expose `.id` and `.props` |
+| `@cellix/domain-seedwork/repository` | `interface Repository<T> { get(id: string): Promise<T>; save(item: T): Promise<T> }`; `class NotFoundError` |
+| `@cellix/domain-seedwork/value-object` | `abstract class ValueObject<Props>`; constructor `(props)`; `props` is protected |
+
 ## Harness files
 
-`.claude/` is harness tooling. The only files there a task uses are the check scripts above.
+`.claude/` holds the harness. Use it through the commands in this map; the rules its checks
+enforce are listed under Tests.

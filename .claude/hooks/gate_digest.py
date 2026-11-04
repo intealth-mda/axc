@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Run the full gate once and print a compact digest: exit code, each gate step,
-turbo task totals, test and scenario counts, SKIPPED lines, and on failure the
-failing step's error lines. Full log stays at /tmp/verify.log for anything else.
+"""Run the full gate once and print a compact digest: exit code (first and last
+line), each gate step, turbo task totals, test and scenario counts, SKIPPED
+lines, and on failure the failing step's error lines plus any failing
+scenario's Expected/Received. Full log stays at /tmp/verify.log for anything else.
 Usage: python3 .claude/hooks/gate_digest.py [gate command...]  (default: pnpm run verify)"""
 import os, re, subprocess, sys
 
@@ -26,7 +27,8 @@ def digest(lines, code):
                     or re.search(r"\d+ vulnerabilit|no vulnerable paths", s):
                 out.append("     " + re.sub(r"\s+", " ", s)[:140])
         if failed:
-            errs = [l.strip() for l in body if re.search(r"error|✗|×|FAIL|Unused|not ok|ERR_", l, re.I) and not NOISE.search(l)]
+            errs = [l.strip() for l in body if (re.search(r"error|✗|×|FAIL|Unused|not ok|ERR_", l, re.I)
+                    or re.match(r"\s*(\d+\) Scenario:|Expected|Received)", l)) and not NOISE.search(l)]
             out.append("     -- error lines --")
             out += ["     " + e[:200] for e in errs[:30]]
             out.append("     -- tail --")
@@ -38,6 +40,7 @@ def digest(lines, code):
         if l not in seen or l.startswith(("ok", "FAIL")):
             uniq.append(l)
         seen.add(l)
+    uniq.append(f"gate EXIT={code}")  # repeated last: a `| tail` of this output still shows it
     return "\n".join(uniq)
 
 

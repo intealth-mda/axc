@@ -40,12 +40,14 @@ mostly acceptance. While iterating, use the cheapest check:
 | typecheck one package | `cd packages/axc/<pkg> && ../../../node_modules/.bin/tsgo --noEmit` |
 | unit tests one package | `corepack pnpm --filter @axc/<pkg> run test` |
 | architecture rules only | `corepack pnpm exec turbo run test:arch --force` |
+| all files written: biome --write, typecheck + tests of changed packages, coverage/cellix/knip | `python3 .claude/hooks/precheck.py` |
 | everything, before you claim done | `python3 .claude/hooks/gate_digest.py` |
 
-`gate_digest.py` runs verify once and prints the exit code, each gate's result,
-test and scenario counts, and the failing gate's errors. Quote it as your
-evidence instead of grepping `/tmp/verify.log`. Report a SKIPPED gate as
-skipped, not passed.
+`gate_digest.py` runs verify once and prints the exit code (first and last
+line), each gate's result, test and scenario counts, and the failing gate's
+errors. Quote it as your evidence instead of grepping `/tmp/verify.log`. A
+passing run is final: do not run it again to re-read its output. Report a
+SKIPPED gate as skipped, not passed.
 
 ## Build the smallest thing that passes
 
