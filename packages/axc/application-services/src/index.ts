@@ -1,3 +1,5 @@
+import { type CourseSearchInput, type CourseSearchResult, searchCourses } from './courses.ts';
+
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
 
@@ -19,7 +21,12 @@ export interface ApplicationServices {
 	health: {
 		getStatus(): HealthStatus;
 	};
+	courses: {
+		search(input: CourseSearchInput): CourseSearchResult;
+	};
 }
+
+export type { CoursePage, CourseSearchInput, CourseSearchResult, InvalidQueryParameterResponse } from './courses.ts';
 
 export interface ApplicationServicesFactory {
 	forRequest(rawAuthHeader?: string): Promise<ApplicationServices>;
@@ -48,6 +55,9 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 						timestamp: new Date().toISOString(),
 					};
 				},
+			},
+			courses: {
+				search: searchCourses,
 			},
 		});
 
