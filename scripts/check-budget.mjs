@@ -5,6 +5,10 @@ const VERIFY_LIMIT = 'One wrapped pnpm run verify already ran. Repeat it only af
 const ACCEPTANCE_LIMIT = 'Acceptance runs inside the one wrapped pnpm run verify. Run acceptance by itself only after that verify fails.';
 const TERMINAL_STOP_LIMIT =
 	'Wrapped verify already ended on a terminal dependency advisory failure. Stop further agent-check commands; report findings and stop.';
+const VALIDATION_DONE_LIMIT =
+	'Validation budget finished after wrapped verify. Stop further agent-check commands; report findings and stop.';
+const POST_VERIFY_LIMIT =
+	'After the first wrapped verify, only narrow failing tests or one verify rerun are allowed. Do not run knip, audit, or other full-repo checks outside verify.';
 const BUDGET_TAMPER_LIMIT = 'Do not read, modify, or delete .axc-check-budget.json during a run.';
 
 export function commandText(command, args = []) {
@@ -21,6 +25,17 @@ export function isVerify(text) {
 
 export function isAcceptance(text) {
 	return /\btest:acceptance\b/.test(text) && !isVerify(text);
+}
+
+export function isNarrowTest(text) {
+	const value = String(text ?? '');
+	if (isVerify(value) || isAcceptance(value)) {
+		return false;
+	}
+	if (/\bknip\b|\baudit\b|\bsnyk\b|\be18e\b|\btest:arch\b/i.test(value)) {
+		return false;
+	}
+	return /\bvitest\b|\bturbo run test\b|\brun test\b/i.test(value);
 }
 
 export function readBudget(cwd = process.cwd()) {
@@ -92,14 +107,22 @@ export function rejectionReason(text, budget = readBudget()) {
 	if (budget.terminal) {
 		return TERMINAL_STOP_LIMIT;
 	}
+	// After a passing verify, or after the allowed failed+retry pair, stop all agent-check.
+	if (budget.verifies >= 2 || (budget.verifies >= 1 && budget.lastVerifyStatus === 0)) {
+		return VALIDATION_DONE_LIMIT;
+	}
 	if (isAcceptance(text)) {
 		return budget.verifies > 0 && budget.lastVerifyStatus !== 0 ? undefined : ACCEPTANCE_LIMIT;
 	}
-	if (!isVerify(text)) {
+	if (isVerify(text)) {
+		if (budget.verifies >= 2 || budget.lastVerifyStatus === 0) {
+			return VERIFY_LIMIT;
+		}
 		return undefined;
 	}
-	if (budget.verifies >= 2 || budget.lastVerifyStatus === 0) {
-		return VERIFY_LIMIT;
+	// After first failed verify: only narrow tests (then the one verify rerun above).
+	if (budget.verifies >= 1) {
+		return isNarrowTest(text) ? undefined : POST_VERIFY_LIMIT;
 	}
 	return undefined;
 }

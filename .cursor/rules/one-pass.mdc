@@ -22,11 +22,11 @@ alwaysApply: true
 ## Validation
 
 - Format only the changed paths once with `pnpm exec biome check --write --no-errors-on-unmatched <paths>`.
-- While iterating, run only the new or changed test file(s) that cover the files just edited, through `node scripts/agent-check.mjs -- <narrow command>`. Prefer `pnpm exec vitest run <relative-test-file>` in the affected package, or `pnpm exec turbo run test --filter=<affected-package> --` with vitest args that select **only those** files. Do not include pre-existing unrelated test files in that command. If exports or package boundaries changed, run `pnpm run knip` in the same wrapped preflight (or as the next single wrapped command), not as a separate exploration step.
+- While iterating, run only the new or changed test file(s) that cover the files just edited, through `node scripts/agent-check.mjs -- <narrow command>`. Prefer `pnpm exec vitest run <relative-test-file>` in the affected package, or `pnpm exec turbo run test --filter=<affected-package> --` with vitest args that select **only those** files. Do not include pre-existing unrelated test files in that command. If exports or package boundaries changed, run `pnpm run knip` in the same wrapped preflight **before** the first verify only, not after verify.
 - Do not run the full monorepo unit suite, full acceptance, or `pnpm run verify` until that narrow check passes.
 - Then run `pnpm run verify` once through the same wrapper. The wrapper rejects another full verify after a pass and allows one rerun only after a failed verify that is not a terminal dependency advisory failure.
-- Do not run acceptance or the full suite as a separate command. They run inside `pnpm run verify`.
-- On an application failure (tests, typecheck, build, knip, acceptance), fix the reported cause, rerun only the failing narrow test or failed package through the wrapper, then run one more wrapped verify.
+- Do not run acceptance, knip, or the full suite as a separate command after verify. They run inside `pnpm run verify`.
+- On an application failure (tests, typecheck, build, acceptance), fix the reported cause, rerun only the failing narrow test or failed package through the wrapper, then run one more wrapped verify. Do not format or edit `scripts/` to clear a verify failure unless the failed check names that exact file.
 - If wrapped verify fails only on dependency audit or advisory scan, do not edit the tree to chase advisories, do not rerun verify or acceptance, and report those findings in the final reply.
 - Do not read, modify, or delete `.axc-check-budget.json`.
 
