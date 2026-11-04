@@ -21,6 +21,8 @@ export const LOCKFILE_MESSAGE = 'That pnpm command rewrites the lockfile. A gene
 
 export const SHELL_PIPE_MESSAGE = "A | in a generator argument is a shell pipe. Repeat --field or --param with the same name, or wrap the whole argument in double quotes: --field \"status:'pending'|'approved'\"";
 
+export const SHELL_OPTIONAL_MESSAGE = 'A ? in a generator argument is a shell glob. Wrap the whole argument in double quotes: --param "reason?:string"';
+
 export const BROAD_MESSAGE = 'That glob covers a whole tree. Name a directory and a filename, for example packages/axc/rest/src/**/*.ts.';
 
 export const WIDE_SHELL_MESSAGE = 'Read one file. A multi-file dump stays in the transcript for the rest of the run.';
@@ -41,6 +43,14 @@ export function shellPipeReason(text) {
 	const unquoted = text.replace(/"(?:[^"\\]|\\.)*"/g, '');
 	if (!unquoted.includes('|')) return undefined;
 	return SHELL_PIPE_MESSAGE;
+}
+
+/** zsh treats an unquoted ? as a glob and the command never reaches the generator. */
+export function shellOptionalReason(text) {
+	if (typeof text !== 'string' || !/@cellix\/generator\b/.test(text) || !/--(?:field|param)\b/.test(text)) return undefined;
+	const unquoted = text.replace(/"(?:[^"\\]|\\.)*"/g, '');
+	if (!unquoted.includes('?')) return undefined;
+	return SHELL_OPTIONAL_MESSAGE;
 }
 
 /** `pnpm update` is the dependency updater. The generator script is `pnpm run update`. */

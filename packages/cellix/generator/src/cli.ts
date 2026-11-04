@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { findCellixRoot, loadGenerateLayout } from './config.js';
@@ -71,12 +73,9 @@ const feature: GenerateFeatureOptions = {
 	...(route !== undefined ? { route } : {}),
 	...(method === 'get' || method === 'post' || method === 'patch' || method === 'put' || method === 'delete' ? { method } : {}),
 };
-const before = spawnSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
 const files = await generateFeature(feature);
-const after = spawnSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
-const manifests = (after.stdout ?? '').split('\n').filter((line) => line.includes('package.json') && !(before.stdout ?? '').includes(line));
-if (manifests.length > 0) {
-	const install = spawnSync('pnpm', ['install'], { cwd: root, stdio: 'inherit' });
+if (workspaceLinkMissing(root, feature)) {
+	const install = spawnSync('pnpm', ['install', '--ignore-scripts'], { cwd: root, stdio: 'inherit' });
 	if (install.status !== 0) process.exit(install.status ?? 1);
 }
 const violations = await repoAfter(feature, files);
@@ -99,6 +98,22 @@ async function repoAfter(feature: GenerateFeatureOptions, files: { path: string 
 	} catch (error) {
 		if (error instanceof Error && 'code' in error && error.code === 'ERR_MODULE_NOT_FOUND' && error.message.includes('generator-after.mjs')) return [];
 		throw error;
+	}
+}
+
+/** A package.json can name a workspace dependency before pnpm has linked it. Typecheck then reports TS2307. */
+function workspaceLinkMissing(root: string, feature: GenerateFeatureOptions): boolean {
+	const manifest = path.join(root, path.dirname(feature.lint.layers.models), 'package.json');
+	if (!existsSync(manifest)) return false;
+	return missingPackage(manifest, '@cellix/mongoose-seedwork') || missingPackage(manifest, '@cellix/config-typescript');
+}
+
+function missingPackage(manifest: string, name: string): boolean {
+	try {
+		createRequire(manifest).resolve(name);
+		return false;
+	} catch (error) {
+		return error instanceof Error && error.message.includes('Cannot find package');
 	}
 }
 

@@ -15,6 +15,7 @@ import {
 	OPEN_ROOTS,
 	packageUpdateReason,
 	repeatMessage,
+	shellOptionalReason,
 	shellPipeReason,
 	wideShellReason,
 } from '../../scripts/check-budget.mjs';
@@ -25,11 +26,13 @@ try {
 	const command = shellCommand(input);
 	const packageUpdate = command === undefined ? undefined : packageUpdateReason(command);
 	const shellPipe = command === undefined ? undefined : shellPipeReason(command);
+	const shellOptional = command === undefined ? undefined : shellOptionalReason(command);
 	const install = command === undefined ? undefined : installReason(command);
 	const heavy = command === undefined ? undefined : heavyCommandReason(command);
 	const wide = command === undefined ? undefined : wideShellReason(command);
 	if (packageUpdate !== undefined) deny(packageUpdate, input.hook_event_name);
 	else if (shellPipe !== undefined) deny(shellPipe, input.hook_event_name);
+	else if (shellOptional !== undefined) deny(shellOptional, input.hook_event_name);
 	else if (install !== undefined) deny(install, input.hook_event_name);
 	else if (heavy !== undefined) deny(heavy, input.hook_event_name);
 	else if (wide !== undefined) deny(wide, input.hook_event_name);

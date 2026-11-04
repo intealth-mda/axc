@@ -194,6 +194,17 @@ describe('the transcript hook', () => {
 			hook_event_name: 'beforeShellExecution',
 		});
 		assert.equal(quoted.permission, 'allow');
+		const optional = await hookDecision({
+			command: 'pnpm --filter @cellix/generator query -- --param courseId?:string',
+			hook_event_name: 'beforeShellExecution',
+		});
+		assert.equal(optional.permission, 'deny');
+		assert.match(optional.user_message ?? '', /shell glob/);
+		const quotedOptional = await hookDecision({
+			command: 'pnpm --filter @cellix/generator query -- --param "courseId?:string"',
+			hook_event_name: 'beforeShellExecution',
+		});
+		assert.equal(quotedOptional.permission, 'allow');
 		const revision = await hookDecision({
 			command: 'git show HEAD:packages/axc/rest/src/index.ts',
 			hook_event_name: 'beforeShellExecution',
@@ -355,7 +366,7 @@ describe('agent-check', () => {
 		const result = spawnSync(process.execPath, ['scripts/agent-check.mjs', '--', process.execPath, '--eval', evalSource], { cwd: root, encoding: 'utf8' });
 		assert.equal(result.status, 1);
 		assert.match(result.stderr, /course\.model\.ts/);
-		assert.match(result.stderr, /already declared/);
+		assert.match(result.stderr, /links workspace dependencies/);
 		assert.match(result.stderr, /Do not read node_modules/);
 	});
 });
