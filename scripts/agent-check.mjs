@@ -2,15 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { closeSync, mkdtempSync, openSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-	commandText,
-	isCompileOrTypecheckFailure,
-	isTerminalAdvisoryFailure,
-	isVerify,
-	readBudget,
-	recordVerify,
-	rejectionReason,
-} from './check-budget.mjs';
+import { commandText, isCompileOrTypecheckFailure, isTerminalAdvisoryFailure, isVerify, readBudget, recordVerify, rejectionReason } from './check-budget.mjs';
+
 const args = process.argv.slice(2);
 if (args[0] === '--') {
 	args.shift();
@@ -64,13 +57,9 @@ if (failedCheck !== undefined) {
 	console.error(`Failed check: ${failedCheck}`);
 }
 if (terminal) {
-	console.error(
-		'Terminal: dependency advisory failure. Do not rerun verify or acceptance; report findings and stop.',
-	);
+	console.error('Terminal: dependency advisory failure. Do not rerun verify or acceptance; report findings and stop.');
 } else if (isVerify(requestedText) && isCompileOrTypecheckFailure(log)) {
-	console.error(
-		'Non-terminal: typecheck or build failure. Fix the diagnostics, then rerun one wrapped verify.',
-	);
+	console.error('Non-terminal: typecheck or build failure. Fix the diagnostics, then rerun one wrapped verify.');
 }
 if (result.error !== undefined) {
 	console.error(`Cause: ${result.error.message}`);
