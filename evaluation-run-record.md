@@ -14,7 +14,7 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Run Type | Harness Engineering Iteration 8 |
 | Harness Engineering Used | Frozen Phase 1b tip `en-cur-8` @ `212d5ce`: I7 efficiency controls + bounded agent-check FAIL logs / rg-tail Log guidance only. No nearest-slice persistence nudge. |
 | Config / Diff Notes | Dashboard delta for scored Task B. Cache read 3,088,384; cache write 0; input 227,992; output 96,124; total 3,412,500. Transcript `28f2854f-239d-4f2c-95d4-d835fda5fcb1`: 36 turns, 131 tools, first write turn 17, 12 shells, 3 verify attempts (budget ended `{verifies:2, lastVerifyStatus:1}`). Implementation includes shared `catalog-test-support`, persistence memory catalog, enrollment routes. Independent after-run: `@axc/application-services` and `@apps/api` typecheck exit 0; catalog tests 36 passed. vs I7B: −28K tokens, −49s, est. cost +~$0.10 (more expensive input mix). |
-| Branch / Commit | `en-cur-8-b-out` / feature commit on this push; harness `en-cur-8` @ `212d5ce` |
+| Branch / Commit | `en-cur-8-b-out` @ `51359af`; harness `en-cur-8` @ `212d5ce` |
 | Requirements Completed / Attempted | 17 / 17 (B1–B17) |
 | Acceptance Criteria Passed / Total | 15 / 15 (B-AC1–B-AC15) from implementation, package tests, and typecheck |
 | Tests Passed / Failed | Application-services catalog tests: 36 passed, 0 failed independently. Acceptance: course-enrollment feature present. Scored chat used verify retry (last status non-zero); tree typechecks afterward. |
