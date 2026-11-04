@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createCatalogDependencies } from './catalog-test-support.ts';
 import { buildApplicationServicesFactory, resolveEnvironment } from './index.ts';
 
 describe('healthcheck', () => {
@@ -10,7 +11,7 @@ describe('healthcheck', () => {
 	});
 
 	it('returns the agentCourses health contract', async () => {
-		const services = await buildApplicationServicesFactory({ environment: 'test' }).forRequest();
+		const services = await buildApplicationServicesFactory({ environment: 'test' }, createCatalogDependencies()).forRequest();
 		const status = services.health.getStatus();
 
 		expect(status.status).toBe('ok');
