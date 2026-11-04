@@ -282,9 +282,11 @@ describe('guardrails', () => {
 			'@axc-verification/acceptance-api:test:acceptance:   Received number: 404',
 		]);
 		expect(block[0]).toContain('1 later acceptance');
-		expect(block.some((line) => line.startsWith('Expected: 200 — EnrollmentRequest Create:'))).toBe(true);
-		expect(block[block.length - 1]).toBe('Received: 404');
-		expect(block.some((line) => line.includes('steps.ts'))).toBe(false);
+		expect(block).toContain('Scenario: EnrollmentRequest Create: A valid request creates a pending enrollment request');
+		expect(block).toContain('Expected: 200');
+		expect(block).toContain('Received: 404');
+		expect(block.at(-1)).toContain('Acceptance: EnrollmentRequest Create:');
+		expect(block.at(-1)).toContain('File: packages/axc-verification/acceptance-api/src/step-definitions/enrollment-request-create.steps.ts:28:10');
 	});
 
 	it('names a replica set when a transaction is rejected', () => {

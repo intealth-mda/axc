@@ -831,6 +831,27 @@ describe('Cellix generator', () => {
 		expect(session).toContain('packages/axc/domain/src/domain/contexts/catalog/enrollment-request/status-history.value-objects.ts');
 	});
 
+	it('puts every model seed on the read list and the write list', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
+		roots.push(root);
+		const previous = process.env.CELLIX_AGENT_ID;
+		process.env.CELLIX_AGENT_ID = 'task-a';
+		try {
+			const lint = defaultGenerateLayout();
+			await generateFeature({ root, lint, context: 'catalog', entity: 'course' });
+			await generateFeature({ root, lint, context: 'catalog', entity: 'enrollment-request' });
+			recordGeneratedSession({ root, lint, context: 'catalog', entity: 'enrollment-request' });
+			const session = loadSession(root, 'task-a');
+			const courseSeed = 'packages/axc/data-sources-mongoose-models/src/models/course/course.seed.ts';
+			const enrollmentSeed = 'packages/axc/data-sources-mongoose-models/src/models/enrollment-request/enrollment-request.seed.ts';
+			expect(session?.read).toEqual(expect.arrayContaining([courseSeed, enrollmentSeed]));
+			expect(session?.write).toEqual(expect.arrayContaining([courseSeed, enrollmentSeed]));
+		} finally {
+			if (previous === undefined) delete process.env.CELLIX_AGENT_ID;
+			else process.env.CELLIX_AGENT_ID = previous;
+		}
+	});
+
 	it('adds a named query and update onto an entity that already exists', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);

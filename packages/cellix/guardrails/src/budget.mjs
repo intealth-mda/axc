@@ -12,6 +12,8 @@ export const OPEN_ROOTS = 'packages/axc, packages/axc-verification, apps/api/src
 
 export const HEAVY_MESSAGE = 'Run that command through pnpm run agent-check so its log stays out of the chat. Example: pnpm run agent-check -- pnpm run verify';
 
+const ACCEPTANCE_MESSAGE = 'Run that command through pnpm run agent-check so its log stays out of the chat. Example: pnpm run agent-check -- pnpm --filter @axc-verification/acceptance-api test:acceptance';
+
 export const INSTALL_MESSAGE = 'The generator already installed dependencies. Do not run pnpm install. Do not read node_modules, pnpm-lock.yaml, or package.json.';
 
 export const UPDATE_MESSAGE =
@@ -90,8 +92,9 @@ export function installReason(text) {
 export function heavyCommandReason(text) {
 	if (tailPipeReason(text) !== undefined) return TAIL_MESSAGE;
 	if (isWrapped(text)) return undefined;
-	if (HEAVY.some((pattern) => pattern.test(text))) return HEAVY_MESSAGE;
-	return undefined;
+	if (!HEAVY.some((pattern) => pattern.test(text))) return undefined;
+	if (/test:acceptance/.test(text)) return ACCEPTANCE_MESSAGE;
+	return HEAVY_MESSAGE;
 }
 
 /** agent-check is the tail. Piping the check back into the transcript keeps the log. */

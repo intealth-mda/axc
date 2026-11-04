@@ -53,7 +53,7 @@ if (missingModule !== null && /@cellix\/(?:mongoose-seedwork|config-typescript)/
 		`Cannot find module ${missingModule[1]}. The check links workspace packages before it reports this. Do not add a field or an action. Do not read node_modules, pnpm-lock.yaml, or package.json. Do not run pnpm install or node.`,
 	);
 }
-const headline = shown.find((line) => line.includes('Expected:'));
+const headline = shown.find((line) => line.startsWith('Acceptance:') || line.includes('Expected:'));
 console.error(headline === undefined ? `FAIL: ${displayCommand}` : `FAIL: ${displayCommand} — ${headline}`);
 console.error(`Exit code: ${exitCode}`);
 if (failedCheck !== undefined) console.error(`Failed check: ${failedCheck}`);
@@ -62,6 +62,8 @@ if (shown.length > 0) {
 	console.error('Error:');
 	console.error(shown.join('\n'));
 }
+const tail = shown.find((line) => line.startsWith('Acceptance:')) ?? shown.find((line) => line.includes('Expected:') || line.startsWith('Rule:') || line.includes('error TS') || line.includes('format'));
+if (tail !== undefined) console.error(tail);
 process.exit(exitCode);
 
 function runCaptured(command, commandArgs) {

@@ -31,17 +31,24 @@ function laterFile(line, first) {
 	return next[0] !== opened[0];
 }
 
+const BODY_LINE = /Acceptance failure body: status=\S+ body=(.*)$/;
+const STEP_FILE = /(packages\/\S+?\.steps\.ts:\d+:\d+)/;
+
 /**
- * The first acceptance assertion, as Expected/Received. Stack frames stay out.
+ * The first acceptance assertion. The last line repeats the scenario, Expected, Received, body, and step file.
  * A standalone memory server cannot commit withScopedTransaction.
  */
 export function acceptanceReport(lines) {
 	const cleaned = [];
+	let stepFile = '';
 	for (const line of lines) {
 		const marker = ':test:acceptance:';
 		const at = line.indexOf(marker);
 		const text = (at >= 0 ? line.slice(at + marker.length) : line).trim();
-		if (text.length === 0 || text.includes('node_modules') || text.startsWith('at ')) continue;
+		if (text.length === 0 || text.includes('node_modules')) continue;
+		const file = text.match(STEP_FILE);
+		if (file !== null) stepFile = file[1];
+		if (text.startsWith('at ')) continue;
 		cleaned.push(text);
 	}
 	const findings = [];
@@ -53,23 +60,43 @@ export function acceptanceReport(lines) {
 		if (findings.length > 0) continue;
 		let expected = '';
 		let scenario = '';
+		let step = '';
 		for (let back = index - 1; back >= 0 && index - back < 40; back--) {
 			const prior = cleaned[back];
 			if (expected.length === 0 && EXPECTED_VALUE.test(prior)) {
 				const match = prior.match(EXPECTED_VALUE);
 				expected = match === null ? '' : match[1];
 			}
+			if (step.length === 0 && /^(?:When|Then|Given|And)\b/.test(prior)) step = prior;
 			if (scenario.length === 0 && /^[A-Za-z].+: .+/.test(prior) && !/^(?:Expected|Received|Assertion|Expectation|When|Then|Given|And|Before|After)/.test(prior)) scenario = prior;
-			if (expected.length > 0 && scenario.length > 0) break;
 		}
 		const value = received[1];
-		if (REPLICA_SET.test(value)) {
+		const body = failureBody(cleaned, index, value);
+		if (REPLICA_SET.test(value) || REPLICA_SET.test(body)) {
 			findings.push('Expected: createMemoryMongoServer() returns a one-node replica set. A standalone memory server cannot run withScopedTransaction.');
 		} else {
-			findings.push(`Expected: ${expected}${scenario.length === 0 ? '' : ` — ${scenario}`}`);
+			findings.push(`Scenario: ${scenario}`);
+			if (step.length > 0) findings.push(`Step: ${step}`);
+			findings.push(`Expected: ${expected}`);
 		}
 		findings.push(`Received: ${value}`);
+		if (body.length > 0) findings.push(`Body: ${body}`);
+		if (stepFile.length > 0) findings.push(`File: ${stepFile}`);
+		findings.push(`Acceptance: ${scenario}. Expected: ${expected}. Received: ${value}.${body.length > 0 ? ` Body: ${body}.` : ''}${stepFile.length > 0 ? ` File: ${stepFile}.` : ''}`);
 	}
-	if (failures > 1) findings.unshift(`${failures - 1} later acceptance assertions also failed. Fix the first Received value.`);
+	if (failures > 1) findings.unshift(`${failures - 1} later acceptance assertions also failed. Fix the first Acceptance line.`);
 	return findings;
+}
+
+function failureBody(lines, index, received) {
+	if (received.startsWith('{') || received.startsWith('[')) return clip(received);
+	for (let forward = index; forward < Math.min(lines.length, index + 25); forward++) {
+		const match = lines[forward].match(BODY_LINE);
+		if (match !== null) return clip(match[1]);
+	}
+	return '';
+}
+
+function clip(value) {
+	return value.length > 500 ? `${value.slice(0, 500)}…` : value;
 }

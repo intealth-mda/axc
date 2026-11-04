@@ -219,6 +219,7 @@ describe('the transcript hook', () => {
 			hook_event_name: 'beforeShellExecution',
 		});
 		assert.equal(acceptance.permission, 'deny');
+		assert.match(acceptance.user_message ?? '', /test:acceptance/);
 		const writePackage = await hookDecision({
 			command: 'cat > packages/axc/data-sources-mongoose-models/package.json << \'EOF\'\n{\n  "files": ["dist"]\n}\nEOF',
 			hook_event_name: 'beforeShellExecution',
@@ -370,10 +371,9 @@ describe('agent-check', () => {
 		const evalSource = `console.error(${JSON.stringify(log)}); process.exit(1);`;
 		const result = spawnSync(process.execPath, ['scripts/agent-check.mjs', '--', process.execPath, '--eval', evalSource], { cwd: root, encoding: 'utf8' });
 		assert.equal(result.status, 1);
-		assert.match(result.stderr, /FAIL:.*Expected: 200 — EnrollmentRequest Create:/);
-		const block = result.stderr.slice(result.stderr.indexOf('Error:'));
-		assert.match(block, /Received: 404/);
-		assert.doesNotMatch(block, /steps\.ts:28:10/);
+		assert.match(result.stderr, /Acceptance: EnrollmentRequest Create:.*Expected: 200\. Received: 404\./);
+		assert.match(result.stderr, /enrollment-request-create\.steps\.ts:28:10/);
+		assert.equal(result.stderr.trim().split('\n').at(-1)?.startsWith('Acceptance:'), true);
 	});
 
 	it('tells a missing-module failure to leave the manifest alone', () => {

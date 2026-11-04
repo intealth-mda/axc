@@ -102,7 +102,7 @@ env.MONGODB_URI = mongoUri;
 
 Stop the server in `afterAll`. `apps/api/src/index.ts` already connects when `MONGODB_URI` is set. It does not construct `MongoMemoryServer`. Import `<camel>Seed` from `@axc/service-mongoose` and insert it with the line from the seed file. The generator already re-exports `<camel>Seed`. Persistence does not import the seed. Edit the feature and the steps the generator wrote. Do not add a second feature file. Do not add a fetch in a step. If you add one to see a failure, remove it and run verify again.
 
-`generate` narrows reads and writes to the files it printed. Instruction files stay readable. Do not edit `.cellix/sessions` to widen that list. A failing check names the next file. Do not glob a whole tree. Open `REFERENCE.md` only when a check names a file role.
+`generate` narrows reads and writes to the files it printed, and adds every model `*.seed.ts` to both lists. Read and edit those seeds. Instruction files stay readable. Do not edit `.cellix/sessions` to widen that list. A failing check names the next file. The last line of a failed check is the edit. A failed verify ends with `Acceptance:` — the scenario, Expected, Received, response body, and step file. That line is the next edit. Rerun acceptance with `pnpm run agent-check -- pnpm --filter @axc-verification/acceptance-api test:acceptance`. Do not glob a whole tree. Open `REFERENCE.md` only when a check names a file role.
 
 ## Writes
 
