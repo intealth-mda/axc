@@ -3,10 +3,8 @@ import { resolve } from 'node:path';
 
 const VERIFY_LIMIT = 'One wrapped pnpm run verify already ran. Repeat it only after that verify fails, and only once.';
 const ACCEPTANCE_LIMIT = 'Acceptance runs inside the one wrapped pnpm run verify. Run acceptance by itself only after that verify fails.';
-const TERMINAL_VERIFY_LIMIT =
-	'Wrapped verify already ended on a terminal dependency advisory failure. Report the findings and stop; do not rerun verify.';
-const TERMINAL_ACCEPTANCE_LIMIT =
-	'Wrapped verify already ended on a terminal dependency advisory failure. Do not rerun acceptance; report findings and stop.';
+const TERMINAL_STOP_LIMIT =
+	'Wrapped verify already ended on a terminal dependency advisory failure. Stop further agent-check commands; report findings and stop.';
 const BUDGET_TAMPER_LIMIT = 'Do not read, modify, or delete .axc-check-budget.json during a run.';
 
 export function commandText(command, args = []) {
@@ -60,7 +58,7 @@ export function isCompileOrTypecheckFailure(log) {
 	if (/\bERROR\s+.*#(?:typecheck|build)\b/i.test(text)) {
 		return true;
 	}
-	if (/\[ELIFECYCLE\].*(?:typecheck|build)\b/i.test(text) && /\berror TS|\bFound \d+ error/i.test(text)) {
+	if (/\[ELIFECYCLE\].*(?:typecheck|build)\b/i.test(text) && /\berror TS\d+/i.test(text)) {
 		return true;
 	}
 	return false;
@@ -72,11 +70,12 @@ export function isTerminalAdvisoryFailure(log) {
 	if (isCompileOrTypecheckFailure(text)) {
 		return false;
 	}
-	// verify is &&-chained; reaching audit/snyk means earlier stages passed.
+	// Require a real audit/snyk step header from verify's && chain — not harness
+	// source text (e.g. Biome printing check-budget.mjs regexes).
 	const auditFailed =
-		/\bvulnerabilities found\b/i.test(text) && /(?:pnpm\s+(?:run\s+)?audit|--audit-level)/i.test(text);
+		/(?:^|\n)\s*(?:\$ )?pnpm run audit\b/m.test(text) && /\d+\s+vulnerabilities?\s+found\b/i.test(text);
 	const snykFailed =
-		/(?:pnpm\s+(?:run\s+)?snyk|snyk-verify)/i.test(text) &&
+		/(?:^|\n)\s*(?:\$ )?pnpm run snyk\b/m.test(text) &&
 		/(?:\[ELIFECYCLE\].*snyk|Command failed.*snyk|snyk.*(?:failed|error))/i.test(text);
 	return auditFailed || snykFailed;
 }
@@ -89,17 +88,15 @@ export function budgetTamperReason(text) {
 }
 
 export function rejectionReason(text, budget = readBudget()) {
+	// Once advisory-terminal, block every further agent-check command (not only verify).
+	if (budget.terminal) {
+		return TERMINAL_STOP_LIMIT;
+	}
 	if (isAcceptance(text)) {
-		if (budget.terminal) {
-			return TERMINAL_ACCEPTANCE_LIMIT;
-		}
 		return budget.verifies > 0 && budget.lastVerifyStatus !== 0 ? undefined : ACCEPTANCE_LIMIT;
 	}
 	if (!isVerify(text)) {
 		return undefined;
-	}
-	if (budget.terminal) {
-		return TERMINAL_VERIFY_LIMIT;
 	}
 	if (budget.verifies >= 2 || budget.lastVerifyStatus === 0) {
 		return VERIFY_LIMIT;
