@@ -73,10 +73,12 @@ const feature: GenerateFeatureOptions = {
 	...(route !== undefined ? { route } : {}),
 	...(method === 'get' || method === 'post' || method === 'patch' || method === 'put' || method === 'delete' ? { method } : {}),
 };
-const files = await generateFeature(feature);
-if (workspaceLinkMissing(root, feature)) {
-	const install = spawnSync('pnpm', ['install', '--ignore-scripts'], { cwd: root, stdio: 'inherit' });
-	if (install.status !== 0) process.exit(install.status ?? 1);
+prepareModels(root, feature);
+let files: Awaited<ReturnType<typeof generateFeature>>;
+try {
+	files = await generateFeature(feature);
+} finally {
+	prepareModels(root, feature);
 }
 const violations = await repoAfter(feature, files);
 if (violations.length > 0) {
@@ -87,6 +89,9 @@ for (const file of filesToEdit(feature)) {
 	console.log(file);
 }
 console.log('Edit these. The barrels are already wired. Do not list the tree.');
+console.log('A value object changes minLength, maxLength, or pattern on its VOString. The class body stays empty.');
+console.log("Throw Object.assign(new Error('...'), { status: 400 }) for a bad value, 404 when the id is missing, and 409 when the change conflicts. The route returns that status.");
+console.log('Another aggregate is dataSources.readonlyDataSource.<Context>.<Entity>.<Entity>ReadRepo.getById(id). Do not open its files.');
 console.log('While editing, run pnpm run agent-check -- pnpm run check. Do not pipe it to tail. The Expected line is the next edit.');
 console.log('Run pnpm run agent-check -- pnpm run verify once before you stop.');
 
@@ -99,6 +104,18 @@ async function repoAfter(feature: GenerateFeatureOptions, files: { path: string 
 		if (error instanceof Error && 'code' in error && error.code === 'ERR_MODULE_NOT_FOUND' && error.message.includes('generator-after.mjs')) return [];
 		throw error;
 	}
+}
+
+/** Link the models package and build seedwork declarations. A refused overwrite still runs this. */
+function prepareModels(root: string, feature: GenerateFeatureOptions): void {
+	const declarations = path.join(root, 'packages/cellix/mongoose-seedwork/dist/index.d.ts');
+	if (!existsSync(declarations)) {
+		const build = spawnSync('pnpm', ['--filter', '@cellix/mongoose-seedwork', 'run', 'build'], { cwd: root, stdio: 'inherit' });
+		if (build.status !== 0) process.exit(build.status ?? 1);
+	}
+	if (!workspaceLinkMissing(root, feature)) return;
+	const install = spawnSync('pnpm', ['install', '--ignore-scripts'], { cwd: root, stdio: 'inherit' });
+	if (install.status !== 0) process.exit(install.status ?? 1);
 }
 
 /** A package.json can name a workspace dependency before pnpm has linked it. Typecheck then reports TS2307. */

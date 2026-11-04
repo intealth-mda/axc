@@ -50,7 +50,9 @@ const useful = block.filter((line) => !line.includes('[ELIFECYCLE]') && !line.in
 const shown = useful.length > 0 ? useful : hints.slice(0, 8);
 const missingModule = log.match(/error TS2307: Cannot find module '([^']+)'/);
 if (missingModule !== null) {
-	shown.push(`Cannot find module ${missingModule[1]}. Run the same generate command again. It links workspace dependencies. Do not read node_modules, pnpm-lock.yaml, or package.json. Do not run pnpm install or node.`);
+	shown.push(
+		`Cannot find module ${missingModule[1]}. Its declarations are built when generate runs. Run pnpm run agent-check -- pnpm run check again. Do not add a field or an action to force another generate. Do not read node_modules, pnpm-lock.yaml, or package.json. Do not run pnpm install or node.`,
+	);
 }
 const headline = shown.find((line) => line.includes('Expected:'));
 console.error(headline === undefined ? `FAIL: ${displayCommand}` : `FAIL: ${displayCommand} — ${headline}`);

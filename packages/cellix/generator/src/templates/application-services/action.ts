@@ -19,12 +19,19 @@ export function action(input: {
 	const domainPath = namespacePath(contextPascal, entityPascal);
 	const reference = `Domain.Contexts.${domainPath}EntityReference`;
 	const transaction = `dataSources.domainDataSource.${domainPath}UnitOfWork.withScopedTransaction`;
+	const caught = (inner: string) =>
+		`try {\n\t\t\t${inner}\n\t\t} catch (error) {\n\t\t\tif (typeof error === 'object' && error !== null && 'status' in error) throw error;\n\t\t\tthrow Object.assign(error instanceof Error ? error : new Error('Unable to save ${entityPascal}'), { status: 400 });\n\t\t}`;
+	const missing = `throw Object.assign(new Error('Unable to update ${entityPascal}'), { status: 404 });`;
 	const body =
 		kind === 'read'
 			? `return await dataSources.readonlyDataSource.${contextPascal}.${entityPascal}.${entityPascal}ReadRepo.${actionCamel}(command);`
 			: kind === 'update'
-				? `let updated: ${reference} | undefined;\n\t\tawait ${transaction}(async (repo) => {\n\t\t\tconst current = await repo.getById(command.id);\n\t\t\tif (!current) {\n\t\t\t\tthrow new Error('Unable to update ${entityPascal}');\n\t\t\t}\n\t\t\t// assign the command onto current\n\t\t\tupdated = await repo.save(current);\n\t\t});\n\t\tif (!updated) {\n\t\t\tthrow new Error('Unable to update ${entityPascal}');\n\t\t}\n\t\treturn updated;`
-				: `return await ${transaction}(async (repo) => {\n\t\t\treturn repo.save(await repo.getNewInstance({ ${inputLiteral} }));\n\t\t});`;
+				? caught(
+						`let updated: ${reference} | undefined;\n\t\t\tawait ${transaction}(async (repo) => {\n\t\t\t\tconst current = await repo.getById(command.id);\n\t\t\t\tif (!current) {\n\t\t\t\t\t${missing}\n\t\t\t\t}\n\t\t\t\t// assign the command onto current. A rejected change throws Object.assign(new Error('...'), { status: 409 })\n\t\t\t\tupdated = await repo.save(current);\n\t\t\t});\n\t\t\tif (!updated) {\n\t\t\t\t${missing}\n\t\t\t}\n\t\t\treturn updated;`,
+					)
+				: caught(
+						`// Another aggregate is dataSources.readonlyDataSource.<Context>.<Entity>.<Entity>ReadRepo.getById(id). This slice's query names a duplicate.\n\t\t\treturn await ${transaction}(async (repo) => {\n\t\t\t\treturn repo.save(await repo.getNewInstance({ ${inputLiteral} }));\n\t\t\t});`,
+					);
 	return `import type { Domain } from '${scope}/domain';\nimport type { DataSources } from '${scope}/persistence';\n\nexport interface ${command} {\n\t${commandFields(commandSource, kind)}\n}\n\nexport const ${actionCamel} = (dataSources: DataSources) => {\n\treturn async (command: ${command}): Promise<${result}> => {\n\t\t${body}\n\t};\n};\n`;
 }
 

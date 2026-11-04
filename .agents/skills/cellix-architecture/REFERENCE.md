@@ -191,7 +191,7 @@ export const <camelAction> = (dataSources: DataSources) => {
 };
 ```
 
-Reads use `dataSources.readonlyDataSource.<Context>.<Entity>.<Entity>ReadRepo`. The context `index.ts` imports every sibling action and returns them from `export const <Entity> = (dataSources: DataSources) => { return { ... } }`.
+Reads use `dataSources.readonlyDataSource.<Context>.<Entity>.<Entity>ReadRepo`. `getById(id)` is already on that repo and returns the reference or null. A query this slice added is the duplicate check. Another subdomain's files stay closed. The context `index.ts` imports every sibling action and returns them from `export const <Entity> = (dataSources: DataSources) => { return { ... } }`.
 
 String setters on an aggregate check the visa and assign a value object:
 
@@ -204,7 +204,7 @@ set <field>(<field>: string) {
 }
 ```
 
-Value-object classes are empty and extend `VOString({ trim, minLength, maxLength })`. Nested objects are their own value object or entity. Booleans, dates, ids, and `schemaVersion` stay raw props.
+Value-object classes are empty and extend `VOString({ trim, minLength, maxLength })`. A format check adds `pattern`. A bad value, a missing id, and a conflict throw `Object.assign(new Error('...'), { status: 400 })`, `404`, or `409`. The route returns that status. A setter throws `409` before the value-object assignment when the transition is refused. Nested objects are their own value object or entity. Booleans, dates, ids, and `schemaVersion` stay raw props.
 
 ## Visibility and the graph
 

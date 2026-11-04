@@ -332,13 +332,33 @@ function updateInputs(fields: { name: string; pascal: string; type: string }[]) 
 	return [{ name: 'id', pascal: 'Id', type: 'string' as const }, ...fields.filter((field) => field.name !== 'id')];
 }
 
+function restRoute(method: string, route: string, call: string, command: string): string {
+	return [
+		`\tapp.${method}('/api/${route}', async (c) => {`,
+		`\t\tconst authorization = c.req.header('Authorization');`,
+		`\t\tconst applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);`,
+		`\t\ttry {`,
+		`\t\t\treturn c.json(await ${call}${command}));`,
+		`\t\t} catch (error) {`,
+		`\t\t\tconst status = typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;`,
+		`\t\t\tconst message = error instanceof Error ? error.message : '';`,
+		`\t\t\tif (status === 400) return c.json({ message }, 400);`,
+		`\t\t\tif (status === 404) return c.json({ message }, 404);`,
+		`\t\t\tif (status === 409) return c.json({ message }, 409);`,
+		`\t\t\tthrow error;`,
+		`\t\t}`,
+		`\t});`,
+		'',
+	].join('\n');
+}
+
 async function spliceRest(file: string, input: { entity: string; route: string; contextPascal: string; entityPascal: string; actionCamel: string; method: string; readArgument: string }): Promise<WrittenFile[]> {
 	const current = await readFile(file, 'utf8');
 	const call = `applicationServices.${input.contextPascal}.${input.entityPascal}.${input.actionCamel}(`;
 	if (current.includes(call)) return [];
 	const method = input.method;
 	const command = method === 'get' ? input.readArgument : mutationArgument(input.route);
-	const route = `\tapp.${method}('/api/${input.route}', async (c) => {\n\t\tconst authorization = c.req.header('Authorization');\n\t\tconst applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);\n\t\treturn c.json(await ${call}${command}));\n\t});\n\n`;
+	const route = restRoute(method, input.route, call, command);
 	if (!current.includes('\treturn app;\n')) return [];
 	const next = current.replace('\treturn app;\n', `${route}\treturn app;\n`);
 	await writeFile(file, next);

@@ -731,6 +731,7 @@ describe('Cellix generator', () => {
 		expect(rest).toContain("app.post('/api/courses'");
 		expect(await readFile(path.join(root, 'packages/axc-verification/acceptance-api/src/step-definitions/course-create.steps.ts'), 'utf8')).toContain("PostRequest.to('/api/courses')");
 		expect(rest).toContain('applicationServices.Course.Course.create(await c.req.json())');
+		expect(rest).toContain('status === 409');
 		const api = await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8');
 		expect(api).toContain("methods: ['POST']");
 		await generateFeature({
@@ -769,7 +770,7 @@ describe('Cellix generator', () => {
 		});
 		const action = await readFile(path.join(root, 'packages/axc/application-services/src/contexts/course/course/publish.ts'), 'utf8');
 		expect(action).toContain("status: 'pending' | 'approved' | 'rejected' | 'cancelled';");
-		expect(action.match(/\bstatus:/g)).toHaveLength(1);
+		expect(action.match(/^\tstatus: '/gm)).toHaveLength(1);
 	});
 
 	it('joins repeated field names into one union', async () => {
