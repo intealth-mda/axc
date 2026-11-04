@@ -3,12 +3,9 @@ import { resolve } from 'node:path';
 
 const VERIFY_LIMIT = 'One wrapped pnpm run verify already ran. Repeat it only after that verify fails, and only once.';
 const ACCEPTANCE_LIMIT = 'Acceptance runs inside the one wrapped pnpm run verify. Run acceptance by itself only after that verify fails.';
-const TERMINAL_STOP_LIMIT =
-	'Wrapped verify already ended on a terminal dependency advisory failure. Stop further agent-check commands; report findings and stop.';
-const VALIDATION_DONE_LIMIT =
-	'Validation budget finished after wrapped verify. Stop further agent-check commands; report findings and stop.';
-const POST_VERIFY_LIMIT =
-	'After the first wrapped verify, only narrow failing tests or one verify rerun are allowed. Do not run knip, audit, or other full-repo checks outside verify.';
+const TERMINAL_STOP_LIMIT = 'Wrapped verify already ended on a terminal dependency advisory failure. Stop further agent-check commands; report findings and stop.';
+const VALIDATION_DONE_LIMIT = 'Validation budget finished after wrapped verify. Stop further agent-check commands; report findings and stop.';
+const POST_VERIFY_LIMIT = 'After the first wrapped verify, only narrow failing tests or one verify rerun are allowed. Do not run knip, audit, or other full-repo checks outside verify.';
 const BUDGET_TAMPER_LIMIT = 'Do not read, modify, or delete .axc-check-budget.json during a run.';
 
 export function commandText(command, args = []) {
@@ -87,11 +84,8 @@ export function isTerminalAdvisoryFailure(log) {
 	}
 	// Require a real audit/snyk step header from verify's && chain — not harness
 	// source text (e.g. Biome printing check-budget.mjs regexes).
-	const auditFailed =
-		/(?:^|\n)\s*(?:\$ )?pnpm run audit\b/m.test(text) && /\d+\s+vulnerabilities?\s+found\b/i.test(text);
-	const snykFailed =
-		/(?:^|\n)\s*(?:\$ )?pnpm run snyk\b/m.test(text) &&
-		/(?:\[ELIFECYCLE\].*snyk|Command failed.*snyk|snyk.*(?:failed|error))/i.test(text);
+	const auditFailed = /(?:^|\n)\s*(?:\$ )?pnpm run audit\b/m.test(text) && /\d+\s+vulnerabilities?\s+found\b/i.test(text);
+	const snykFailed = /(?:^|\n)\s*(?:\$ )?pnpm run snyk\b/m.test(text) && /(?:\[ELIFECYCLE\].*snyk|Command failed.*snyk|snyk.*(?:failed|error))/i.test(text);
 	return auditFailed || snykFailed;
 }
 

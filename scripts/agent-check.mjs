@@ -2,15 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { closeSync, mkdtempSync, openSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-	commandText,
-	isCompileOrTypecheckFailure,
-	isTerminalAdvisoryFailure,
-	isVerify,
-	readBudget,
-	recordVerify,
-	rejectionReason,
-} from './check-budget.mjs';
+import { commandText, isCompileOrTypecheckFailure, isTerminalAdvisoryFailure, isVerify, readBudget, recordVerify, rejectionReason } from './check-budget.mjs';
+
+const MAX_ERROR_LINES = 40;
+const MAX_ERROR_CHARS = 4096;
+
 const args = process.argv.slice(2);
 if (args[0] === '--') {
 	args.shift();
@@ -56,7 +52,7 @@ if (result.status === 0) {
 
 const lines = log.split(/\r?\n/);
 const failedCheck = findFailedCheck(lines);
-const errorBlock = findErrorBlock(lines);
+const errorBlock = boundErrorBlock(findErrorBlock(lines));
 
 console.error(`FAIL: ${displayCommand}`);
 console.error(`Exit code: ${exitCode}`);
@@ -64,13 +60,9 @@ if (failedCheck !== undefined) {
 	console.error(`Failed check: ${failedCheck}`);
 }
 if (terminal) {
-	console.error(
-		'Terminal: dependency advisory failure. Do not rerun verify or acceptance; report findings and stop.',
-	);
+	console.error('Terminal: dependency advisory failure. Do not rerun verify or acceptance; report findings and stop.');
 } else if (isVerify(requestedText) && isCompileOrTypecheckFailure(log)) {
-	console.error(
-		'Non-terminal: typecheck or build failure. Fix the diagnostics, then rerun one wrapped verify.',
-	);
+	console.error('Non-terminal: typecheck or build failure. Fix the diagnostics, then rerun one wrapped verify.');
 }
 if (result.error !== undefined) {
 	console.error(`Cause: ${result.error.message}`);
@@ -129,4 +121,23 @@ function findErrorBlock(lines) {
 	}
 
 	return lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 16));
+}
+
+function boundErrorBlock(block) {
+	const truncated = [];
+	let chars = 0;
+	for (const line of block) {
+		if (truncated.length >= MAX_ERROR_LINES || chars >= MAX_ERROR_CHARS) {
+			truncated.push('… (truncated; use Log path with rg/tail only)');
+			break;
+		}
+		const room = MAX_ERROR_CHARS - chars;
+		if (line.length > room) {
+			truncated.push(`${line.slice(0, Math.max(0, room))}… (truncated; use Log path with rg/tail only)`);
+			break;
+		}
+		truncated.push(line);
+		chars += line.length + 1;
+	}
+	return truncated;
 }
