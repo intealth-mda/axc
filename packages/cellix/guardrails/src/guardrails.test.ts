@@ -20,7 +20,7 @@ import {
 	sessionAllows,
 	sessionAllowsRead,
 } from './index.mjs';
-import { errorBlock } from './report.mjs';
+import { acceptanceReport, errorBlock } from './report.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 
@@ -269,6 +269,28 @@ describe('guardrails', () => {
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
+	});
+
+	it('prints the first acceptance expected and received values', () => {
+		const block = acceptanceReport([
+			'@axc-verification/acceptance-api:test:acceptance: EnrollmentRequest Create: A valid request creates a pending enrollment request',
+			'@axc-verification/acceptance-api:test:acceptance:   AssertionError: Expected the status of the last response to equal 200',
+			'@axc-verification/acceptance-api:test:acceptance:   Expected number: 200',
+			'@axc-verification/acceptance-api:test:acceptance:   Received number: 404',
+			'@axc-verification/acceptance-api:test:acceptance:       at /Volumes/files/src/axc-d/packages/axc-verification/acceptance-api/src/step-definitions/enrollment-request-create.steps.ts:28:10',
+			'@axc-verification/acceptance-api:test:acceptance:   Expected number: 409',
+			'@axc-verification/acceptance-api:test:acceptance:   Received number: 404',
+		]);
+		expect(block[0]).toContain('1 later acceptance');
+		expect(block.some((line) => line.startsWith('Expected: 200 — EnrollmentRequest Create:'))).toBe(true);
+		expect(block[block.length - 1]).toBe('Received: 404');
+		expect(block.some((line) => line.includes('steps.ts'))).toBe(false);
+	});
+
+	it('names a replica set when a transaction is rejected', () => {
+		const block = acceptanceReport(['Expected string: approved-body', 'Received string: {"message":"Transaction numbers are only allowed on a replica set member or mongos"}']);
+		expect(block[0]).toContain('one-node replica set');
+		expect(block[1]).toContain('replica set member');
 	});
 
 	it('shows the assertion instead of a dependency stack', () => {

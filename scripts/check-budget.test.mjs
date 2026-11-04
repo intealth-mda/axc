@@ -360,6 +360,22 @@ describe('agent-check', () => {
 		assert.ok(block.indexOf('Expected:') < block.indexOf('Found:'));
 	});
 
+	it('prints the acceptance received value instead of the stack', () => {
+		const log = [
+			'@axc-verification/acceptance-api:test:acceptance: EnrollmentRequest Create: A valid request creates a pending enrollment request',
+			'@axc-verification/acceptance-api:test:acceptance:   Expected number: 200',
+			'@axc-verification/acceptance-api:test:acceptance:   Received number: 404',
+			'@axc-verification/acceptance-api:test:acceptance:       at /repo/packages/axc-verification/acceptance-api/src/step-definitions/enrollment-request-create.steps.ts:28:10',
+		].join('\n');
+		const evalSource = `console.error(${JSON.stringify(log)}); process.exit(1);`;
+		const result = spawnSync(process.execPath, ['scripts/agent-check.mjs', '--', process.execPath, '--eval', evalSource], { cwd: root, encoding: 'utf8' });
+		assert.equal(result.status, 1);
+		assert.match(result.stderr, /FAIL:.*Expected: 200 — EnrollmentRequest Create:/);
+		const block = result.stderr.slice(result.stderr.indexOf('Error:'));
+		assert.match(block, /Received: 404/);
+		assert.doesNotMatch(block, /steps\.ts:28:10/);
+	});
+
 	it('tells a missing-module failure to leave the manifest alone', () => {
 		const diagnostic = "course.model.ts(1,34): error TS2307: Cannot find module '@cellix/mongoose-seedwork'";
 		const evalSource = `console.error(${JSON.stringify(diagnostic)}); process.exit(1);`;

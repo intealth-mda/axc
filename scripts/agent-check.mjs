@@ -3,7 +3,7 @@ import { appendFileSync, closeSync, existsSync, mkdtempSync, openSync, readFileS
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { errorBlock } from '../packages/cellix/guardrails/src/report.mjs';
+import { acceptanceReport, errorBlock } from '../packages/cellix/guardrails/src/report.mjs';
 import { checkFlag } from '../packages/cellix/guardrails/src/verify-flag.mjs';
 
 const args = process.argv.slice(2);
@@ -43,9 +43,10 @@ if (result.status === 0) {
 const exitCode = result.status ?? 1;
 const lines = log.split(/\r?\n/);
 const failedCheck = findFailedCheck(lines);
+const acceptance = /test:acceptance/.test(requested) || /test:acceptance/.test(log) ? acceptanceReport(lines) : [];
 const block = errorBlock(lines);
-const useful = block.filter((line) => !line.includes('[ELIFECYCLE]') && !line.includes('node_modules'));
-const shown = useful.length > 0 ? useful : hints.slice(0, 8);
+const useful = block.filter((line) => !line.includes('[ELIFECYCLE]') && !line.includes('node_modules') && !line.trim().startsWith('at '));
+const shown = acceptance.length > 0 ? acceptance : useful.length > 0 ? useful : hints.slice(0, 8);
 const missingModule = log.match(/error TS2307: Cannot find module '([^']+)'/);
 if (missingModule !== null && /@cellix\/(?:mongoose-seedwork|config-typescript)/.test(missingModule[1])) {
 	shown.push(

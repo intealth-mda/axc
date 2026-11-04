@@ -11,6 +11,7 @@ const port = '7071';
 /**
  * A catalog scenario needs Mongo. In setupEnvironment, start createMemoryMongoServer from
  * @axc/service-mongoose, set process.env.MONGODB_URI to getUri(), and stop the server in afterAll.
+ * That helper is already a one-node replica set. Do not replace it with a standalone server.
  * The API process inherits the variable. Do not start that server in apps/api/src/index.ts.
  */
 

@@ -3,6 +3,9 @@
 const NOISE = /\[ELIFECYCLE\]|node_modules|^(?:Found \d+ errors?\.?|Checked \d+ files.*)$/;
 const ANCHOR = /Expected:|^Found:|^Rule:|error TS\d+|AssertionError|Formatter would have printed|lint\/|\bformat ━|packages\/\S+\.(?:ts|tsx|mjs|js|json)|\(\d+,\d+\)|:\d+:\d+/;
 const PATH = /packages\/\S+\.(?:ts|tsx|mjs|js|json)/;
+const RECEIVED = /^Received (?:number|string|boolean|object):\s*(.*)$/;
+const EXPECTED_VALUE = /^Expected (?:number|string|boolean|object):\s*(.*)$/;
+const REPLICA_SET = /replica set member or mongos/;
 
 /** The first failure, capped. A second file starts the next check. */
 export function errorBlock(lines) {
@@ -26,4 +29,47 @@ function laterFile(line, first) {
 	if (next === null || opened === null) return false;
 	if (line.startsWith('Rule:') || line.startsWith('Found:') || line.startsWith('Expected:')) return false;
 	return next[0] !== opened[0];
+}
+
+/**
+ * The first acceptance assertion, as Expected/Received. Stack frames stay out.
+ * A standalone memory server cannot commit withScopedTransaction.
+ */
+export function acceptanceReport(lines) {
+	const cleaned = [];
+	for (const line of lines) {
+		const marker = ':test:acceptance:';
+		const at = line.indexOf(marker);
+		const text = (at >= 0 ? line.slice(at + marker.length) : line).trim();
+		if (text.length === 0 || text.includes('node_modules') || text.startsWith('at ')) continue;
+		cleaned.push(text);
+	}
+	const findings = [];
+	let failures = 0;
+	for (let index = 0; index < cleaned.length; index++) {
+		const received = cleaned[index].match(RECEIVED);
+		if (received === null) continue;
+		failures += 1;
+		if (findings.length > 0) continue;
+		let expected = '';
+		let scenario = '';
+		for (let back = index - 1; back >= 0 && index - back < 40; back--) {
+			const prior = cleaned[back];
+			if (expected.length === 0 && EXPECTED_VALUE.test(prior)) {
+				const match = prior.match(EXPECTED_VALUE);
+				expected = match === null ? '' : match[1];
+			}
+			if (scenario.length === 0 && /^[A-Za-z].+: .+/.test(prior) && !/^(?:Expected|Received|Assertion|Expectation|When|Then|Given|And|Before|After)/.test(prior)) scenario = prior;
+			if (expected.length > 0 && scenario.length > 0) break;
+		}
+		const value = received[1];
+		if (REPLICA_SET.test(value)) {
+			findings.push('Expected: createMemoryMongoServer() returns a one-node replica set. A standalone memory server cannot run withScopedTransaction.');
+		} else {
+			findings.push(`Expected: ${expected}${scenario.length === 0 ? '' : ` — ${scenario}`}`);
+		}
+		findings.push(`Received: ${value}`);
+	}
+	if (failures > 1) findings.unshift(`${failures - 1} later acceptance assertions also failed. Fix the first Received value.`);
+	return findings;
 }

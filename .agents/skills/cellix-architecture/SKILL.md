@@ -92,7 +92,7 @@ Read the files the task names. Do not list the tree. A new subdomain starts with
 
 When the behavior, the seed rows, and the acceptance steps are in place, run `pnpm run agent-check -- pnpm run verify` once. Stop only after `CELLIX_VERIFY=pass`. Do not write `.cellix/verify.json`.
 
-In `packages/axc-verification/acceptance-api/src/infrastructure.ts`, call `createMemoryMongoServer` from `@axc/service-mongoose`, await `start()`, and assign the uri before the API process spawns. `@axc/service-mongoose` and `mongoose` are already dependencies. Do not edit `package.json` to add them.
+In `packages/axc-verification/acceptance-api/src/infrastructure.ts`, call `createMemoryMongoServer` from `@axc/service-mongoose`, await `start()`, and assign the uri before the API process spawns. That function is a one-node replica set. `withScopedTransaction` rejects a standalone server. Do not replace it with `MongoMemoryServer`. `@axc/service-mongoose` and `mongoose` are already dependencies. Do not edit `package.json` to add them.
 
 ```ts
 const mongoUri = memoryMongo.getUri();
