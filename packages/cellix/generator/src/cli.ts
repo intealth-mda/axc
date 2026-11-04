@@ -116,21 +116,25 @@ function prepareModels(root: string, feature: GenerateFeatureOptions): void {
 	if (!workspaceLinkMissing(root, feature)) return;
 	const install = spawnSync('pnpm', ['install', '--ignore-scripts'], { cwd: root, stdio: 'inherit' });
 	if (install.status !== 0) process.exit(install.status ?? 1);
+	if (workspaceLinkMissing(root, feature)) {
+		console.error('The models package still cannot resolve @cellix/mongoose-seedwork or @cellix/config-typescript/node.');
+		process.exit(1);
+	}
 }
 
 /** A package.json can name a workspace dependency before pnpm has linked it. Typecheck then reports TS2307. */
 function workspaceLinkMissing(root: string, feature: GenerateFeatureOptions): boolean {
 	const manifest = path.join(root, path.dirname(feature.lint.layers.models), 'package.json');
 	if (!existsSync(manifest)) return false;
-	return missingPackage(manifest, '@cellix/mongoose-seedwork') || missingPackage(manifest, '@cellix/config-typescript');
+	return missingPackage(manifest, '@cellix/mongoose-seedwork') || missingPackage(manifest, '@cellix/config-typescript/node');
 }
 
 function missingPackage(manifest: string, name: string): boolean {
 	try {
 		createRequire(manifest).resolve(name);
 		return false;
-	} catch (error) {
-		return error instanceof Error && error.message.includes('Cannot find package');
+	} catch {
+		return true;
 	}
 }
 

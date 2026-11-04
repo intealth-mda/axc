@@ -52,7 +52,7 @@ export function decideRead(file, workspace, policy) {
 	if (exactOpen(relativePath, policy.read)) return allow();
 	if (sessionAllowsRead(relativePath, policy.session)) return allow();
 	return deny(
-		`${relativePath} is outside the ${policy.session.agentId} read session (.cellix/sessions/${policy.session.agentId}.json). Other agents are unchanged. An exact true path in ocom-write.config.json stays readable. Do not open another subdomain to copy a pattern. Read it with dataSources.readonlyDataSource.<Context>.<Entity>.<Entity>ReadRepo.getById(id). Edit a file this generate printed, or a file the check names.`,
+		`${relativePath} is outside the ${policy.session.agentId} read session (.cellix/sessions/${policy.session.agentId}.json). Other agents are unchanged. An exact true path in ocom-write.config.json stays readable. Do not open another subdomain to copy a pattern. Read it with dataSources.readonlyDataSource.<Context>.<Entity>.<Entity>ReadRepo.getById(id). A missing @cellix module is linked by the check. Do not open package.json or node_modules for it. Edit a file this generate printed, or a file the check names.`,
 	);
 }
 

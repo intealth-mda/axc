@@ -68,7 +68,7 @@ const entry = this.props.activityLog.getNewItem();
 entry.activityType = activityType;
 ```
 
-Do not declare that props type again. A model type besides the entity starts with the entity name and is used as a field type. A string that may be null is `string|null`. The type `string` is a required value object. Leave the read method and the update assignment blank until you fill them in. Do not copy `<camel>Seed` into a handler or a read repository. Dependencies and tsconfig references are already added. Do not edit `package.json`. Do not run `pnpm install`, `pnpm add`, `pnpm remove`, or `pnpm link`. A missing `@cellix/mongoose-seedwork` declaration is built when generate runs. Run `pnpm run agent-check -- pnpm run check` again. Do not add a field or an action to force another generate. After `query`, `pnpm run agent-check -- pnpm run check` passes before you fill in behavior.
+Do not declare that props type again. A model type besides the entity starts with the entity name and is used as a field type. A string that may be null is `string|null`. The type `string` is a required value object. Leave the read method and the update assignment blank until you fill them in. Do not copy `<camel>Seed` into a handler or a read repository. Dependencies and tsconfig references are already added. Do not edit `package.json`. Do not run `pnpm install`, `pnpm add`, `pnpm remove`, or `pnpm link`. A missing `@cellix/mongoose-seedwork` or `@cellix/config-typescript` link is repaired by `pnpm run agent-check -- pnpm run check`. Do not add a field or an action to force another generate. After `query`, `pnpm run agent-check -- pnpm run check` passes before you fill in behavior.
 
 The generator writes `packages/axc/data-sources-mongoose-models` when that package is missing. Do not write that manifest yourself.
 
@@ -86,7 +86,7 @@ Run `pnpm run agent-check -- pnpm run check` while those behavior files change. 
 
 ## Checks
 
-While files change, run `pnpm run agent-check -- pnpm run check`. That is lint and typecheck. The wrapper prints the first failure: the file, the rule, and the expected shape. Do not pipe it, and do not redirect it into a file. Read a file again only when that block names it. When the block says the file would be reformatted, run `pnpm exec biome check --write` on that one file. A `Cannot find module` error names a dependency the generator already declared. Do not read `node_modules`, `pnpm-lock.yaml`, or `package.json`. Do not run `pnpm install`.
+While files change, run `pnpm run agent-check -- pnpm run check`. That is lint and typecheck. The wrapper prints the first failure: the file, the rule, and the expected shape. Do not pipe it, and do not redirect it into a file. Read a file again only when that block names it. When the block says the file would be reformatted, run `pnpm exec biome check --write` on that one file. A `Cannot find module` error for `@cellix/mongoose-seedwork` or `@cellix/config-typescript` is linked by that same check. Do not read `node_modules`, `pnpm-lock.yaml`, or `package.json`. Do not run `pnpm install`.
 
 Read the files the task names. Do not list the tree. A new subdomain starts with `generate`. Add `query` only after that backend exists. Any other change edits the existing file. Do not assign `CELLIX_AGENT_ID`. A denial names a wrong path. Do not edit `ocom-write.config.json` or `.cellix/sessions`.
 

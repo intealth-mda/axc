@@ -23,12 +23,17 @@ export function tsType(type: string): string {
 }
 
 export function mongooseField(field: ShapeField): string {
-	if (field.type === 'boolean') return '{ type: Boolean, required: true }';
-	if (field.type === 'date') return '{ type: Date, required: true }';
-	if (field.type === 'number') return '{ type: Number, required: true }';
-	if (field.type === 'string') return '{ type: String, required: true, minlength: 1, maxlength: 200 }';
-	if (field.type.endsWith('[]')) return `{ type: [${mongooseScalar(field.type.slice(0, -2))}], required: true }`;
-	return '{ type: String, required: true }';
+	const parts = field.type.split('|').map((part) => part.trim());
+	const nullable = parts.includes('null');
+	const required = nullable ? 'required: false, default: null' : 'required: true';
+	const concrete = parts.find((part) => part !== 'null' && part !== 'undefined') ?? field.type;
+	if (concrete === 'boolean') return `{ type: Boolean, ${required} }`;
+	if (concrete === 'date') return `{ type: Date, ${required} }`;
+	if (concrete === 'number') return `{ type: Number, ${required} }`;
+	if (concrete === 'string' && nullable) return `{ type: String, ${required} }`;
+	if (concrete === 'string') return '{ type: String, required: true, minlength: 1, maxlength: 200 }';
+	if (concrete.endsWith('[]')) return `{ type: [${mongooseScalar(concrete.slice(0, -2))}], ${required} }`;
+	return `{ type: String, ${required} }`;
 }
 
 export function gqlType(type: string): string {

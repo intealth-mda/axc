@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, closeSync, mkdtempSync, openSync, readFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, mkdtempSync, openSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { errorBlock } from '../packages/cellix/guardrails/src/report.mjs';
 import { checkFlag } from '../packages/cellix/guardrails/src/verify-flag.mjs';
 
@@ -23,17 +24,14 @@ if (isVerify(requested) && checkFlag(process.cwd())) {
 	process.exit(0);
 }
 
-const directory = mkdtempSync(join(tmpdir(), 'cellix-agent-check-'));
-const logPath = join(directory, 'command.log');
-const logFile = openSync(logPath, 'w');
-const result = spawnSync(command, commandArgs, {
-	cwd: process.cwd(),
-	env: process.env,
-	stdio: ['ignore', logFile, logFile],
-});
-closeSync(logFile);
-
-const log = stripAnsi(readFileSync(logPath, 'utf8'));
+let run = runCaptured(command, commandArgs);
+if (run.result.status !== 0 && modelsNeedLink(process.cwd())) {
+	linkModels(process.cwd());
+	run = runCaptured(command, commandArgs);
+}
+const result = run.result;
+const logPath = run.logPath;
+const log = run.log;
 const hints = result.status !== 0 && acceptanceFailed(requested, log) ? acceptanceHints(process.cwd(), log) : [];
 if (hints.length > 0) appendFileSync(logPath, `\n${hints.join('\n')}\n`);
 if (result.status === 0) {
@@ -49,9 +47,9 @@ const block = errorBlock(lines);
 const useful = block.filter((line) => !line.includes('[ELIFECYCLE]') && !line.includes('node_modules'));
 const shown = useful.length > 0 ? useful : hints.slice(0, 8);
 const missingModule = log.match(/error TS2307: Cannot find module '([^']+)'/);
-if (missingModule !== null) {
+if (missingModule !== null && /@cellix\/(?:mongoose-seedwork|config-typescript)/.test(missingModule[1])) {
 	shown.push(
-		`Cannot find module ${missingModule[1]}. Its declarations are built when generate runs. Run pnpm run agent-check -- pnpm run check again. Do not add a field or an action to force another generate. Do not read node_modules, pnpm-lock.yaml, or package.json. Do not run pnpm install or node.`,
+		`Cannot find module ${missingModule[1]}. The check links workspace packages before it reports this. Do not add a field or an action. Do not read node_modules, pnpm-lock.yaml, or package.json. Do not run pnpm install or node.`,
 	);
 }
 const headline = shown.find((line) => line.includes('Expected:'));
@@ -64,6 +62,51 @@ if (shown.length > 0) {
 	console.error(shown.join('\n'));
 }
 process.exit(exitCode);
+
+function runCaptured(command, commandArgs) {
+	const directory = mkdtempSync(join(tmpdir(), 'cellix-agent-check-'));
+	const logPath = join(directory, 'command.log');
+	const logFile = openSync(logPath, 'w');
+	const result = spawnSync(command, commandArgs, {
+		cwd: process.cwd(),
+		env: process.env,
+		stdio: ['ignore', logFile, logFile],
+	});
+	closeSync(logFile);
+	return { result, logPath, log: stripAnsi(readFileSync(logPath, 'utf8')) };
+}
+
+/** require.resolve says "Cannot find module", not "Cannot find package". Either failure means the link is absent. */
+function modelsNeedLink(workspace) {
+	const manifest = modelsManifest(workspace);
+	if (!existsSync(manifest)) return false;
+	return missingPackage(manifest, '@cellix/mongoose-seedwork') || missingPackage(manifest, '@cellix/config-typescript/node');
+}
+
+function modelsManifest(workspace) {
+	const config = readFactory(workspace);
+	const models = config.layers && typeof config.layers.models === 'string' ? config.layers.models : 'packages/axc/data-sources-mongoose-models/src';
+	return join(workspace, dirname(models), 'package.json');
+}
+
+function missingPackage(manifest, name) {
+	try {
+		createRequire(manifest).resolve(name);
+		return false;
+	} catch {
+		return true;
+	}
+}
+
+function linkModels(workspace) {
+	const declarations = join(workspace, 'packages/cellix/mongoose-seedwork/dist/index.d.ts');
+	if (!existsSync(declarations)) {
+		const build = spawnSync('pnpm', ['--filter', '@cellix/mongoose-seedwork', 'run', 'build'], { cwd: workspace, stdio: 'inherit' });
+		if (build.status !== 0) process.exit(build.status ?? 1);
+	}
+	const install = spawnSync('pnpm', ['install', '--ignore-scripts'], { cwd: workspace, stdio: 'inherit' });
+	if (install.status !== 0) process.exit(install.status ?? 1);
+}
 
 function isVerify(text) {
 	return /(?:^|\s)pnpm(?:\s+run)?\s+verify(?:\s|$)/.test(text);

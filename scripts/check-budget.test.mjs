@@ -366,7 +366,7 @@ describe('agent-check', () => {
 		const result = spawnSync(process.execPath, ['scripts/agent-check.mjs', '--', process.execPath, '--eval', evalSource], { cwd: root, encoding: 'utf8' });
 		assert.equal(result.status, 1);
 		assert.match(result.stderr, /course\.model\.ts/);
-		assert.match(result.stderr, /Do not add a field or an action/);
+		assert.match(result.stderr, /The check links workspace packages/);
 		assert.match(result.stderr, /Do not read node_modules/);
 	});
 });

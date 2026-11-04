@@ -11,6 +11,7 @@ import { defaultGenerateLayout } from './config.ts';
 import { filesToEdit, readsForEdit } from './edit-targets.ts';
 import { generateFeature } from './generate.ts';
 import { mergeFields, parseField, parseFieldsFile, parseNested, parseParam, parsePermission } from './spec.ts';
+import { mongooseField } from './text.ts';
 
 const roots: string[] = [];
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -36,6 +37,11 @@ afterEach(async () => {
 });
 
 describe('Cellix generator', () => {
+	it('stores a null union as an optional mongoose field', () => {
+		expect(mongooseField({ name: 'reason', pascal: 'Reason', type: 'string|null' })).toBe('{ type: String, required: false, default: null }');
+		expect(mongooseField({ name: 'title', pascal: 'Title', type: 'string' })).toContain('required: true');
+	});
+
 	it('writes a feature slice that passes Cellix lint', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
