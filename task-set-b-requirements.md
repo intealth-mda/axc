@@ -39,7 +39,7 @@ The harness may create or modify files only in these locations:
 | `apps/api/**` | REST routing / functional wiring |
 | `packages/axc/rest/**` | Hono logic |
 | `packages/axc/application-services/**` | Application services |
-| `packages/axc/domain/**` | DDD domain logic |
+| `packages/axc/domain/**` | Cellix-aligned course and enrollment request aggregates, value objects, and domain contracts; new context and entity directories are allowed |
 | `packages/axc/persistence/**` | Data storage |
 | `packages/axc/service-mongoose/**` | Data storage |
 | `packages/axc/data-sources-mongoose-models/**` | Mongoose storage models and factories aligned with Cellix |
