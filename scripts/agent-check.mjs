@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
 	commandText,
+	isCompileOrTypecheckFailure,
 	isTerminalAdvisoryFailure,
 	isVerify,
 	readBudget,
 	recordVerify,
 	rejectionReason,
 } from './check-budget.mjs';
-
 const args = process.argv.slice(2);
 if (args[0] === '--') {
 	args.shift();
@@ -66,6 +66,10 @@ if (failedCheck !== undefined) {
 if (terminal) {
 	console.error(
 		'Terminal: dependency advisory failure. Do not rerun verify or acceptance; report findings and stop.',
+	);
+} else if (isVerify(requestedText) && isCompileOrTypecheckFailure(log)) {
+	console.error(
+		'Non-terminal: typecheck or build failure. Fix the diagnostics, then rerun one wrapped verify.',
 	);
 }
 if (result.error !== undefined) {

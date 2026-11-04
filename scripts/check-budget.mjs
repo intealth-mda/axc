@@ -49,8 +49,29 @@ export function recordVerify(status, options = {}, cwd = process.cwd()) {
 	writeFileSync(budgetPath(cwd), `${JSON.stringify(budget)}\n`);
 }
 
+export function isCompileOrTypecheckFailure(log) {
+	const text = String(log ?? '');
+	if (/\berror TS\d+:/i.test(text)) {
+		return true;
+	}
+	if (/\bType error:/i.test(text)) {
+		return true;
+	}
+	if (/\bERROR\s+.*#(?:typecheck|build)\b/i.test(text)) {
+		return true;
+	}
+	if (/\[ELIFECYCLE\].*(?:typecheck|build)\b/i.test(text) && /\berror TS|\bFound \d+ error/i.test(text)) {
+		return true;
+	}
+	return false;
+}
+
 export function isTerminalAdvisoryFailure(log) {
 	const text = String(log ?? '');
+	// Never treat a compile/typecheck failure as advisory-terminal "done".
+	if (isCompileOrTypecheckFailure(text)) {
+		return false;
+	}
 	// verify is &&-chained; reaching audit/snyk means earlier stages passed.
 	const auditFailed =
 		/\bvulnerabilities found\b/i.test(text) && /(?:pnpm\s+(?:run\s+)?audit|--audit-level)/i.test(text);

@@ -35,4 +35,5 @@ alwaysApply: true
 - Trust the wrapper's `PASS` result. Do not inspect its successful log.
 - On failure, use its first error block. Read more of the temporary log only when that block cannot identify the cause.
 - Treat a wrapper `Terminal: dependency advisory failure` line as final for validation.
+- Treat a wrapper `Non-terminal: typecheck or build failure` line as fixable: correct the diagnostics and use the one allowed verify rerun.
 - Final reply: changes, commands, pass or fail, limitations, dependency justification, and security findings. Do not narrate the work.
