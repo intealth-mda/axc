@@ -1,5 +1,5 @@
 {
-	"enabled": false,
+	"enabled": true,
 	"scope": "@axc",
 	"layers": {
 		"domain": "packages/axc/domain/src",
