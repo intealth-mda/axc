@@ -4,34 +4,44 @@ version: v1.25.1
 ignore:
   SNYK-JS-BRACES-19963945:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:43.527Z
-        created: 2026-09-28T22:36:43.528Z
-  SNYK-JS-DEEPMERGE-19964053:
+        reason: No fixed braces release exists as of 2026-11-05; recheck before expiry
+        expires: 2026-12-05T00:00:00.000Z
+        created: 2026-11-05T00:00:00.000Z
+  SNYK-JS-FLAT-22148819:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:44.923Z
-        created: 2026-09-28T22:36:44.928Z
+        reason: No fixed flat release exists as of 2026-11-05; recheck before expiry
+        expires: 2026-12-05T00:00:00.000Z
+        created: 2026-11-05T00:00:00.000Z
   SNYK-JS-HTTPCACHESEMANTICS-19964064:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:46.295Z
-        created: 2026-09-28T22:36:46.299Z
+        reason: No fixed http-cache-semantics release exists as of 2026-11-05; recheck before expiry
+        expires: 2026-12-05T00:00:00.000Z
+        created: 2026-11-05T00:00:00.000Z
   SNYK-JS-HTTPCACHESEMANTICS-19964068:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:47.625Z
-        created: 2026-09-28T22:36:47.628Z
+        reason: No fixed http-cache-semantics release exists as of 2026-11-05; recheck before expiry
+        expires: 2026-12-05T00:00:00.000Z
+        created: 2026-11-05T00:00:00.000Z
+  SNYK-JS-MINIMATCH-22111072:
+    - '*':
+        reason: Fixed minimatch 11 is API-incompatible with serve-handler 6.1.7; no compatible serve-handler release exists as of 2026-11-05
+        expires: 2026-12-05T00:00:00.000Z
+        created: 2026-11-05T00:00:00.000Z
+  SNYK-JS-OPEN-22112123:
+    - '*':
+        reason: Docusaurus 3.10.2 CommonJS-requires open 8 and has no compatible fixed release as of 2026-11-05; webpack-dev-server path is overridden to open 11
+        expires: 2026-12-05T00:00:00.000Z
+        created: 2026-11-05T00:00:00.000Z
   SNYK-JS-URIJS-19963961:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:48.966Z
-        created: 2026-09-28T22:36:48.969Z
+        reason: No fixed uri-js release exists as of 2026-11-05; recheck before expiry
+        expires: 2026-12-05T00:00:00.000Z
+        created: 2026-11-05T00:00:00.000Z
   SNYK-JS-URIJS-19963963:
     - '*':
-        reason: No upgrade or patch available
-        expires: 2026-10-28T22:36:50.274Z
-        created: 2026-09-28T22:36:50.278Z
+        reason: No fixed uri-js release exists as of 2026-11-05; recheck before expiry
+        expires: 2026-12-05T00:00:00.000Z
+        created: 2026-11-05T00:00:00.000Z
   SNYK-JS-URIJS-20341609:
     - '*':
         reason: No upgrade or patch available
