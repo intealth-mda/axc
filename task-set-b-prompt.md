@@ -18,10 +18,9 @@ Use only the allowed write boundary:
 - packages/cellix/** can continue to port over packages from github repo CellixJS/cellixjs; these vendored packages should **NEVER** deviate from the original source repository
 - packages/axc/rest/** hono logic
 - packages/axc/application-services/** application services
-- packages/axc/domain/** Cellix-aligned course and enrollment request aggregates, value objects, and domain contracts
 - packages/axc/persistence/** data storage
 - packages/axc/service-mongoose/** data storage
-- packages/axc/data-sources-mongoose-models/** Mongoose storage models and factories aligned with Cellix
+- packages/axc/** do not create any additional directories beyond what already exist
 - packages/axc-verification/** unit, integration, architectural and acceptance tests
 - apps/docs/** any configuration necessary to get documentational functional
 - apps/docs/** MADR / API documentation
