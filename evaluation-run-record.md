@@ -10,31 +10,21 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Model | Grok 4.7 low |
 | License / Plan | |
 | Codebase | ECFMG/axc |
-| Task Set | A |
+| Task Set | B |
 | Run Type | Baseline / Harness Engineering Iteration N / Final |
 | Harness Engineering Used | |
 | Config / Diff Notes | |
 | Branch / Commit | |
-| Requirements Completed / Attempted | |
-| Acceptance Criteria Passed / Total | |
-| Tests Passed / Failed | |
-| Static Analysis / Security Findings | |
-Cache Read
-832,256
-Cache Write
-0
-Input
-91,663
-Output
-18,899
-Total
-942,818
-| Input Tokens |91,663|
-| Cached Tokens |832,256 |
-| Output Tokens | 18,899 |
-| Total Tokens or Credits Used |942,818|
-| Estimated Cost |.71 usd|
-| Elapsed Time | 8 minutes|
+| Requirements Completed / Attempted |17/17 |
+| Acceptance Criteria Passed / Total |15/15|
+| Tests Passed / Failed | 37/37|
+| Static Analysis / Security Findings | none |
+| Input Tokens |90,543|
+| Cached Tokens |1,875,456 |
+| Output Tokens | 28,250 |
+| Total Tokens or Credits Used |1,994,249|
+| Estimated Cost |1.29 usd|
+| Elapsed Time | 9 minutes|
 | Number of Human Interventions / Redirects | 0 |
 | Reviewer Notes | (leave blank for now) |
 | Final Rubric Score | (leave blank for now) |
