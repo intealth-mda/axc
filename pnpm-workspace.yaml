@@ -23,7 +23,9 @@ catalog:
   '@serenity-js/rest': 3.46.0
   '@serenity-js/serenity-bdd': 3.46.0
   '@storybook/addon-vitest': ^10.4.2
-  '@types/node': 24.10.1
+  # 25.x: happy-dom 21 types use UnderlyingDefaultSource from node:stream/web,
+  # first shipped in @types/node 25.0.0.
+  '@types/node': 25.9.9
   '@typescript/native-preview': 7.0.0-dev.20260428.1
   '@vitest/browser-playwright': 4.1.12
   '@vitest/coverage-istanbul': 4.1.12
@@ -46,7 +48,8 @@ auditConfig:
   ignoreGhsas:
     # braces <=3.0.3 (transitive via knip, ts-scope-trimmer-plugin, Docusaurus):
     # no upstream fix as of 2026-10-03, risk accepted by user.
-    # Remove once a patched version ships.
+    # 3.0.4 is listed as patched, but that version is unavailable on the npm
+    # registry; latest is 3.0.3. Remove once a patched version ships.
     - GHSA-vfj7-8cjw-p6xm
 
 overrides:
@@ -66,7 +69,11 @@ overrides:
   'http-cache-semantics@<4.3.0': 4.3.0
   'joi@>=17.1.1 <17.13.9': 17.13.9
   'launch-editor@<2.14.2': 2.14.2
-  'postcss-selector-parser@<6.1.5': 6.1.5
+  # open 11 is the first release fixing SNYK-JS-OPEN-22112123. Storybook and webpack-dev-server load open via ESM import;
+  # open 8 (Docusaurus core, CJS require) is left alone because open 11 is ESM-only.
+  'open@>=10.0.0 <11.0.0': 11.0.4
+  # From origin/main (#14): forced to 7.1.6 for every consumer (supersedes '<6.1.5': 6.1.5).
+  postcss-selector-parser: 7.1.6
   'qs@>=6.7.0 <6.16.2': 6.16.2
   'source-map-js@<1.2.2': 1.2.2
   # tinypool 1.x has no fix for GHSA-5gmw-xhrv-c9v3 / GHSA-85c8-ppgw-ccpr; Docusaurus only uses the default Tinypool export.
