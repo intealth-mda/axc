@@ -32,8 +32,8 @@ alwaysApply: true
 
 ## Command output
 
-- Trust the wrapper's `PASS` result. Do not inspect its successful log.
-- On failure, use the printed Error block first. If that block cannot identify the cause, `rg` or `tail` a small window of the wrapper `Log:` path only. Do not `cat` or Read the whole log. Do not re-run a command only to see its output.
+- Trust the wrapper's `PASS` result. Do not inspect its successful log. Do not Read or `cat` PASS output beyond the one-line PASS status.
+- On failure, use the printed Error block first. If that block cannot identify the cause, `rg` or `tail` at most 20 lines of the wrapper `Log:` path only. Do not `cat` or Read the whole log. Do not re-run a command only to see its output.
 - Treat a wrapper `Terminal: dependency advisory failure` line as final: no more shells, edits, or agent-check commands; write the final reply only.
 - Treat a wrapper `Non-terminal: typecheck or build failure` line as fixable: correct the diagnostics and use the one allowed verify rerun.
 - Do not edit or inspect harness files under `scripts/` or `.cursor/` during feature work unless a failed check names that exact path.

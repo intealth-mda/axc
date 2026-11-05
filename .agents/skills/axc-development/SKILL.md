@@ -15,7 +15,7 @@ description: Implements and validates agentCourses features with repository laye
 6. Before writing tests, confirm public exports, project references, and the repository's comparison or ordering convention. Keep this preflight internal. If several tests need the same stubs, use one shared test helper with overrides instead of editing each old test.
 7. Complete one pass across code, exports, project references, tests, and required documentation. Do not tour tooling configs before the first write.
 8. Before verification, check the task requirements once and keep that checklist internal.
-9. Validate with only the new or changed test file(s) for the edit through `node scripts/agent-check.mjs -- <command>`, then one wrapped `pnpm run verify`. On wrapper FAIL, use the printed Error block; if needed, `rg`/`tail` the `Log:` path only — never the whole log.
+9. Validate with only the new or changed test file(s) for the edit through `node scripts/agent-check.mjs -- <command>`, then one wrapped `pnpm run verify`. Trust one-line PASS; on FAIL use the Error block, then at most 20 lines via `rg`/`tail` on the `Log:` path — never the whole log.
 10. If that verify fails only on dependency audit or advisory scan, stop; do not rerun verify or acceptance. Report advisories as security findings.
 11. Report what changed, the commands, results, limitations, any dependency justification, and security findings.
 

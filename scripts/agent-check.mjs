@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commandText, isCompileOrTypecheckFailure, isTerminalAdvisoryFailure, isVerify, readBudget, recordVerify, rejectionReason } from './check-budget.mjs';
 
-const MAX_ERROR_LINES = 40;
-const MAX_ERROR_CHARS = 4096;
+// Tighter FAIL dump than prior 40 lines / 4KB — keep actionable, cut cache.
+const MAX_ERROR_LINES = 20;
+const MAX_ERROR_CHARS = 2048;
 
 const args = process.argv.slice(2);
 if (args[0] === '--') {
@@ -46,6 +47,7 @@ if (isVerify(requestedText)) {
 }
 
 if (result.status === 0) {
+	// PASS stays one line; full log stays on disk only (never printed).
 	console.log(`PASS: ${displayCommand}`);
 	process.exit(0);
 }
@@ -117,10 +119,10 @@ function findErrorBlock(lines) {
 	const index = specificIndexes.length > 0 ? Math.min(...specificIndexes) : lines.findIndex((line) => /\[ELIFECYCLE\]|\bERROR\b/.test(line));
 
 	if (index === -1) {
-		return lines.filter((line) => line.trim() !== '').slice(-12);
+		return lines.filter((line) => line.trim() !== '').slice(-8);
 	}
 
-	return lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 16));
+	return lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 10));
 }
 
 function boundErrorBlock(block) {
