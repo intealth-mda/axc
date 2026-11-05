@@ -1,5 +1,6 @@
 // Token usage, estimated cost and elapsed time of a Codex session, read from its
-// rollout log (~/.codex/sessions/**/rollout-*.jsonl). Ported from hac-oai-16.
+// rollout log ($CODEX_HOME/sessions/**/rollout-*.jsonl, CODEX_HOME defaulting to ~/.codex).
+// Ported from hac-oai-16.
 //
 //   node scripts/codex-session-usage.mjs --latest --line   one line for the agent's final summary
 //   node scripts/codex-session-usage.mjs --latest          table for the evaluation run record
@@ -37,7 +38,7 @@ function listRollouts(directory, found = []) {
 }
 
 function latestRollout(cwd) {
-	const candidates = listRollouts(join(homedir(), '.codex', 'sessions'))
+	const candidates = listRollouts(join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'sessions'))
 		.map((path) => ({ path, mtime: statSync(path).mtimeMs }))
 		.sort((a, b) => b.mtime - a.mtime);
 	const fromCwd = candidates.find((candidate) =>

@@ -1,0 +1,3 @@
+# Keeps this skill out of the agent's skill list (feature work never needs it); call it explicitly with $portless.
+policy:
+  allow_implicit_invocation: false

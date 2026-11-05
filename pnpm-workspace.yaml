@@ -15,7 +15,7 @@ catalog:
   '@amiceli/vitest-cucumber': 6.5.0
   '@apollo/server': 5.5.0
   '@azure/functions': 4.11.0
-  '@cucumber/cucumber': 12.8.1
+  '@cucumber/cucumber': 13.0.0
   '@cucumber/messages': 32.3.1
   '@serenity-js/assertions': 3.46.0
   '@serenity-js/console-reporter': 3.46.0
@@ -76,6 +76,7 @@ overrides:
   'joi@17': 17.13.9
   '@graphql-tools/utils@12': 12.1.0
   zod: 4.6.7
+  'open@<11': 11.0.4
 
 patchedDependencies:
   '@azure/functions@4.11.0': patches/@azure__functions@4.11.0.patch
