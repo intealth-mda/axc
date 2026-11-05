@@ -11,5 +11,8 @@ export interface DomainDataSource {
 		Course: {
 			CourseUnitOfWork: Contexts.Catalog.Course.CourseUnitOfWork;
 		};
+		EnrollmentRequest: {
+			EnrollmentRequestUnitOfWork: Contexts.Catalog.EnrollmentRequest.EnrollmentRequestUnitOfWork;
+		};
 	};
 }
