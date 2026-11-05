@@ -521,9 +521,13 @@ async function ensureSeedExports(options: GenerateFeatureOptions): Promise<Writt
 	const entity = options.entity;
 	const seed = `${camel(entity)}Seed`;
 	const scope = options.lint.scope;
+	const serviceDir = path.dirname(path.join(options.root, options.lint.layers.serviceMongoose));
+	const modelsDir = path.dirname(path.join(options.root, options.lint.layers.models));
 	return [
 		...(await ensureExport(path.join(options.root, options.lint.layers.models, 'index.ts'), `export { ${seed} } from './models/${entity}/${entity}.seed.ts';\n`)),
 		...(await ensureNamedExport(path.join(options.root, options.lint.layers.serviceMongoose, 'index.ts'), seed, `${scope}/data-sources-mongoose-models`)),
+		...(await ensureDependency(path.join(serviceDir, 'package.json'), `${scope}/data-sources-mongoose-models`, 'workspace:*')),
+		...(await ensureProjectReference(path.join(serviceDir, 'tsconfig.json'), path.relative(serviceDir, modelsDir))),
 	];
 }
 

@@ -25,7 +25,7 @@ if (isVerify(requested) && checkFlag(process.cwd())) {
 }
 
 let run = runCaptured(command, commandArgs);
-if (run.result.status !== 0 && modelsNeedLink(process.cwd())) {
+if (run.result.status !== 0 && (modelsNeedLink(process.cwd()) || workspaceLinkMissing(run.log))) {
 	linkModels(process.cwd());
 	run = runCaptured(command, commandArgs);
 }
@@ -48,9 +48,9 @@ const block = errorBlock(lines);
 const useful = block.filter((line) => !line.includes('[ELIFECYCLE]') && !line.includes('node_modules') && !line.trim().startsWith('at '));
 const shown = acceptance.length > 0 ? acceptance : useful.length > 0 ? useful : hints.slice(0, 8);
 const missingModule = log.match(/error TS2307: Cannot find module '([^']+)'/);
-if (missingModule !== null && /@cellix\/(?:mongoose-seedwork|config-typescript)/.test(missingModule[1])) {
+if (missingModule !== null && /@(?:cellix\/(?:mongoose-seedwork|config-typescript)|axc\/(?:data-sources-mongoose-models|service-mongoose))/.test(missingModule[1])) {
 	shown.push(
-		`Cannot find module ${missingModule[1]}. The check links workspace packages before it reports this. Do not add a field or an action. Do not read node_modules, pnpm-lock.yaml, or package.json. Do not run pnpm install or node.`,
+		`Cannot find module ${missingModule[1]}. The check links workspace packages before it reports this. Do not add a field or an action. Do not edit package.json or tsconfig.json. Do not read node_modules, pnpm-lock.yaml, or package.json. Do not run pnpm install or node.`,
 	);
 }
 const headline = shown.find((line) => line.startsWith('Acceptance:') || line.includes('Expected:'));
@@ -80,6 +80,10 @@ function runCaptured(command, commandArgs) {
 }
 
 /** require.resolve says "Cannot find module", not "Cannot find package". Either failure means the link is absent. */
+function workspaceLinkMissing(log) {
+	return /error TS2307: Cannot find module '@axc\/(?:data-sources-mongoose-models|service-mongoose)'/.test(log);
+}
+
 function modelsNeedLink(workspace) {
 	const manifest = modelsManifest(workspace);
 	if (!existsSync(manifest)) return false;

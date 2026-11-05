@@ -3,7 +3,7 @@ import { getTimeout } from '@cellix/serenity-framework/settings';
 import { AfterStep, type IWorld, Status } from '@cucumber/cucumber';
 import { actorCalled } from '@serenity-js/core';
 import { LastResponse } from '@serenity-js/rest';
-import { infrastructure } from './infrastructure.ts';
+import { infrastructure, stopMemoryMongo } from './infrastructure.ts';
 import type { AgentCoursesApiWorld } from './world.ts';
 
 /** Register the Cucumber Before/After/AfterAll hooks for the API acceptance suite. */
@@ -16,7 +16,10 @@ export function registerLifecycleHooks(): void {
 		after: async (world) => {
 			await world.cleanup();
 		},
-		afterAll: () => infrastructure.stopAll(),
+		afterAll: async () => {
+			await infrastructure.stopAll();
+			await stopMemoryMongo();
+		},
 	});
 	AfterStep(async (step) => {
 		if (step.result?.status !== Status.FAILED) return;

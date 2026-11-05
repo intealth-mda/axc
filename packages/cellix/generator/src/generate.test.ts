@@ -792,6 +792,8 @@ describe('Cellix generator', () => {
 		roots.push(root);
 		const lint = defaultGenerateLayout();
 		await writeStub(root, 'packages/axc/service-mongoose/src/index.ts', "export { courseSeed } from '@axc/data-sources-mongoose-models';\n");
+		await writeStub(root, 'packages/axc/service-mongoose/package.json', '{ "name": "@axc/service-mongoose", "dependencies": { "mongoose": "catalog:" } }\n');
+		await writeStub(root, 'packages/axc/service-mongoose/tsconfig.json', '{ "extends": "@cellix/config-typescript/node" }\n');
 		await generateFeature({ root, lint, context: 'catalog', entity: 'course' });
 		await generateFeature({
 			root,
@@ -814,6 +816,9 @@ describe('Cellix generator', () => {
 		const seeds = await readFile(path.join(root, 'packages/axc/service-mongoose/src/index.ts'), 'utf8');
 		expect(seeds.match(/courseSeed/g)).toHaveLength(1);
 		expect(seeds.match(/enrollmentRequestSeed/g)).toHaveLength(1);
+		const serviceJson = await readFile(path.join(root, 'packages/axc/service-mongoose/package.json'), 'utf8');
+		expect(serviceJson).toContain('"@axc/data-sources-mongoose-models": "workspace:*"');
+		expect(await readFile(path.join(root, 'packages/axc/service-mongoose/tsconfig.json'), 'utf8')).toContain('../data-sources-mongoose-models');
 		const readonlyRoot = await readFile(path.join(root, 'packages/axc/persistence/src/datasources/readonly/index.ts'), 'utf8');
 		expect(readonlyRoot.match(/Catalog: CatalogContext/g)).toHaveLength(1);
 		expect(readonlyRoot).toContain('CourseReadRepo:');
