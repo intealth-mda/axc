@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMemoryMongoServer } from '@axc/service-mongoose';
+import { courseSeed, createMemoryMongoServer } from '@axc/service-mongoose';
 import { AzureFunctionsLocalSettings } from '@cellix/local-dev';
 import { ApiInfrastructure } from '@cellix/serenity-framework/infrastructure/api';
 import { ProcessTestServer } from '@cellix/serenity-framework/servers';
@@ -37,6 +37,8 @@ export const infrastructure = ApiInfrastructure.create({
 		const env = process.env as { MONGODB_URI?: string };
 		env.MONGODB_URI = memoryMongo.getUri();
 		await mongoose.connect(env.MONGODB_URI);
+		const collection = mongoose.connection.collection('courses');
+		await collection.insertMany(courseSeed as unknown as Parameters<typeof collection.insertMany>[0]);
 		await mongoose.disconnect();
 		new AzureFunctionsLocalSettings({
 			appDir: apiDir,

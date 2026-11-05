@@ -16,3 +16,4 @@ export type MongoConnection = Connection;
 export function createMemoryMongoServer(): MongoMemoryReplSet {
 	return new MongoMemoryReplSet({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
 }
+export { courseSeed } from '@axc/data-sources-mongoose-models';

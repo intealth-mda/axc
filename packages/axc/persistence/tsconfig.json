@@ -6,5 +6,5 @@
 		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
 	},
 	"include": ["src/**/*.ts"],
-	"references": [{ "path": "../../cellix/domain-seedwork" }]
+	"references": [{ "path": "../data-sources-mongoose-models" }, { "path": "../domain" }, { "path": "../../cellix/mongoose-seedwork" }, { "path": "../../cellix/event-bus-seedwork-node" }, { "path": "../../cellix/domain-seedwork" }]
 }
