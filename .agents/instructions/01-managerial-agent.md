@@ -170,7 +170,7 @@ Integration test directories: a developer creates `packages/axc/<pkg>/tests/inte
 ### 5. Verify (through sub-agents)
 
 - Once implementation is done, brief a **verifier** sub-agent to:
-  - Run the relevant gates. `pnpm run verify` is the full local gate; focused commands are fine during iteration.
+  - Run the gates with `node .claude/scripts/gate.mjs` (changed files and affected packages), then `node .claude/scripts/gate.mjs --full` once at the end. Both print one line per step and only the error lines of a failure. Do not re-run a gate that passed if nothing has changed since.
   - Check each acceptance criterion and mark it pass or fail, with evidence.
   - Confirm the change stays inside the write boundary and that vendored `packages/cellix/**` code has not drifted from upstream CellixJS.
   - Run the **test association check**:

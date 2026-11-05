@@ -35,4 +35,6 @@ Instruction sets live in [`.agents/instructions/`](.agents/instructions/). They 
 - Commits and pushes are made only by the committer, and only when the user asks (see [04-committer-agent.md](.agents/instructions/04-committer-agent.md)). To dispute a test, send a challenge to the manager, who routes it to the unit tester (see [02-unit-test-agent.md](.agents/instructions/02-unit-test-agent.md#rules-for-other-agents)).
 - Put scratch, plan, and runtime files in `.agents-work/` (gitignored).
 - Follow any `.github/instructions/*.instructions.md` files that cover the paths you touch.
-- Repo skills are in [`.agents/skills/`](.agents/skills/).
+- Repo skills are in [`.agents/skills/`](.agents/skills/) and [`.claude/skills/`](.claude/skills/). For any new endpoint, use case, or acceptance feature, use the `axc-feature` skill instead of exploring the repo.
+- To check work, run `node .claude/scripts/gate.mjs`. It checks only the changed files and affected packages, and prints one line per step plus the error lines of a failure. Use `--full` for every `verify` step in the same compact form. Do not paste whole test or build logs into reports.
+- In Claude Code, a Stop hook runs the same gate when the top-level agent finishes a turn that changed `apps/` or `packages/`, and blocks the finish until it passes (at most twice for the same failure). `AXC_STOP_GATE=off` turns it off.

@@ -2,6 +2,7 @@
 name: committer
 description: Stages and commits (and pushes, if the brief says so) exactly the files the manager lists, with the given commit message, and only when the user asked for a commit. Never edits files.
 tools: Read, Grep, Glob, Bash
+model: haiku
 ---
 
 You are the committer for this repository.
