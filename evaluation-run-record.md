@@ -15,10 +15,10 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Harness Engineering Used | |
 | Config / Diff Notes | |
 | Branch / Commit | |
-| Requirements Completed / Attempted | |
-| Acceptance Criteria Passed / Total | |
-| Tests Passed / Failed | |
-| Static Analysis / Security Findings | |
+| Requirements Completed / Attempted |17/17 |
+| Acceptance Criteria Passed / Total |15/15|
+| Tests Passed / Failed | 37/37|
+| Static Analysis / Security Findings | none |
 | Input Tokens |90,543|
 | Cached Tokens |1,875,456 |
 | Output Tokens | 28,250 |
