@@ -12,23 +12,13 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Codebase | ECFMG/axc |
 | Task Set | A |
 | Run Type | Baseline / Harness Engineering Iteration N / Final |
-| Harness Engineering Used | |
+| Harness Engineering Used |Generator pattern, custom lint, hooks, read/write permissions, agent session pattern |
 | Config / Diff Notes | |
-| Branch / Commit | |
-| Requirements Completed / Attempted | |
-| Acceptance Criteria Passed / Total | |
-| Tests Passed / Failed | |
-| Static Analysis / Security Findings | |
-Cache Read
-832,256
-Cache Write
-0
-Input
-91,663
-Output
-18,899
-Total
-942,818
+| Branch / Commit | jjm-cur-5-a-out|
+| Requirements Completed / Attempted | 12/12|
+| Acceptance Criteria Passed / Total | 12/12|
+| Tests Passed / Failed | 14/14 |
+| Static Analysis / Security Findings | none |
 | Input Tokens |91,663|
 | Cached Tokens |832,256 |
 | Output Tokens | 18,899 |
