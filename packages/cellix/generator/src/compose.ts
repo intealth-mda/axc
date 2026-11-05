@@ -1,0 +1,796 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { camel, pascal } from './names.ts';
+import { normalizeShape } from './shape.ts';
+import {
+	contextApplication,
+	contextBarrel,
+	contextPersistence,
+	contextsBarrel,
+	dataSourcesIndex,
+	domainBarrel,
+	domainDataSourceIndex,
+	entityBarrel,
+	entityPersistence,
+	modelsContext,
+	modelsIndex,
+	persistenceRoot,
+} from './templates/composition/indexes.ts';
+import { mutationField, mutationResolverHelper } from './templates/graphql/resolvers.ts';
+import { insertGraphqlField } from './templates/graphql/schema.ts';
+import { modelsPackageJson, modelsTsconfig } from './templates/models/package-manifest.ts';
+import { actionKind, azureRoute, commandFields, graphqlFieldName, httpMethod, httpReadArgument, mutationArgument, namespacePath, paramShape, readParameterList, serviceResult } from './text.ts';
+import type { GenerateFeatureOptions } from './types.ts';
+
+// Edits barrels and host files that already exist. New-file patterns live under src/templates. Disk helpers for a brand-new file are src/write/new-files.ts.
+
+interface WrittenFile {
+	path: string;
+	contents: string;
+}
+
+export async function wireComposition(options: GenerateFeatureOptions): Promise<WrittenFile[]> {
+	const context = options.context;
+	const entity = options.entity;
+	const action = options.action;
+	const contextPascal = pascal(context);
+	const entityPascal = pascal(entity);
+	const kind = options.operation === 'query' ? 'read' : options.operation === 'update' ? 'update' : action ? actionKind(camel(action)) : 'create';
+	const shape = normalizeShape(entity, options.fields ?? [], options.permissions ?? [], options.nested ?? []);
+	const commandShape = options.operation ? paramShape(options.params ?? []) : shape;
+	const permissions = options.permissions && options.permissions.length > 0 ? options.permissions : [`canManage${entityPascal}`];
+	const scope = options.lint.scope;
+	const domainSrc = path.join(options.root, options.lint.layers.domain);
+	const applicationSrc = path.join(options.root, options.lint.layers.applicationServices);
+	const persistenceSrc = path.join(options.root, options.lint.layers.persistence);
+	const modelsSrc = path.join(options.root, options.lint.layers.models);
+	const written: WrittenFile[] = [];
+
+	written.push(
+		...(await writeIfAbsent(path.join(domainSrc, 'domain/contexts', context, entity, 'index.ts'), entityBarrel(entity, entityPascal))),
+		...(await ensureLine(path.join(domainSrc, 'domain/contexts', context, 'index.ts'), `export * as ${entityPascal} from './${entity}/index.ts';\n`, contextBarrel(context, contextPascal, entity, entityPascal))),
+		...(await ensureLine(path.join(domainSrc, 'domain/contexts/index.ts'), `export * as ${contextPascal} from './${context}/index.ts';\n`, contextsBarrel(context, contextPascal))),
+		...(await writeIfAbsent(path.join(domainSrc, 'domain/index.ts'), domainBarrel())),
+		...(await ensureDomainDataSource(path.join(domainSrc, 'index.ts'), contextPascal, entityPascal)),
+		...(await ensureDomainPermissions(path.join(domainSrc, 'domain/contexts', context, `${context}.domain-permissions.ts`), contextPascal, permissions)),
+		...(await ensurePassport(path.join(domainSrc, 'domain/contexts/passport.ts'), {
+			context,
+			contextPascal,
+			entityPascal,
+			permissions,
+			permissionsFile: path.join(domainSrc, 'domain/contexts', context, `${context}.domain-permissions.ts`),
+		})),
+		...(await ensureModelsIndex(path.join(modelsSrc, 'index.ts'), entity, entityPascal)),
+		...(await ensureStringIdLookup(path.join(persistenceSrc, 'datasources/readonly/mongo-data-source.ts'))),
+		...(await ensureModelsPackage(options)),
+		...(await ensureDependency(path.join(domainSrc, '..', 'package.json'), '@lucaspaganini/value-objects', '1.3.1')),
+		...(options.action ? await ensureDependency(path.join(applicationSrc, '..', 'package.json'), `${scope}/domain`, 'workspace:*') : []),
+		...(await ensureDependency(path.join(applicationSrc, '..', 'package.json'), `${scope}/persistence`, 'workspace:*')),
+		...(await ensureDependency(path.join(persistenceSrc, '..', 'package.json'), `${scope}/domain`, 'workspace:*')),
+		...(await ensureDependency(path.join(persistenceSrc, '..', 'package.json'), `${scope}/data-sources-mongoose-models`, 'workspace:*')),
+		...(await ensureCatalogWiring(options)),
+		...(await ensureSeedExports(options)),
+		...(await writeIfAbsent(path.join(persistenceSrc, 'datasources/domain', context, entity, 'index.ts'), entityPersistence(scope, entity, entityPascal))),
+		...(await ensureObjectMember(path.join(persistenceSrc, 'datasources/domain', context, 'index.ts'), {
+			importLine: `import * as ${entityPascal} from './${entity}/index.ts';\n`,
+			marker: '=> ({',
+			member: `\n\t${entityPascal}: ${entityPascal}.${entityPascal}Persistence(models, passport),`,
+			fallback: contextPersistence(scope, contextPascal, entity, entityPascal),
+		})),
+		...(await ensureObjectMember(path.join(persistenceSrc, 'datasources/domain/index.ts'), {
+			importLine: `import { ${contextPascal}ContextPersistence } from './${context}/index.ts';\n`,
+			marker: '=> ({',
+			member: `\n\t${contextPascal}: ${contextPascal}ContextPersistence(models, passport),`,
+			fallback: domainDataSourceIndex(scope, context, contextPascal),
+		})),
+		...(await writeIfAbsent(path.join(persistenceSrc, 'datasources/index.ts'), dataSourcesIndex(scope))),
+		...(await writeIfAbsent(path.join(persistenceSrc, 'models-context.ts'), modelsContext(scope))),
+		...(await ensurePersistenceRoot(path.join(persistenceSrc, 'index.ts'), persistenceRoot(scope))),
+		...(await ensureContextApplication(path.join(applicationSrc, 'contexts', context, 'index.ts'), { scope, contextPascal, entity, entityPascal })),
+		...(await ensureReadonlyContext(path.join(persistenceSrc, 'datasources/readonly', context, 'index.ts'), { entity, entityPascal })),
+		...(await ensureReadonlyRoot(path.join(persistenceSrc, 'datasources/readonly/index.ts'), { context, entity, contextPascal, entityPascal })),
+	);
+
+	const applicationIndex = path.join(applicationSrc, 'index.ts');
+	if (await exists(applicationIndex)) written.push(...(await spliceApplicationHost(applicationIndex, { scope, context, contextPascal, entityPascal })));
+	if (!action) return written;
+	const restIndex = path.join(options.root, options.lint.layers.rest, 'index.ts');
+	const actionCamel = camel(action);
+	const reference = `Domain.Contexts.${namespacePath(contextPascal, entityPascal)}EntityReference`;
+	const result = serviceResult({ result: options.result, operation: options.operation, kind, actionCamel, reference });
+	if (options.operation === 'query') {
+		written.push(
+			...(await spliceReadMethod(path.join(persistenceSrc, 'datasources/readonly', context, entity, `${entity}.read-repository.ts`), {
+				entityPascal,
+				name: actionCamel,
+				command: commandFields(commandShape, 'read').replaceAll('\n\t', ' '),
+				result,
+			})),
+		);
+	}
+	if (options.action) {
+		written.push(
+			...(await spliceEntityAction(path.join(applicationSrc, 'contexts', context, entity, 'index.ts'), {
+				scope,
+				action,
+				actionCamel,
+				command: `${entityPascal}${pascal(action)}Command`,
+				entityPascal,
+				result,
+			})),
+		);
+	}
+
+	const routeOperation = options.operation === 'query' || options.operation === 'update';
+	const method = httpMethod({ method: options.method, operation: options.operation, kind });
+	if (options.transport === 'rest' && options.route && (routeOperation || options.action)) {
+		if (await exists(restIndex)) {
+			written.push(
+				...(await spliceRest(restIndex, {
+					entity,
+					route: options.route,
+					contextPascal,
+					entityPascal,
+					actionCamel,
+					method,
+					readArgument: httpReadArgument(commandShape, options.route),
+				})),
+			);
+		}
+		const apiIndex = path.join(options.root, options.lint.apiComposition);
+		if (await exists(apiIndex)) written.push(...(await spliceApi(apiIndex, { scope, entity, action, route: options.route, method })));
+		written.push(...(await ensureApiWiring(options)));
+	}
+	if (routeOperation) {
+		const graphqlDir = path.join(options.root, options.lint.layers.graphql);
+		const resolverFile = path.join(graphqlDir, `${entity}.resolvers.ts`);
+		const asked = options.transport !== 'rest' && (options.resolver === true || options.transport === 'graphql');
+		if (asked || (await exists(resolverFile))) {
+			const actionPascal = pascal(action);
+			const fieldName = graphqlFieldName(actionCamel, options.transport, options.route);
+			const graphqlOperation = options.operation === 'query' ? 'Query' : 'Mutation';
+			const inputs = options.operation === 'query' ? queryInputs(commandShape.fields) : updateInputs(commandShape.fields);
+			written.push(
+				...(await spliceGraphql({
+					resolverFile,
+					schemaFile: path.join(graphqlDir, `${entity}.graphql`),
+					entityPascal,
+					contextPascal,
+					actionCamel,
+					fieldName,
+					actionPascal,
+					operation: graphqlOperation,
+					inputs,
+					scope: options.lint.scope,
+				})),
+			);
+		}
+	}
+	return written;
+}
+
+async function ensureDomainDataSource(file: string, contextPascal: string, entityPascal: string): Promise<WrittenFile[]> {
+	const entityMember = `\n\t\t${entityPascal}: {\n\t\t\t${entityPascal}UnitOfWork: Contexts.${contextPascal}.${entityPascal}.${entityPascal}UnitOfWork;\n\t\t};`;
+	const member = `\t${contextPascal}: {${entityMember}\n\t};`;
+	const created = `import type { Repository } from '@cellix/domain-seedwork/repository';\nimport type { Contexts } from './domain/index.ts';\n\n/** Repositories added in this package implement the Cellix repository contract. */\nexport type DomainRepository<T> = Repository<T>;\n\nexport * as Domain from './domain/index.ts';\n\nexport interface DomainDataSource {\n${member}\n}\n`;
+	if (!(await exists(file))) return writeIfAbsent(file, created);
+	let current = await readFile(file, 'utf8');
+	if (!current.includes("export * as Domain from './domain/index.ts'")) current = `${current.trimEnd()}\n\nexport * as Domain from './domain/index.ts';\n`;
+	if (!current.includes('import type { Contexts }')) current = `import type { Contexts } from './domain/index.ts';\n${current}`;
+	if (!current.includes('export interface DomainDataSource')) {
+		current = `${current.trimEnd()}\n\nexport interface DomainDataSource {\n${member}\n}\n`;
+	} else if (!current.includes(`${entityPascal}UnitOfWork:`)) {
+		if (current.includes(`${contextPascal}: {`)) current = insertIntoNthBlock(current, `${contextPascal}: {`, 0, entityMember);
+		else current = current.replace('export interface DomainDataSource {', `export interface DomainDataSource {\n${member}`);
+	}
+	await writeFile(file, current.endsWith('\n') ? current : `${current}\n`);
+	return [{ path: file, contents: current }];
+}
+
+async function spliceApplicationHost(file: string, input: { scope: string; context: string; contextPascal: string; entityPascal: string }): Promise<WrittenFile[]> {
+	const current = await readFile(file, 'utf8');
+	if (current.includes(`${input.contextPascal}(dataSources)`) && current.includes(`${input.contextPascal}ContextApplicationService`)) return [];
+	let next = current;
+	const serviceImport = `import { ${input.contextPascal}, type ${input.contextPascal}ContextApplicationService } from './contexts/${input.context}/index.ts';\n`;
+	const dataImport = `import type { DataSourcesFactory } from '${input.scope}/persistence';\n`;
+	if (!next.includes(dataImport.trim())) next = `${dataImport}${next}`;
+	if (!next.includes(serviceImport.trim())) next = `${serviceImport}${next}`;
+	if (!next.includes('dataSourcesFactory?:')) {
+		next = next.replace('\tdataSourcesFactory: DataSourcesFactory;\n', '\tdataSourcesFactory?: DataSourcesFactory;\n');
+	}
+	if (!next.includes('dataSourcesFactory?:') && !next.includes('dataSourcesFactory:')) {
+		next = next.replace('export interface ApiContext {\n\tenvironment: HealthEnvironment;\n}', 'export interface ApiContext {\n\tenvironment: HealthEnvironment;\n\tdataSourcesFactory?: DataSourcesFactory;\n}');
+	}
+	const member = `\t${input.contextPascal}: ${input.contextPascal}ContextApplicationService;\n`;
+	if (!next.includes(`${input.contextPascal}: ${input.contextPascal}ContextApplicationService`)) next = insertBeforeClose(next, 'export interface ApplicationServices {', member);
+	if (!next.includes('dataSourcesFactory?.withSystemPassport')) {
+		next = next.replace('context.dataSourcesFactory.withSystemPassport()', 'context.dataSourcesFactory?.withSystemPassport()');
+		next = next.replace(
+			'const forRequest = (): Promise<ApplicationServices> =>\n\t\tPromise.resolve({',
+			'const forRequest = (): Promise<ApplicationServices> => {\n\t\tconst dataSources = context.dataSourcesFactory?.withSystemPassport();\n\t\treturn Promise.resolve({',
+		);
+		next = next.replace(');\n\n\treturn { forRequest };', ');\n\t};\n\n\treturn { forRequest };');
+	}
+	const contextCall = `${input.contextPascal}: dataSources === undefined ? ({} as ${input.contextPascal}ContextApplicationService) : ${input.contextPascal}(dataSources),`;
+	if (!next.includes(`${input.contextPascal}(dataSources)`)) next = insertBeforeClose(next, 'return Promise.resolve({', `\n\t\t\t${contextCall}\n`);
+	if (next === current) return [];
+	await writeFile(file, next);
+	return [{ path: file, contents: next }];
+}
+
+async function ensureDomainPermissions(file: string, contextPascal: string, permissions: string[]): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	let current = await readFile(file, 'utf8');
+	const missing = permissions.filter((permission) => !current.includes(`${permission}:`));
+	if (missing.length === 0) return [];
+	const interfaceAt = current.indexOf(`export interface ${contextPascal}DomainPermissions`);
+	const interfaceEnd = interfaceAt < 0 ? -1 : current.indexOf('\n}', interfaceAt);
+	if (interfaceEnd < 0) return [];
+	const members = missing.map((permission) => `\n\t${permission}: boolean;`).join('');
+	current = `${current.slice(0, interfaceEnd)}${members}${current.slice(interfaceEnd)}`;
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
+}
+
+async function ensurePassport(file: string, input: { context: string; contextPascal: string; entityPascal: string; permissions: string[]; permissionsFile: string }): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	let current = await readFile(file, 'utf8');
+	const granted = await permissionNames(input.permissionsFile, input.contextPascal, input.permissions);
+	const checks = granted.map((permission) => `${permission}: true`).join(', ');
+	const determineIf = `determineIf: (check) => check({ ${checks} })`;
+	const contextKey = camel(input.context);
+	if (!current.includes(`for${input.entityPascal}(`) && !current.includes(`for${input.entityPascal}:`)) {
+		const visaImport = `import type { ${input.contextPascal}Visa } from './${input.context}/${input.context}.visa.ts';\n`;
+		if (!current.includes(visaImport.trim())) current = `${visaImport}${current}`;
+		const factoryMember = `\n\t\t\t\tfor${input.entityPascal}: (): ${input.contextPascal}Visa => ({\n\t\t\t\t\t${determineIf},\n\t\t\t\t}),`;
+		if (current.includes(`${contextKey}: {`)) {
+			current = insertIntoNthBlock(current, `${contextKey}: {`, 0, `\n\t\tfor${input.entityPascal}(entity: unknown): ${input.contextPascal}Visa;`);
+			current = insertIntoNthBlock(current, `${contextKey}: {`, 1, factoryMember);
+		} else {
+			current = insertBeforeClose(current, 'export interface Passport {', `\n\t${contextKey}: {\n\t\tfor${input.entityPascal}(entity: unknown): ${input.contextPascal}Visa;\n\t};`);
+			current = insertBeforeClose(current, 'return {', `\n\t\t\t${contextKey}: {${factoryMember}\n\t\t\t},`);
+		}
+	}
+	current = withContextChecks(current, contextKey, determineIf);
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
+}
+
+async function permissionNames(file: string, contextPascal: string, fallback: string[]): Promise<string[]> {
+	if (!(await exists(file))) return fallback;
+	const current = await readFile(file, 'utf8');
+	const start = current.indexOf(`export interface ${contextPascal}DomainPermissions`);
+	const end = start < 0 ? -1 : current.indexOf('\n}', start);
+	if (end < 0) return fallback;
+	const names = [...current.slice(start, end).matchAll(/^\s*(\w+)\s*:\s*boolean\s*;/gm)].map((match) => match[1] ?? '').filter((name) => name.length > 0);
+	return names.length > 0 ? names : fallback;
+}
+
+async function spliceReadMethod(file: string, method: { entityPascal: string; name: string; command: string; result: string }): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	let current = await readFile(file, 'utf8');
+	if (current.includes(`\t${method.name}(`) || current.includes(`\t${method.name}:`)) return [];
+	const interfaceAt = current.indexOf(`export interface ${method.entityPascal}ReadRepository`);
+	const interfaceEnd = interfaceAt < 0 ? -1 : current.indexOf('\n}', interfaceAt);
+	const factoryAt = current.indexOf(`export const get${method.entityPascal}ReadRepository`);
+	if (interfaceEnd < 0 || factoryAt < 0) return [];
+	const parameters = readParameterList(method.command.replaceAll('\n', ' '));
+	const names = parameters
+		.split(',')
+		.map((part) => part.trim().split(':')[0]?.split('=')[0]?.replace('?', '').trim() ?? '')
+		.filter((name) => name.length > 0);
+	const detail = names.length > 0 ? `\`not implemented: \${[${names.map((name) => `${name} ?? ''`).join(', ')}].join(',')}\`` : "'not implemented'";
+	const member = `\n\t${method.name}: (${parameters}) => Promise<${method.result}>;`;
+	const body = `\n\tasync ${method.name}(${parameters}): Promise<${method.result}> {\n\t\treturn await Promise.reject(new Error(${detail}));\n\t}\n`;
+	current = `${current.slice(0, interfaceEnd)}${member}${current.slice(interfaceEnd)}`;
+	const factory = current.indexOf(`export const get${method.entityPascal}ReadRepository`);
+	const classEnd = current.lastIndexOf('\n}', factory);
+	if (classEnd < 0) return [];
+	current = `${current.slice(0, classEnd)}\n${body}${current.slice(classEnd)}`;
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
+}
+
+async function spliceEntityAction(file: string, input: { scope: string; action: string; actionCamel: string; command: string; entityPascal: string; result: string }): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	let current = await readFile(file, 'utf8');
+	const needsDomain = input.result.includes('Domain.') && !current.includes(`from '${input.scope}/domain'`);
+	if (needsDomain) current = `import type { Domain } from '${input.scope}/domain';\n${current}`;
+	if (current.includes(`from './${input.action}.ts'`)) {
+		if (!needsDomain) return [];
+		await writeFile(file, current);
+		return [{ path: file, contents: current }];
+	}
+	const importLine = `import { type ${input.command}, ${input.actionCamel} } from './${input.action}.ts';\n`;
+	const lastImport = current.lastIndexOf('\nimport ');
+	const lineEnd = lastImport === -1 ? 0 : current.indexOf('\n', lastImport + 1) + 1;
+	current = `${current.slice(0, lineEnd)}${importLine}${current.slice(lineEnd)}`;
+	const interfaceName = `${input.entityPascal}ApplicationService`;
+	const typeAlias = `export type ${interfaceName} = {};`;
+	if (current.includes(typeAlias)) current = current.replace(typeAlias, `export interface ${interfaceName} {\n}`);
+	const oneLine = `export interface ${interfaceName} {}`;
+	if (current.includes(oneLine)) current = current.replace(oneLine, `export interface ${interfaceName} {\n}`);
+	current = current.replace('(_dataSources: DataSources)', '(dataSources: DataSources)');
+	const interfaceAt = current.indexOf(`export interface ${interfaceName}`);
+	const interfaceEnd = interfaceAt < 0 ? -1 : current.indexOf('\n}', interfaceAt);
+	if (interfaceEnd < 0) return [];
+	current = `${current.slice(0, interfaceEnd)}\n\t${input.actionCamel}: (command: ${input.command}) => Promise<${input.result}>;${current.slice(interfaceEnd)}`;
+	if (current.includes('return {};')) current = current.replace('return {};', 'return {\n\t};');
+	const returnAt = current.indexOf('return {');
+	if (returnAt < 0) return [];
+	const lineEndAt = current.indexOf('\n', returnAt);
+	const sameLine = current.slice(returnAt, lineEndAt === -1 ? current.length : lineEndAt);
+	if (sameLine.includes('}')) {
+		const brace = returnAt + sameLine.lastIndexOf('}');
+		current = `${current.slice(0, brace)}${input.actionCamel}: ${input.actionCamel}(dataSources), ${current.slice(brace)}`;
+	} else {
+		const close = current.indexOf('\n\t};', returnAt);
+		if (close < 0) return [];
+		current = `${current.slice(0, close)}\n\t\t${input.actionCamel}: ${input.actionCamel}(dataSources),${current.slice(close)}`;
+	}
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
+}
+
+function queryInputs(fields: { name: string; pascal: string; type: string }[]) {
+	return fields.length > 0 ? fields : [{ name: 'id', pascal: 'Id', type: 'string' as const }];
+}
+
+function updateInputs(fields: { name: string; pascal: string; type: string }[]) {
+	return [{ name: 'id', pascal: 'Id', type: 'string' as const }, ...fields.filter((field) => field.name !== 'id')];
+}
+
+function restRoute(method: string, route: string, call: string, command: string): string {
+	return [
+		`\tapp.${method}('/api/${route}', async (c) => {`,
+		`\t\tconst authorization = c.req.header('Authorization');`,
+		`\t\tconst applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);`,
+		`\t\ttry {`,
+		`\t\t\treturn c.json(await ${call}${command}));`,
+		`\t\t} catch (error) {`,
+		`\t\t\tlet failure: unknown = error;`,
+		`\t\t\tfor (let depth = 0; depth < 5 && typeof failure === 'object' && failure !== null && !('status' in failure); depth += 1) {`,
+		`\t\t\t\tfailure = 'cause' in failure ? failure.cause : undefined;`,
+		`\t\t\t}`,
+		`\t\t\tconst status = typeof failure === 'object' && failure !== null && 'status' in failure ? failure.status : undefined;`,
+		`\t\t\tconst message = failure instanceof Error ? failure.message : error instanceof Error ? error.message : '';`,
+		`\t\t\tif (status === 400) return c.json({ message }, 400);`,
+		`\t\t\tif (status === 404) return c.json({ message }, 404);`,
+		`\t\t\tif (status === 409) return c.json({ message }, 409);`,
+		`\t\t\tthrow error;`,
+		`\t\t}`,
+		`\t});`,
+		'',
+	].join('\n');
+}
+
+async function spliceRest(file: string, input: { entity: string; route: string; contextPascal: string; entityPascal: string; actionCamel: string; method: string; readArgument: string }): Promise<WrittenFile[]> {
+	const current = await readFile(file, 'utf8');
+	const call = `applicationServices.${input.contextPascal}.${input.entityPascal}.${input.actionCamel}(`;
+	if (current.includes(call)) return [];
+	const method = input.method;
+	const command = method === 'get' ? input.readArgument : mutationArgument(input.route);
+	const route = restRoute(method, input.route, call, command);
+	if (!current.includes('\treturn app;\n')) return [];
+	const next = current.replace('\treturn app;\n', `${route}\treturn app;\n`);
+	await writeFile(file, next);
+	return [{ path: file, contents: next }];
+}
+
+async function spliceGraphql(input: {
+	resolverFile: string;
+	schemaFile: string;
+	entityPascal: string;
+	contextPascal: string;
+	actionCamel: string;
+	fieldName: string;
+	actionPascal: string;
+	operation: 'Query' | 'Mutation';
+	inputs: { name: string; pascal: string; type: string }[];
+	scope: string;
+}): Promise<WrittenFile[]> {
+	const written: WrittenFile[] = [];
+	if (await exists(input.resolverFile)) {
+		let current = await readFile(input.resolverFile, 'utf8');
+		const contextType = current.includes(`type ${input.entityPascal}Context`) ? `${input.entityPascal}Context` : 'GraphContext';
+		const field =
+			input.operation === 'Mutation'
+				? mutationField({
+						entityPascal: input.entityPascal,
+						contextPascal: input.contextPascal,
+						actionCamel: input.actionCamel,
+						fieldName: input.fieldName,
+						inputType: `${input.entityPascal}${input.actionPascal}Input`,
+						contextType,
+						fields: input.inputs.map((field) => field.name),
+					})
+				: `\t\t${input.fieldName}: async (_parent, args, context: ${contextType}) => {\n\t\t\treturn await context.applicationServices.${input.contextPascal}.${input.entityPascal}.${input.actionCamel}(args.input);\n\t\t},\n`;
+		if (!current.includes(`\t\t${input.fieldName}:`)) {
+			if (input.operation === 'Mutation') current = ensureMutationResolver(current, input.entityPascal, input.contextPascal, input.scope);
+			current = ensureGeneratedInput(current, `${input.entityPascal}${input.actionPascal}Input`);
+			const header = `\t${input.operation}: {\n`;
+			if (current.includes(header)) {
+				const open = current.indexOf(header) + header.length;
+				const close = current.indexOf('\n\t},', open);
+				current = close < 0 ? current.replace(header, `${header}${field}`) : `${current.slice(0, close)}\n${field.trimEnd()}${current.slice(close)}`;
+			} else {
+				const exportAt = current.indexOf('\nexport default ');
+				const closeAt = exportAt < 0 ? -1 : current.lastIndexOf('\n};', exportAt);
+				if (closeAt >= 0) current = `${current.slice(0, closeAt)}\n\t${input.operation}: {\n${field}\t},${current.slice(closeAt)}`;
+			}
+			await writeFile(input.resolverFile, current);
+			written.push({ path: input.resolverFile, contents: current });
+		}
+	}
+	if (await exists(input.schemaFile)) {
+		const current = await readFile(input.schemaFile, 'utf8');
+		const next = insertGraphqlField(current, {
+			entityPascal: input.entityPascal,
+			actionPascal: input.actionPascal,
+			fieldName: input.fieldName,
+			operation: input.operation,
+			inputs: input.inputs,
+		});
+		if (next !== current) {
+			await writeFile(input.schemaFile, next);
+			written.push({ path: input.schemaFile, contents: next });
+		}
+	}
+	return written;
+}
+
+function ensureGeneratedInput(source: string, inputType: string): string {
+	const match = source.match(/import type \{([^}]+)\} from '\.\.\/builder\/generated\.ts';/);
+	if (!match?.[1] || match[1].includes(inputType)) return source;
+	const names = match[1]
+		.split(',')
+		.map((name) => name.trim())
+		.filter((name) => name.length > 0);
+	const resolversAt = names.indexOf('Resolvers');
+	if (resolversAt >= 0) names.splice(resolversAt, 0, inputType);
+	else names.push(inputType);
+	return source.replace(match[0], `import type { ${names.join(', ')} } from '../builder/generated.ts';`);
+}
+
+function ensureMutationResolver(source: string, entityPascal: string, contextPascal: string, scope: string): string {
+	let current = source;
+	if (!current.includes(`from '${scope}/domain'`)) current = `import type { Domain } from '${scope}/domain';\n${current}`;
+	const helper = `${entityPascal}MutationResolver`;
+	if (current.includes(`const ${helper}`)) return current;
+	const block = `\n${mutationResolverHelper(entityPascal, contextPascal)}\n`;
+	const constAt = current.search(/\nconst \w+Resolvers/);
+	return constAt < 0 ? `${current.trimEnd()}\n${block}` : `${current.slice(0, constAt)}${block}${current.slice(constAt)}`;
+}
+
+async function spliceApi(file: string, input: { scope: string; entity: string; action: string; route: string; method: string }): Promise<WrittenFile[]> {
+	let current = await readFile(file, 'utf8');
+	const handler = `'${input.entity}-${input.action}'`;
+	if (current.includes(handler) && current.includes('mongoose.connect') && current.includes('dataSourcesFactory:')) return [];
+	const method = input.method.toUpperCase();
+	if (!current.includes(`from '${input.scope}/persistence'`)) {
+		current = `import mongoose from 'mongoose';\nimport { Persistence } from '${input.scope}/persistence';\n${current}`;
+	}
+	if (!current.includes('dataSourcesFactory:')) {
+		current = current.replace('environment: RuntimeConfig.environment,', 'environment: RuntimeConfig.environment,\n\t\t\tdataSourcesFactory: Persistence({ service: mongoose }),');
+	}
+	if (!current.includes('mongoose.connect') && current.includes('Cellix.initializeInfrastructureServices')) {
+		const connect = `const env = process.env as { MONGODB_URI?: string };\nif (env.MONGODB_URI !== undefined) {\n\tawait mongoose.connect(env.MONGODB_URI);\n}\n\n`;
+		current = current.replace('Cellix.initializeInfrastructureServices', `${connect}Cellix.initializeInfrastructureServices`);
+	}
+	if (!current.includes(handler)) {
+		const registration = `\n\t.registerAzureFunctionHttpHandler('${input.entity}-${input.action}', { route: 'api/${azureRoute(input.route)}', methods: ['${method}'], authLevel: 'anonymous' }, restHandlerCreator)`;
+		current = current.replace('\t.startUp();', `${registration}\n\t.startUp();`);
+	}
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
+}
+
+async function ensureModelsPackage(options: GenerateFeatureOptions): Promise<WrittenFile[]> {
+	const packageDir = path.dirname(path.join(options.root, options.lint.layers.models));
+	const packageName = `${options.lint.scope}/${path.basename(packageDir)}`;
+	return [...(await writeIfAbsent(path.join(packageDir, 'package.json'), modelsPackageJson(packageName))), ...(await writeIfAbsent(path.join(packageDir, 'tsconfig.json'), modelsTsconfig()))];
+}
+
+async function ensureCatalogWiring(options: GenerateFeatureOptions): Promise<WrittenFile[]> {
+	const persistenceDir = path.join(options.root, options.lint.layers.persistence, '..');
+	const modelsDir = path.dirname(path.join(options.root, options.lint.layers.models));
+	return [
+		...(await ensureDependency(path.join(modelsDir, 'package.json'), '@cellix/mongoose-seedwork', 'workspace:*')),
+		...(await ensureDependency(path.join(modelsDir, 'package.json'), 'mongoose', 'catalog:')),
+		...(await ensureDependency(path.join(persistenceDir, 'package.json'), '@cellix/event-bus-seedwork-node', 'workspace:*')),
+		...(await ensureDependency(path.join(persistenceDir, 'package.json'), '@cellix/mongoose-seedwork', 'workspace:*')),
+		...(await ensureDependency(path.join(persistenceDir, 'package.json'), 'mongoose', 'catalog:')),
+		...(await ensureProjectReference(path.join(persistenceDir, 'tsconfig.json'), path.relative(persistenceDir, path.join(options.root, 'packages/cellix/event-bus-seedwork-node')))),
+		...(await ensureProjectReference(path.join(persistenceDir, 'tsconfig.json'), path.relative(persistenceDir, path.join(options.root, 'packages/cellix/mongoose-seedwork')))),
+		...(await ensureProjectReference(path.join(persistenceDir, 'tsconfig.json'), path.relative(persistenceDir, path.join(options.root, options.lint.layers.domain, '..')))),
+		...(await ensureProjectReference(path.join(persistenceDir, 'tsconfig.json'), path.relative(persistenceDir, modelsDir))),
+	];
+}
+
+async function ensureApiWiring(options: GenerateFeatureOptions): Promise<WrittenFile[]> {
+	const apiDir = path.join(options.root, path.dirname(options.lint.apiComposition), '..');
+	const persistenceDir = path.join(options.root, options.lint.layers.persistence, '..');
+	return [
+		...(await ensureDependency(path.join(apiDir, 'package.json'), `${options.lint.scope}/persistence`, 'workspace:*')),
+		...(await ensureDependency(path.join(apiDir, 'package.json'), 'mongoose', 'catalog:')),
+		...(await ensureProjectReference(path.join(apiDir, 'tsconfig.json'), path.relative(apiDir, persistenceDir))),
+	];
+}
+
+async function ensureSeedExports(options: GenerateFeatureOptions): Promise<WrittenFile[]> {
+	const entity = options.entity;
+	const seed = `${camel(entity)}Seed`;
+	const scope = options.lint.scope;
+	const serviceDir = path.dirname(path.join(options.root, options.lint.layers.serviceMongoose));
+	const modelsDir = path.dirname(path.join(options.root, options.lint.layers.models));
+	return [
+		...(await ensureExport(path.join(options.root, options.lint.layers.models, 'index.ts'), `export { ${seed} } from './models/${entity}/${entity}.seed.ts';\n`)),
+		...(await ensureNamedExport(path.join(options.root, options.lint.layers.serviceMongoose, 'index.ts'), seed, `${scope}/data-sources-mongoose-models`)),
+		...(await ensureDependency(path.join(serviceDir, 'package.json'), `${scope}/data-sources-mongoose-models`, 'workspace:*')),
+		...(await ensureProjectReference(path.join(serviceDir, 'tsconfig.json'), path.relative(serviceDir, modelsDir))),
+	];
+}
+
+async function ensureDependency(file: string, name: string, spec: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	const current = await readFile(file, 'utf8');
+	if (current.includes(`"${name}"`)) return [];
+	const entry = `\n\t\t"${name}": "${spec}"`;
+	let next: string;
+	if (/"dependencies"\s*:\s*\{/.test(current)) next = current.replace(/"dependencies"\s*:\s*\{/, (open) => `${open}${entry},`);
+	else if (/"devDependencies"\s*:/.test(current)) next = current.replace(/"devDependencies"\s*:/, `"dependencies": {${entry}\n\t},\n\t"devDependencies":`);
+	else next = current.replace(/\}\s*$/, `,\n\t"dependencies": {${entry}\n\t}\n}`);
+	await writeFile(file, next);
+	return [{ path: file, contents: next }];
+}
+
+async function ensureProjectReference(file: string, reference: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	const posix = reference.split(path.sep).join('/');
+	const current = await readFile(file, 'utf8');
+	if (current.includes(`"${posix}"`)) return [];
+	const entry = `{ "path": "${posix}" }`;
+	let next: string;
+	if (/"references"\s*:\s*\[/.test(current)) next = current.replace(/"references"\s*:\s*\[/, (open) => `${open}${entry}, `);
+	else next = current.replace(/\}\s*$/, `,\n\t"references": [${entry}]\n}`);
+	await writeFile(file, next);
+	return [{ path: file, contents: next }];
+}
+
+async function ensureNamedExport(file: string, name: string, from: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	const current = await readFile(file, 'utf8');
+	const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const pattern = new RegExp(`export\\s*\\{([^}]*)\\}\\s*from\\s*['"]${escaped}['"];?`, 'g');
+	const matches = [...current.matchAll(pattern)];
+	if (matches.length === 0) return ensureExport(file, `export { ${name} } from '${from}';\n`);
+	const names: string[] = [];
+	for (const match of matches) {
+		for (const part of (match[1] ?? '').split(',')) {
+			const trimmed = part.trim();
+			if (trimmed.length > 0 && !names.includes(trimmed)) names.push(trimmed);
+		}
+	}
+	if (!names.includes(name)) names.push(name);
+	const replacement = `export { ${names.join(', ')} } from '${from}';`;
+	let replaced = false;
+	const next = current.replace(pattern, () => {
+		if (replaced) return '';
+		replaced = true;
+		return replacement;
+	});
+	if (next === current) return [];
+	await writeFile(file, next);
+	return [{ path: file, contents: next }];
+}
+
+async function ensureExport(file: string, line: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	const current = await readFile(file, 'utf8');
+	if (current.includes(line.trim())) return [];
+	const contents = current.endsWith('\n') ? `${current}${line}` : `${current}\n${line}`;
+	await writeFile(file, contents);
+	return [{ path: file, contents }];
+}
+
+async function writeIfAbsent(file: string, contents: string): Promise<WrittenFile[]> {
+	if (await exists(file)) return [];
+	await mkdir(path.dirname(file), { recursive: true });
+	await writeFile(file, contents);
+	return [{ path: file, contents }];
+}
+
+async function ensurePersistenceRoot(file: string, contents: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return writeIfAbsent(file, contents);
+	const current = await readFile(file, 'utf8');
+	if (current.includes('export const Persistence')) return [];
+	await writeFile(file, contents);
+	return [{ path: file, contents }];
+}
+
+async function ensureStringIdLookup(file: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	const current = await readFile(file, 'utf8');
+	const previous = `async findById(id: string, options?: FindOneOptions): Promise<Lean<TDoc> | null> {\n\t\tif (!isValidObjectId(id)) return null;`;
+	if (!current.includes(previous) || current.includes('collection.findOne')) return [];
+	const contents = current.replace(
+		previous,
+		`async findById(id: string, options?: FindOneOptions): Promise<Lean<TDoc> | null> {\n\t\tconst stored = await this.model.collection.findOne({ _id: id } as never);\n\t\tif (stored) return this.appendId(stored as LeanBase<TDoc>);\n\t\tif (!isValidObjectId(id)) return null;`,
+	);
+	await writeFile(file, contents);
+	return [{ path: file, contents }];
+}
+
+async function ensureModelsIndex(file: string, entity: string, entityPascal: string): Promise<WrittenFile[]> {
+	const written = await ensureObjectMember(file, {
+		importLine: `import { ${entityPascal}ModelFactory } from './models/${entity}/${entity}.model.ts';\n`,
+		marker: 'return {',
+		member: `\n\t\t${entityPascal}: ${entityPascal}ModelFactory(initializedService),`,
+		fallback: modelsIndex(entity, entityPascal),
+	});
+	if (!(await exists(file))) return written;
+	const modelPath = path.join(path.dirname(file), 'models', entity, `${entity}.model.ts`);
+	const nested = (await exists(modelPath)) ? [...(await readFile(modelPath, 'utf8')).matchAll(/^export interface (\w+)/gm)].map((match) => match[1]).filter((name) => name !== undefined && name !== entityPascal) : [];
+	const typeLine = `export type { ${entityPascal}${nested.length > 0 ? `, ${nested.join(', ')}` : ''}, ${entityPascal}ModelType } from './models/${entity}/${entity}.model.ts';\n`;
+	const nameLine = `export { ${entityPascal}ModelName } from './models/${entity}/${entity}.model.ts';\n`;
+	let current = await readFile(file, 'utf8');
+	const previous = `export type { ${entityPascal}, ${entityPascal}ModelType } from './models/${entity}/${entity}.model.ts';`;
+	if (nested.length > 0 && current.includes(previous) && !current.includes(typeLine.trim())) {
+		current = current.replace(previous, typeLine.trim());
+		await writeFile(file, current);
+		return [...written.filter((item) => item.path !== file), { path: file, contents: current }];
+	}
+	if (current.includes(typeLine.trim()) && current.includes(nameLine.trim())) return written;
+	const marker = 'export const mongooseContextBuilder';
+	const at = current.indexOf(marker);
+	if (at < 0) return written;
+	const prefix = `${current.includes(typeLine.trim()) ? '' : typeLine}${current.includes(nameLine.trim()) ? '' : nameLine}`;
+	if (prefix.length === 0) return written;
+	current = `${current.slice(0, at)}${prefix}\n${current.slice(at)}`;
+	await writeFile(file, current);
+	return [...written.filter((item) => item.path !== file), { path: file, contents: current }];
+}
+
+async function ensureContextApplication(file: string, input: { scope: string; contextPascal: string; entity: string; entityPascal: string }): Promise<WrittenFile[]> {
+	const fallback = contextApplication(input.scope, input.contextPascal, input.entity, input.entityPascal);
+	if (!(await exists(file))) return writeIfAbsent(file, fallback);
+	let current = await readFile(file, 'utf8');
+	const member = `\t${input.entityPascal}: ${input.entityPascal}ApplicationService;`;
+	if (current.includes(member)) return [];
+	const importLine = `import { ${input.entityPascal} as ${input.entityPascal}Api, type ${input.entityPascal}ApplicationService } from './${input.entity}/index.ts';\n`;
+	if (!current.includes(importLine.trim())) {
+		const lastImport = current.lastIndexOf('\nimport ');
+		const lineEnd = lastImport === -1 ? 0 : current.indexOf('\n', lastImport + 1) + 1;
+		current = `${current.slice(0, lineEnd)}${importLine}${current.slice(lineEnd)}`;
+	}
+	current = insertBeforeClose(current, `export interface ${input.contextPascal}ContextApplicationService {`, `\n\t${member}`);
+	current = insertBeforeClose(current, 'return {', `\n\t\t${input.entityPascal}: ${input.entityPascal}Api(dataSources),`);
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
+}
+
+async function ensureReadonlyContext(file: string, input: { entity: string; entityPascal: string }): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	return ensureObjectMember(file, {
+		importLine: `import { ${input.entityPascal}ReadRepositoryImpl } from './${input.entity}/index.ts';\n`,
+		marker: '=> ({',
+		member: `\n\t${input.entityPascal}: ${input.entityPascal}ReadRepositoryImpl(models, passport),`,
+		fallback: '',
+	});
+}
+
+async function ensureReadonlyRoot(file: string, input: { context: string; entity: string; contextPascal: string; entityPascal: string }): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	let current = await readFile(file, 'utf8');
+	if (current.includes(`${input.entityPascal}ReadRepo:`)) return [];
+	const importLine = `import type { ${input.entityPascal}ReadRepository } from './${input.context}/${input.entity}/${input.entity}.read-repository.ts';\n`;
+	if (!current.includes(`from './${input.context}/index.ts'`)) {
+		current = `import { ${input.contextPascal}Context } from './${input.context}/index.ts';\n${current}`;
+	}
+	if (!current.includes(importLine.trim())) {
+		const lastImport = current.lastIndexOf('\nimport ');
+		const lineEnd = lastImport === -1 ? 0 : current.indexOf('\n', lastImport + 1) + 1;
+		current = `${current.slice(0, lineEnd)}${importLine}${current.slice(lineEnd)}`;
+	}
+	const entityMember = `\n\t\t${input.entityPascal}: {\n\t\t\t${input.entityPascal}ReadRepo: ${input.entityPascal}ReadRepository;\n\t\t};`;
+	if (!current.includes(`${input.contextPascal}: {`)) current = insertBeforeClose(current, 'export interface ReadonlyDataSource {', `\n\t${input.contextPascal}: {${entityMember}\n\t};`);
+	else current = insertIntoNthBlock(current, `${input.contextPascal}: {`, 0, entityMember);
+	if (!current.includes(`${input.contextPascal}: ${input.contextPascal}Context(`)) {
+		current = insertBeforeClose(current, '=> ({', `\n\t${input.contextPascal}: ${input.contextPascal}Context(models, passport),`);
+	}
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
+}
+
+async function ensureObjectMember(file: string, input: { importLine: string; marker: string; member: string; fallback: string }): Promise<WrittenFile[]> {
+	if (!(await exists(file))) {
+		if (input.fallback.length === 0) return [];
+		return writeIfAbsent(file, input.fallback);
+	}
+	let current = await readFile(file, 'utf8');
+	if (current.includes(input.member.trim())) return [];
+	if (!current.includes(input.importLine.trim())) {
+		const lastImport = current.lastIndexOf('\nimport ');
+		const lineEnd = lastImport === -1 ? 0 : current.indexOf('\n', lastImport + 1) + 1;
+		current = `${current.slice(0, lineEnd)}${input.importLine}${current.slice(lineEnd)}`;
+	}
+	current = insertBeforeClose(current, input.marker, input.member);
+	await writeFile(file, current);
+	return [{ path: file, contents: current }];
+}
+
+async function ensureLine(file: string, line: string, fallback: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return writeIfAbsent(file, fallback);
+	const current = await readFile(file, 'utf8');
+	if (current.includes(line.trim())) return [];
+	const contents = current.endsWith('\n') ? `${current}${line}` : `${current}\n${line}`;
+	await writeFile(file, contents);
+	return [{ path: file, contents }];
+}
+
+function withContextChecks(source: string, contextKey: string, determineIf: string): string {
+	const marker = `${contextKey}: {`;
+	let next = '';
+	let from = 0;
+	while (from < source.length) {
+		const start = source.indexOf(marker, from);
+		if (start < 0) return next + source.slice(from);
+		next += source.slice(from, start);
+		const end = closingBrace(source, start);
+		if (end < 0) return next + source.slice(start);
+		next += source.slice(start, end).replace(/determineIf:\s*\(check[\s\S]*?\)\s*=>\s*check\(\{[^}]*\}\)/g, determineIf);
+		from = end;
+	}
+	return next;
+}
+
+function closingBrace(source: string, start: number): number {
+	let depth = 0;
+	for (let index = start; index < source.length; index += 1) {
+		const char = source[index];
+		if (char === '{') depth += 1;
+		if (char === '}') {
+			depth -= 1;
+			if (depth === 0) return index;
+		}
+	}
+	return -1;
+}
+
+function insertIntoNthBlock(source: string, marker: string, occurrence: number, insertion: string): string {
+	let from = 0;
+	for (let seen = 0; ; seen += 1) {
+		const start = source.indexOf(marker, from);
+		if (start < 0) return source;
+		if (seen === occurrence) return `${source.slice(0, start)}${insertBeforeClose(source.slice(start), marker, insertion)}`;
+		from = start + marker.length;
+	}
+}
+
+function insertBeforeClose(source: string, startMarker: string, insertion: string): string {
+	const start = source.indexOf(startMarker);
+	if (start < 0) return source;
+	let depth = 0;
+	for (let index = start; index < source.length; index += 1) {
+		const char = source[index];
+		if (char === '{') depth += 1;
+		if (char === '}') {
+			depth -= 1;
+			if (depth === 0) {
+				let at = index;
+				while (at > start && /\s/.test(source[at - 1] ?? '')) at -= 1;
+				return `${source.slice(0, at)}${insertion}${source.slice(at)}`;
+			}
+		}
+	}
+	return source;
+}
+
+async function exists(file: string): Promise<boolean> {
+	try {
+		await readFile(file);
+		return true;
+	} catch {
+		return false;
+	}
+}

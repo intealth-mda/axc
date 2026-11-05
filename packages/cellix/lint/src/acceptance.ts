@@ -1,0 +1,95 @@
+import type { Dirent } from 'node:fs';
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
+
+/** Every acceptance feature calls the running application. Steps do not keep a document array. */
+export async function checkAcceptanceShape(root: string, acceptance: string): Promise<string[]> {
+	const featuresRoot = path.join(acceptance, 'features');
+	const stepsRoot = path.join(acceptance, 'step-definitions');
+	const features = await walk(path.join(root, featuresRoot), '.feature');
+	const violations: string[] = [];
+	for (const featurePath of features) {
+		const text = await readFile(featurePath, 'utf8');
+		const relative = toPosix(path.relative(root, featurePath));
+		if (!text.includes('Scenario:') || !/^[\t ]*When /m.test(text) || !/^[\t ]*Then /m.test(text)) {
+			violations.push(`${relative} must be one scenario that calls the running application. Include Scenario, When, and Then.`);
+		}
+		const stepsPath = path.join(root, stepsRoot, `${path.basename(featurePath, '.feature')}.steps.ts`);
+		const stepsRelative = toPosix(path.relative(root, stepsPath));
+		let steps = '';
+		try {
+			steps = await readFile(stepsPath, 'utf8');
+		} catch {
+			violations.push(`${relative} needs ${stepsRelative} to send the request to the running application.`);
+			continue;
+		}
+		if (!['GetRequest.to(', 'PostRequest.to(', 'PatchRequest.to(', 'PutRequest.to(', 'DeleteRequest.to('].some((call) => steps.includes(call))) {
+			violations.push(`${stepsRelative} must call GetRequest.to, PostRequest.to, or PatchRequest.to so the scenario hits the running application.`);
+		}
+		if (!steps.includes('LastResponse.body')) {
+			violations.push(`${stepsRelative} must read LastResponse.body() and check the row the application returned.`);
+		}
+		if (keepsDocumentArray(steps)) {
+			violations.push(`${stepsRelative} keeps a document array. Read the row from the database through the running application.`);
+		}
+	}
+	violations.push(...(await duplicateStepPhrases(root, stepsRoot)));
+	return violations;
+}
+
+/** Cucumber rejects the run when two files define one phrase. The check names both files. */
+async function duplicateStepPhrases(root: string, stepsRoot: string): Promise<string[]> {
+	const files = await walk(path.join(root, stepsRoot), '.steps.ts');
+	const seen = new Map<string, string>();
+	const violations: string[] = [];
+	for (const file of files) {
+		const relative = toPosix(path.relative(root, file));
+		const text = await readFile(file, 'utf8');
+		for (const phrase of stepPhrases(text)) {
+			const prior = seen.get(phrase);
+			if (prior === undefined) {
+				seen.set(phrase, relative);
+				continue;
+			}
+			if (prior === relative) continue;
+			violations.push(`${relative} repeats a step defined in ${prior}. A step phrase belongs to one file. Add the scenario to that feature, or use a different phrase. Found: ${phrase}`);
+			seen.set(phrase, relative);
+		}
+	}
+	return violations;
+}
+
+function stepPhrases(text: string): string[] {
+	const phrases: string[] = [];
+	for (const match of text.matchAll(/\b(?:Given|When|Then)\(\s*(['"`])([\s\S]*?)\1/g)) {
+		const phrase = (match[2] ?? '').replace(/\s+/g, ' ').trim();
+		if (phrase.length > 0) phrases.push(phrase);
+	}
+	return phrases;
+}
+
+/** An array of objects is a catalog. A list of strings is not. */
+function keepsDocumentArray(steps: string): boolean {
+	return /=\s*\[\s*\{/.test(steps.replaceAll('\n', ' '));
+}
+
+async function walk(directory: string, extension: string): Promise<string[]> {
+	let entries: Dirent[] = [];
+	try {
+		entries = await readdir(directory, { withFileTypes: true });
+	} catch {
+		return [];
+	}
+	const files = await Promise.all(
+		entries.map((entry) => {
+			const entryPath = path.join(directory, entry.name);
+			if (entry.isDirectory()) return walk(entryPath, extension);
+			return Promise.resolve(entry.name.endsWith(extension) ? [entryPath] : []);
+		}),
+	);
+	return files.flat();
+}
+
+function toPosix(file: string): string {
+	return file.split(path.sep).join('/');
+}

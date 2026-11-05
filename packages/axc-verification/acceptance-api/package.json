@@ -20,7 +20,9 @@
 		"@serenity-js/cucumber": "catalog:",
 		"@serenity-js/rest": "catalog:",
 		"@serenity-js/serenity-bdd": "catalog:",
-		"@cellix/serenity-framework": "workspace:*"
+		"@axc/service-mongoose": "workspace:*",
+		"@cellix/serenity-framework": "workspace:*",
+		"mongoose": "catalog:"
 	},
 	"devDependencies": {
 		"@cellix/config-typescript": "workspace:*",
