@@ -1,4 +1,4 @@
-import { access, readFile } from 'node:fs/promises';
+import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { wireComposition } from './compose.ts';
 import { extendCommand, extendShape } from './extend-shape.ts';
@@ -44,7 +44,6 @@ export async function generateFeature(options: GenerateFeatureOptions): Promise<
 	const writes = await writeNewFiles(options, plan(options));
 	const composed = await wireComposition(options);
 	formatGeneratedFiles([...writes, ...composed]);
-	for (const file of writes) file.contents = await readFile(file.path, 'utf8');
 	return writes;
 }
 
@@ -54,12 +53,11 @@ async function extendExisting(options: GenerateFeatureOptions): Promise<Generate
 	}
 	if (options.action) {
 		if ((options.fields?.length ?? 0) > 0 || (options.nested?.length ?? 0) > 0) {
-			throw new Error('extend --name adds --param values to that query or update. Leave --field and --nested off.');
+			throw new Error('extend --name adds --param values to that query or mutation. Leave --field and --nested off.');
 		}
 		if ((options.params?.length ?? 0) === 0) throw new Error('Pass --param.');
 		const writes = await extendCommand(options, options.params ?? []);
 		formatGeneratedFiles(writes);
-		for (const file of writes) file.contents = await readFile(file.path, 'utf8');
 		return writes;
 	}
 	if ((options.params?.length ?? 0) > 0) throw new Error('Pass --name with --param. extend without --name adds --field and --nested.');
@@ -67,7 +65,6 @@ async function extendExisting(options: GenerateFeatureOptions): Promise<Generate
 	if (!(await subdomainExists(options))) throw new Error('Generate the subdomain before extend. extend adds fields and nested objects. It does not build the subdomain.');
 	const writes = await extendShape(options, options.fields ?? [], options.nested ?? []);
 	formatGeneratedFiles(writes);
-	for (const file of writes) file.contents = await readFile(file.path, 'utf8');
 	return writes;
 }
 

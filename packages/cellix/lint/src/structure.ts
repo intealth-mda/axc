@@ -217,7 +217,7 @@ function checkEntity(file: string, content: string): string[] {
 
 function checkValueObjects(file: string, content: string): string[] {
 	const violations: string[] = [];
-	if (!/from\s+['"]@lucaspaganini\/value-objects['"]/.test(content)) {
+	if (!/from\s+['"]@lucaspaganini\/value-objects['"]/.test(content) && !/from\s+['"]@cellix\/domain-seedwork\/value-object['"]/.test(content)) {
 		violations.push(report(file, 'cellix/value-object-library', 'missing value-objects import', "import { VOString } from '@lucaspaganini/value-objects'"));
 	}
 	violations.push(...banTopLevelFunctions(file, content, 'cellix/value-object-no-helper'));
@@ -227,7 +227,7 @@ function checkValueObjects(file: string, content: string): string[] {
 			violations.push(report(file, 'cellix/value-object-extends', `class ${match[1]} has no base`, 'VOString, VOArray, VOOptional, or a local class that extends one of those'));
 			continue;
 		}
-		if (!/^VO(?:String|Array|Optional|Float|Integer|Boolean|Date)$/.test(base) && !new RegExp(`class\\s+${base}\\b`).test(content)) {
+		if (!/^VO(?:String|Array|Optional|Float|Integer|Boolean|Date)$/.test(base) && base !== 'ValueObject' && !new RegExp(`class\\s+${base}\\b`).test(content)) {
 			violations.push(report(file, 'cellix/value-object-extends', `class ${match[1]} extends ${base}`, 'VOString, VOArray, VOOptional, or a local class that extends one of those'));
 		}
 	}

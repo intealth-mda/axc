@@ -53,12 +53,10 @@ describe('Cellix generator', () => {
 		expect(paths).toContain('course.resolvers.ts');
 		expect(paths).toContain('course.data.ts');
 		expect(paths).toContain('course.read-repository.ts');
-		expect(paths).toContain('course-create.feature');
-		expect(paths).toContain('course-create.steps.ts');
-		const steps = files.find((file) => file.path.endsWith('course-create.steps.ts'));
-		expect(steps?.contents).toContain('GetRequest.to(');
-		expect(steps?.contents).toContain('LastResponse.body');
+		expect(paths).not.toContain('course-create.feature');
+		expect(paths).not.toContain('course-create.steps.ts');
 		expect(paths).toContain('datasources/readonly/mongo-data-source.ts');
+		expect(files.find((file) => file.path.endsWith('mongo-data-source.ts'))?.contents).toContain('collection.findOne');
 		const readRepository = files.find((file) => file.path.endsWith('course.read-repository.ts'));
 		expect(readRepository?.contents).toContain('getCourseReadRepository');
 		expect(readRepository?.contents).toContain('mongoDataSource.findById');
@@ -69,12 +67,22 @@ describe('Cellix generator', () => {
 		const resolver = files.find((file) => file.path.endsWith('course.resolvers.ts'));
 		expect(resolver?.path).not.toContain(`${path.sep}schema${path.sep}types${path.sep}`);
 		expect(resolver?.contents).toContain('applicationServices.Course.Course.create');
+		expect(resolver?.contents).toContain('courseById:');
+		expect(resolver?.contents).toContain('queryById({ id: args.id })');
+		expect(resolver?.contents).toContain('CourseMutationResolver');
+		expect(resolver?.contents).toContain('status: { success: true }');
+		expect(resolver?.contents).toContain('course: await getCourse');
 		expect(resolver?.contents).toContain('export default');
 		expect(resolver?.contents).not.toContain('generated.ts');
 		const graphql = files.find((file) => file.path.endsWith('course.graphql'));
+		expect(graphql?.contents).toContain('type CourseMutationResult implements MutationResult');
+		expect(graphql?.contents).toContain('course: Course');
 		expect(graphql?.contents).toContain('type Course {\n\tid: ID!\n\tschemaVersion: String!\n\tcreatedAt: DateTime!\n\tupdatedAt: DateTime!');
 		expect(graphql?.contents).toContain('status: MutationStatus!');
+		expect(graphql?.contents).toContain('extend type Query {\n\tcourseById(id: ID!): Course\n}');
 		expect(graphql?.contents).toContain('extend type Mutation {');
+		expect(files.find((file) => file.path.endsWith('query-by-id.ts'))?.contents).toContain('CourseReadRepo.getById(command.id)');
+		expect(files.map((file) => file.contents).join('\n')).toContain('queryById: queryById(dataSources)');
 		expect(aggregate?.contents).toContain('const newInstance = new Course');
 		expect(aggregate?.contents).toContain('newInstance.markAsNew()');
 		expect(aggregate?.contents).toContain('this.visa.determineIf');
@@ -115,7 +123,10 @@ describe('Cellix generator', () => {
 		expect(permissions?.contents).not.toContain('canManageStaffUser');
 		const aggregate = files.find((file) => file.path.endsWith('staff-user.aggregate.ts'));
 		expect(aggregate?.contents).toContain('displayName: DisplayNameProps');
-		expect(aggregate?.contents).toContain('new DisplayNameValues.Label');
+		expect(aggregate?.contents).toContain('readonly displayName: DisplayName');
+		expect(aggregate?.contents).toContain('new DisplayName(this.props.displayName)');
+		expect(files.find((file) => file.path.endsWith('display-name.value-objects.ts'))?.contents).toContain('export class DisplayName extends ValueObject<DisplayNameProps>');
+		expect(files.find((file) => file.path.endsWith('display-name.value-objects.ts'))?.contents).toContain('export class Label extends VOString');
 		expect(aggregate?.contents).toContain('activityLog: PropArray<ActivityLogProps>');
 		expect(aggregate?.contents).toContain('ReadonlyArray<ActivityLogEntityReference>');
 		expect(aggregate?.contents).not.toContain('set activityLog(');
@@ -219,7 +230,10 @@ describe('Cellix generator', () => {
 		expect(files.find((file) => file.path.endsWith('address.value-objects.ts'))?.contents).toContain('geo: GeoProps');
 		const log = files.find((file) => file.path.endsWith('activity-log.entity.ts'));
 		expect(log?.contents).toContain('detail: DetailProps');
-		expect(log?.contents).toContain('new DetailValues.Label');
+		expect(log?.contents).toContain('readonly detail: Detail');
+		expect(log?.contents).toContain('new Detail(this.props.detail)');
+		expect(files.find((file) => file.path.endsWith('detail.value-objects.ts'))?.contents).toContain('export class Detail extends ValueObject<DetailProps>');
+		expect(files.find((file) => file.path.endsWith('detail.value-objects.ts'))?.contents).toContain('export class Label extends VOString');
 		const seed = files.find((file) => file.path.endsWith('staff-user.seed.ts'));
 		expect(seed?.contents).toContain('export const staffUserSeed = [');
 		expect(seed?.contents).toContain("label: 'Example label'");
@@ -267,9 +281,9 @@ describe('Cellix generator', () => {
 		roots.push(queryRoot);
 		const queryFiles = await generateFeature({ root: queryRoot, lint, context: 'course', entity: 'course', action: 'query-by-id', resolver: true });
 		const queryAction = queryFiles.find((file) => file.path.endsWith('query-by-id.ts'));
-		expect(queryAction?.contents).toContain('readonlyDataSource.Course.Course.CourseReadRepo.queryById');
+		expect(queryAction?.contents).toContain('readonlyDataSource.Course.Course.CourseReadRepo.queryById(command.id)');
 		expect(queryAction?.contents).not.toContain('withScopedTransaction');
-		expect(queryFiles.find((file) => file.path.endsWith('course.read-repository.ts'))?.contents).toContain('return Promise.reject(new Error(`not implemented:');
+		expect(queryFiles.find((file) => file.path.endsWith('course.read-repository.ts'))?.contents).toContain('return await Promise.reject(new Error(`not implemented:');
 		expect(queryFiles.find((file) => file.path.endsWith('course.resolvers.ts'))?.contents).toContain('Query:');
 		await expect(checkCellixLint({ root: queryRoot, lint })).resolves.toStrictEqual([]);
 
@@ -291,10 +305,10 @@ describe('Cellix generator', () => {
 		const catalogRead = { contents: await readFile(path.join(catalogRoot, 'packages/axc/persistence/src/datasources/readonly/course/course/course.read-repository.ts'), 'utf8') };
 		expect(catalogAction?.contents).toContain('title?: string;');
 		expect(catalogAction?.contents).toContain('status?: string;');
-		expect(catalogAction?.contents).toContain('CourseReadRepo.search(command)');
+		expect(catalogAction?.contents).toContain('CourseReadRepo.search(command.title, command.status)');
 		expect(catalogAction?.contents).not.toContain('domainDataSource');
-		expect(catalogRead?.contents).toContain('search(command: { title?: string; status?: string })');
-		expect(catalogRead?.contents).toContain('return Promise.reject');
+		expect(catalogRead?.contents).toContain('async search(title?: string, status?: string)');
+		expect(catalogRead?.contents).toContain('return await Promise.reject');
 		expect(catalogRead?.contents).toContain('async getById');
 		await expect(checkCellixLint({ root: catalogRoot, lint })).resolves.toStrictEqual([]);
 
@@ -364,8 +378,6 @@ describe('Cellix generator', () => {
 			'packages/axc/application-services/src/contexts/course/course/search.ts',
 			'packages/axc/persistence/src/datasources/readonly/course/course/course.read-repository.ts',
 			'packages/axc/rest/src/index.ts',
-			'packages/axc-verification/acceptance-api/src/features/course-search.feature',
-			'packages/axc-verification/acceptance-api/src/step-definitions/course-search.steps.ts',
 		]);
 		const update = filesToEdit({ root: '/repo', lint, context: 'course', entity: 'course', action: 'publish', operation: 'update', transport: 'rest' });
 		expect(update).toContain('packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts');
@@ -414,8 +426,6 @@ describe('Cellix generator', () => {
 					'packages/axc/domain/src/domain/contexts/course/course/course.repository.ts',
 					'packages/axc/domain/src/domain/contexts/course/course.domain-permissions.ts',
 					'packages/axc/domain/src/domain/contexts/course/course.visa.ts',
-					'packages/axc-verification/acceptance-api/src/features/course-search.feature',
-					'packages/axc-verification/acceptance-api/src/step-definitions/course-search.steps.ts',
 					'apps/docs/',
 				]),
 			);
@@ -425,7 +435,8 @@ describe('Cellix generator', () => {
 			expect(session?.write).not.toContain('packages/axc/domain/src/');
 			expect(session?.write).not.toContain('packages/axc/data-sources-mongoose-models/src/');
 			expect(session?.write).not.toContain('.agents/skills/cellix-architecture/');
-			expect(session?.write).not.toContain('packages/axc-verification/acceptance-api/src/');
+			expect(session?.write).toContain('packages/axc-verification/acceptance-api/src/');
+			expect(session?.write).toContain('packages/axc-verification/acceptance-api/src/infrastructure.ts');
 			expect(session?.read).toEqual(
 				expect.arrayContaining([
 					'packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts',
@@ -437,9 +448,6 @@ describe('Cellix generator', () => {
 					'packages/axc/data-sources-mongoose-models/src/models/course/course.model.ts',
 					'packages/axc/domain/src/index.ts',
 					'packages/axc/application-services/src/contexts/course/index.ts',
-					'packages/axc-verification/acceptance-api/src/infrastructure.ts',
-					'packages/axc-verification/acceptance-api/src/features/course-search.feature',
-					'packages/axc-verification/acceptance-api/src/step-definitions/course-search.steps.ts',
 					'apps/api/src/index.ts',
 					'apps/docs/',
 					'.agents/skills/cellix-architecture/',
@@ -448,7 +456,8 @@ describe('Cellix generator', () => {
 			);
 			expect(session?.read).not.toContain('packages/axc/domain/src/');
 			expect(session?.read).not.toContain('packages/axc/data-sources-mongoose-models/src/');
-			expect(session?.read).not.toContain('packages/axc-verification/acceptance-api/src/');
+			expect(session?.read).toContain('packages/axc-verification/acceptance-api/src/');
+			expect(session?.read).toContain('packages/axc-verification/acceptance-api/src/infrastructure.ts');
 			expect(session?.read?.some((entry) => entry.endsWith('package.json'))).toBe(false);
 		} finally {
 			if (previous === undefined) delete process.env.CELLIX_AGENT_ID;
@@ -506,22 +515,6 @@ describe('Cellix generator', () => {
 		}
 	});
 
-	it('rejects an acceptance step file that keeps a document array', async () => {
-		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
-		roots.push(root);
-		const lint = defaultGenerateLayout();
-		const files = await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'search' });
-		const steps = files.find((file) => file.path.endsWith('course-search.steps.ts'));
-		if (!steps) throw new Error('missing course search steps');
-		const original = await readFile(steps.path, 'utf8');
-		await writeFile(steps.path, `${original}\nconst courses = [{ title: 'Example' }];\n`);
-		const violations = await checkCellixLint({ root, lint });
-		expect(violations.some((violation) => violation.includes('document array'))).toBe(true);
-		await writeFile(steps.path, original.replaceAll('LastResponse.body', 'LastResponse.status'));
-		const unread = await checkCellixLint({ root, lint });
-		expect(unread.some((violation) => violation.includes('LastResponse.body()'))).toBe(true);
-	});
-
 	it('builds a subdomain without a route, and query only adds the read', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(root);
@@ -531,8 +524,6 @@ describe('Cellix generator', () => {
 			'packages/axc/rest/src/index.ts',
 			`import type { ApplicationServicesFactory } from '@axc/application-services';\nimport { Hono } from 'hono';\n\nexport function createRestApp(applicationServicesFactory: ApplicationServicesFactory): Hono {\n\tconst app = new Hono();\n\treturn app;\n}\n`,
 		);
-		await writeStub(root, 'packages/axc-verification/acceptance-api/package.json', '{ "name": "@axc-verification/acceptance-api", "dependencies": { "@cellix/serenity-framework": "workspace:*" } }\n');
-		await writeStub(root, 'packages/axc-verification/acceptance-api/tsconfig.json', '{ "references": [{ "path": "../../cellix/serenity-framework" }] }\n');
 		const backend = await generateFeature({ root, lint, context: 'course', entity: 'course', fields: [parseField('title:string')] });
 		expect(backend.map((file) => file.path).join('\n')).toContain('course.aggregate.ts');
 		expect(backend.map((file) => file.path).join('\n')).not.toContain('.test.ts');
@@ -542,10 +533,6 @@ describe('Cellix generator', () => {
 		expect(shell).toContain('export interface CourseApplicationService');
 		expect(shell).not.toContain('export type CourseApplicationService');
 		expect(await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8')).not.toContain("app.get('/api/course'");
-		const acceptanceJson = await readFile(path.join(root, 'packages/axc-verification/acceptance-api/package.json'), 'utf8');
-		expect(acceptanceJson).toContain('"@axc/service-mongoose": "workspace:*"');
-		expect(acceptanceJson).toContain('"mongoose": "catalog:"');
-		expect(await readFile(path.join(root, 'packages/axc-verification/acceptance-api/tsconfig.json'), 'utf8')).toContain('../../axc/service-mongoose');
 		const empty = await mkdtemp(path.join(tmpdir(), 'cellix-generate-'));
 		roots.push(empty);
 		await expect(generateFeature({ root: empty, lint, context: 'course', entity: 'course', operation: 'query', action: 'search', route: 'course', transport: 'rest' })).rejects.toThrow('Generate the subdomain before query');
@@ -585,22 +572,35 @@ describe('Cellix generator', () => {
 		expect(aggregate).toContain('level: string;');
 		expect(aggregate).toContain("status: 'pending' | 'approved';");
 		expect(aggregate).toContain('statusHistory: StatusHistoryProps;');
-		expect(aggregate).toContain('newInstance.level = input.level;');
-		expect(aggregate).toContain('newInstance.statusHistory = input.statusHistory;');
+		expect(aggregate).not.toContain('NewInput');
+		expect(aggregate).toContain('getNewInstance<props extends CourseProps>');
+		expect(aggregate).toContain('title: string');
+		expect(aggregate).toContain('level: string');
+		expect(aggregate).toContain('statusHistory: StatusHistoryProps');
+		expect(aggregate).toContain('passport: Passport');
+		expect(aggregate).toContain('newInstance.title = title;');
+		expect(aggregate).toContain('newInstance.level = level;');
+		expect(aggregate).toContain('newInstance.props.statusHistory = statusHistory;');
 		const nested = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/course/course/status-history.value-objects.ts'), 'utf8');
 		expect(nested).toContain('export interface StatusHistoryProps');
+		expect(nested).toContain('export class StatusHistory extends ValueObject<StatusHistoryProps>');
+		expect(nested).toContain('export class FromStatus extends VOString');
 		const values = await readFile(path.join(root, 'packages/axc/domain/src/domain/contexts/course/course/course.value-objects.ts'), 'utf8');
 		expect(values).toContain('export class Level ');
 		expect(values).not.toContain('export class Status ');
 		const model = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/models/course/course.model.ts'), 'utf8');
-		expect(model).toContain('export interface CourseStatusHistory');
-		expect(model).toContain('statusHistory: CourseStatusHistory;');
+		expect(model).toContain('const CourseStatusHistorySchema = new Schema');
+		expect(model).toContain('statusHistory: CourseStatusHistorySchema,');
 		const seed = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/src/models/course/course.seed.ts'), 'utf8');
 		expect(seed).toContain("status: 'pending'");
 		expect(seed).toContain('statusHistory:');
 		const action = await readFile(path.join(root, 'packages/axc/application-services/src/contexts/course/course/create.ts'), 'utf8');
-		expect(action).toContain('level: command.level');
-		expect(action).toContain('statusHistory: command.statusHistory');
+		expect(action).toContain('repo.getNewInstance(');
+		expect(action).toContain('command.title');
+		expect(action).toContain('command.level');
+		expect(action).toContain('command.statusHistory');
+		expect(action).toContain('level: string;');
+		expect(action).toContain('statusHistory: {');
 		await expect(
 			generateFeature({
 				root,
@@ -651,7 +651,7 @@ describe('Cellix generator', () => {
 		expect(changeAction).toContain('reason?: string;');
 		expect(changeAction).toContain('// assign the command onto current');
 		await expect(generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'extend', action: 'change-status', params: [parseParam('reason?:string')] })).rejects.toThrow('Nothing to add');
-		await expect(generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'extend', action: 'missing', params: [parseParam('reason?:string')] })).rejects.toThrow('query or run update');
+		await expect(generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'extend', action: 'missing', params: [parseParam('reason?:string')] })).rejects.toThrow('query or mutation');
 	});
 
 	it('adds another action onto a subdomain that already exists', async () => {
@@ -735,7 +735,6 @@ describe('Cellix generator', () => {
 		await generateFeature({ root, lint, context: 'course', entity: 'course', action: 'create', fields: [parseField('title:string')], route: 'courses', transport: 'rest' });
 		const rest = await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8');
 		expect(rest).toContain("app.post('/api/courses'");
-		expect(await readFile(path.join(root, 'packages/axc-verification/acceptance-api/src/step-definitions/course-create.steps.ts'), 'utf8')).toContain("PostRequest.to('/api/courses')");
 		expect(rest).toContain('applicationServices.Course.Course.create(await c.req.json())');
 		expect(rest).toContain('status === 409');
 		const api = await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8');
@@ -754,7 +753,6 @@ describe('Cellix generator', () => {
 		});
 		const updated = await readFile(path.join(root, 'packages/axc/rest/src/index.ts'), 'utf8');
 		expect(updated).toContain("app.patch('/api/courses/:id/status'");
-		expect(await readFile(path.join(root, 'packages/axc-verification/acceptance-api/src/step-definitions/course-publish.steps.ts'), 'utf8')).toContain("PatchRequest.to('/api/courses/:id/status')");
 		expect(updated).toContain("id: c.req.param('id') ?? ''");
 		expect(await readFile(path.join(root, 'apps/api/src/index.ts'), 'utf8')).toContain("methods: ['PATCH']");
 	});
@@ -875,8 +873,8 @@ describe('Cellix generator', () => {
 		});
 		expect(search.map((file) => file.path).join('\n')).not.toContain('course.aggregate.ts');
 		const readRepository = await readFile(path.join(root, 'packages/axc/persistence/src/datasources/readonly/course/course/course.read-repository.ts'), 'utf8');
-		expect(readRepository).toContain('search(command: { title?: string; status?: string })');
-		expect(search.find((file) => file.path.endsWith('/search.ts'))?.contents).toContain('CourseReadRepo.search(command)');
+		expect(readRepository).toContain('async search(title?: string, status?: string)');
+		expect(search.find((file) => file.path.endsWith('/search.ts'))?.contents).toContain('CourseReadRepo.search(command.title, command.status)');
 		const publish = await generateFeature({
 			root,
 			lint,
@@ -905,8 +903,11 @@ describe('Cellix generator', () => {
 		expect(resolver).toContain('search:');
 		expect(resolver).toContain('publish:');
 		const schema = await readFile(path.join(root, 'packages/axc/graphql/src/course.graphql'), 'utf8');
-		expect(schema).toContain('extend type Query {\n\tsearch(input:');
-		expect(schema).toContain('extend type Mutation {\n\tpublish(input:');
+		expect(schema.match(/extend type Query/g)).toHaveLength(1);
+		expect(schema.match(/extend type Mutation/g)).toHaveLength(1);
+		expect(schema).toContain('extend type Query {\n\tcourseById(id: ID!): Course\n\tsearch(input:');
+		expect(schema).toContain('\tpublish(input:');
+		expect(schema).not.toContain('extend type Mutation {\n\tpublish(input:');
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
 	});
 
@@ -963,6 +964,14 @@ describe('Cellix generator', () => {
 		const resolver = await readFile(path.join(root, 'packages/axc/graphql/src/course.resolvers.ts'), 'utf8');
 		expect(resolver).toContain('catalog:');
 		expect(resolver).toContain('.find(');
+		await generateFeature({ root, lint, context: 'course', entity: 'course', operation: 'update', action: 'publish', params: [parseParam('status:string')], transport: 'graphql' });
+		const published = await readFile(path.join(root, 'packages/axc/graphql/src/course.resolvers.ts'), 'utf8');
+		expect(published).toContain('CourseMutationResolver');
+		expect(published).toContain('publish:');
+		expect(published).toContain('id: args.input.id');
+		expect(published).toContain('status: args.input.status');
+		expect(published).toContain('return await CourseMutationResolver(');
+		expect(published).toContain('context.applicationServices.Course.Course.publish(');
 	});
 
 	it('wires a new context through the same barrels Community uses', async () => {
@@ -1075,7 +1084,7 @@ describe('Cellix generator', () => {
 		expect(modelsJson).toContain('"mongoose": "catalog:"');
 		const modelsTsconfig = await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/tsconfig.json'), 'utf8');
 		expect(modelsTsconfig).toContain('@cellix/config-typescript/node');
-		expect(modelsTsconfig).toContain('../../cellix/mongoose-seedwork');
+		expect(modelsTsconfig).not.toContain('mongoose-seedwork');
 
 		await expect(checkCellixLint({ root, lint })).resolves.toStrictEqual([]);
 
@@ -1107,7 +1116,7 @@ describe('Cellix generator', () => {
 		expect(modelsJson).toContain('"@cellix/mongoose-seedwork": "workspace:*"');
 		expect(modelsJson).toContain('"mongoose": "catalog:"');
 		expect(modelsJson).toContain('"@axc/domain": "workspace:*"');
-		expect(await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/tsconfig.json'), 'utf8')).toContain('../../cellix/mongoose-seedwork');
+		expect(await readFile(path.join(root, 'packages/axc/data-sources-mongoose-models/tsconfig.json'), 'utf8')).not.toContain('mongoose-seedwork');
 	});
 });
 

@@ -12,7 +12,7 @@ import { mergeFields, parseArgv, parseField, parseFieldsFile, parseNested, parse
 
 const argv = process.argv.slice(2);
 const head = argv[0];
-const operation = head === 'query' || head === 'update' || head === 'extend' ? head : undefined;
+const operation = head === 'mutation' ? 'update' : head === 'query' || head === 'extend' ? head : undefined;
 const args = parseArgv(operation ? argv.slice(1) : argv);
 const root = await findCellixRoot(process.cwd());
 const lint = await loadGenerateLayout(root);
@@ -32,6 +32,7 @@ if (argv.includes('--help') || argv.includes('-h')) {
 	console.log('pnpm --filter @cellix/generator generate -- --context <context> --subdomain <subdomain> --field <field>:<type>');
 	console.log('pnpm --filter @cellix/generator query -- --context <context> --subdomain <subdomain> --name <name> --param <param>:<type> --route <route> --transport rest');
 	console.log('pnpm --filter @cellix/generator query -- --context <context> --subdomain <subdomain> --name <name> --param <param>:<type> --transport graphql');
+	console.log('pnpm --filter @cellix/generator mutation -- --context <context> --subdomain <subdomain> --name <name> --param <param>:<type> --transport graphql');
 	console.log('pnpm --filter @cellix/generator extend -- --context <context> --subdomain <subdomain> --field <field>:<type> --nested <name>:<field>:<type>');
 	console.log('pnpm --filter @cellix/generator extend -- --context <context> --subdomain <subdomain> --name <name> --param <param>:<type>');
 	process.exit(0);
@@ -44,7 +45,7 @@ if (operation === 'extend' && (transport !== undefined || route !== undefined ||
 }
 const extendName = operation === 'extend' ? (args.get('name') ?? args.get('action')) : undefined;
 if (operation === 'extend' && extendName && (fields.length > 0 || nested.length > 0)) {
-	throw new Error('extend --name adds --param values to that query or update. Leave --field and --nested off.');
+	throw new Error('extend --name adds --param values to that query or mutation. Leave --field and --nested off.');
 }
 if (operation === 'extend' && extendName && params.length === 0) throw new Error('Pass --param.');
 if (operation === 'extend' && !extendName && params.length > 0) throw new Error('Pass --name with --param.');

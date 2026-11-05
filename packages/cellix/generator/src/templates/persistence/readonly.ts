@@ -1,4 +1,4 @@
-import { persistenceModelsImport } from '../../text.ts';
+import { persistenceModelsImport, readParameterList } from '../../text.ts';
 
 export function entityData(entityPascal: string, scope: string): string {
 	return `import type { ${entityPascal} } from '${scope}/data-sources-mongoose-models';
@@ -13,8 +13,14 @@ export class ${entityPascal}DataSourceImpl extends MongoDataSourceImpl<${entityP
 export function readRepository(input: { context: string; entity: string; entityPascal: string; contextPascal: string; scope: string; read?: { name: string; command: string; result: string } }): string {
 	const { context, entity, entityPascal, contextPascal, scope, read } = input;
 	const reference = `Domain.Contexts.${contextPascal}.${entityPascal}.${entityPascal}EntityReference`;
-	const method = read ? `\n\t${read.name}: (command: { ${read.command} }) => Promise<${read.result}>;` : '';
-	const methodBody = read ? `\n\n\t${read.name}(command: { ${read.command} }): Promise<${read.result}> {\n\t\treturn Promise.reject(new Error(\`not implemented: \${JSON.stringify(command)}\`));\n\t}` : '';
+	const parameters = read ? readParameterList(read.command) : '';
+	const names = (read?.command ?? '')
+		.split(';')
+		.map((part) => part.trim().split(':')[0]?.replace('?', '').trim() ?? '')
+		.filter((name) => name.length > 0);
+	const detail = names.length > 0 ? `\`not implemented: \${[${names.map((name) => `${name} ?? ''`).join(', ')}].join(',')}\`` : "'not implemented'";
+	const method = read ? `\n\t${read.name}: (${parameters}) => Promise<${read.result}>;` : '';
+	const methodBody = read ? `\n\n\tasync ${read.name}(${parameters}): Promise<${read.result}> {\n\t\treturn await Promise.reject(new Error(${detail}));\n\t}` : '';
 	return `import type { ${entityPascal}ModelType } from '${scope}/data-sources-mongoose-models';
 import type { Domain } from '${scope}/domain';
 import { ${entityPascal}Converter } from '../../../domain/${context}/${entity}/${entity}.domain-adapter.ts';

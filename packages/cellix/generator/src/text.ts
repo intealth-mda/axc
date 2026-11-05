@@ -64,6 +64,14 @@ export function namespacePath(contextPascal: string, entityPascal: string): stri
 	return `${contextPascal}.${entityPascal}.${entityPascal}`;
 }
 
+/** Fields set by getNewInstance. Each one is its own argument. An entity collection starts empty. */
+export function creationFields(shape: { fields: ShapeField[]; nested: ShapeNested[] }): { name: string; type: string; persistenceType: string; assign: string }[] {
+	return [
+		...shape.fields.map((field) => ({ name: field.name, type: tsType(field.type), persistenceType: tsType(field.type), assign: `newInstance.${field.name} = ${field.name};` })),
+		...shape.nested.filter((item) => item.kind !== 'entity').map((item) => ({ name: item.camel, type: `${item.pascal}Props`, persistenceType: structuralType(item), assign: `newInstance.props.${item.camel} = ${item.camel};` })),
+	];
+}
+
 export function nestedPropType(item: ShapeNested): string {
 	return item.kind === 'entity' ? `PropArray<${item.pascal}Props>` : `${item.pascal}Props`;
 }
@@ -89,7 +97,7 @@ export function actionKind(actionCamel: string): ActionKind {
 /** The query and update commands choose the flow. The function name does not. */
 export function assertOperationName(actionCamel: string, operation: 'query' | 'update'): void {
 	if (operation === 'query' && /^(?:create|update|delete)(?:[A-Z]|$)/.test(actionCamel)) {
-		throw new Error(`Query name ${actionCamel} is reserved for a mutation. Use the update command, or pick another name.`);
+		throw new Error(`Query name ${actionCamel} is reserved for a mutation. Use the mutation command, or pick another name.`);
 	}
 	if (operation === 'update' && /^(?:query|get|find)(?:[A-Z]|$)/.test(actionCamel)) {
 		throw new Error(`Update name ${actionCamel} is reserved for a read. Use the query command, or pick another name.`);
@@ -125,6 +133,23 @@ export function mergeParams(params: FieldSpec[]): FieldSpec[] {
 
 function commandLine(field: ShapeField, optional: boolean): string {
 	return `${field.name}${optional || field.optional ? '?' : ''}: ${tsType(field.type)};`;
+}
+
+export function readParameterList(command: string): string {
+	return command
+		.split(';')
+		.map((part) => part.trim())
+		.filter((part) => part.length > 0)
+		.join(', ');
+}
+
+export function readArgumentList(command: string): string {
+	return command
+		.split(';')
+		.map((part) => part.trim())
+		.filter((part) => part.length > 0)
+		.map((part) => `command.${part.split(':')[0]?.replace('?', '').trim()}`)
+		.join(', ');
 }
 
 export function commandFields(shape: { fields: ShapeField[]; nested: ShapeNested[] }, kind: ActionKind): string {

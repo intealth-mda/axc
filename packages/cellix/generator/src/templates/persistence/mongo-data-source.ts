@@ -94,6 +94,8 @@ export class MongoDataSourceImpl<TDoc extends MongooseSeedwork.Base> implements 
 	}
 
 	async findById(id: string, options?: FindOneOptions): Promise<Lean<TDoc> | null> {
+		const stored = await this.model.collection.findOne({ _id: id } as never);
+		if (stored) return this.appendId(stored as LeanBase<TDoc>);
 		if (!isValidObjectId(id)) return null;
 		let query = this.model.findById(id, this.buildProjection(options?.fields, options?.projectionMode));
 		if (options?.populateFields?.length) query = query.populate(options.populateFields);

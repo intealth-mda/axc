@@ -170,6 +170,11 @@ function parseNestedMember(entry: unknown, parent: string): NestedMember {
 	throw new Error(`Nested object ${parent} has a field that is not "name:type" or { "name", "fields" }`);
 }
 
+/** An id makes an entity. A nested object without an id is a value object. A string field stays a VOString. */
+function nestedKind(identity: boolean): 'entity' | 'value' {
+	return identity ? 'entity' : 'value';
+}
+
 function finishNested(name: string, members: NestedMember[]): NestedSpec {
 	if (members.length === 0) throw new Error(`Nested object ${name} needs at least one field`);
 	const identity = members.some((member) => !isNestedMember(member) && (member.name === 'id' || member.type === 'id'));
@@ -181,7 +186,7 @@ function finishNested(name: string, members: NestedMember[]): NestedSpec {
 		if (seen.has(key)) throw new Error(`Nested object ${name} repeats ${key}`);
 		seen.add(key);
 	}
-	return { name, kind: identity ? 'entity' : 'value', fields: kept };
+	return { name, kind: nestedKind(identity), fields: kept };
 }
 
 function isNestedMember(member: NestedMember): member is NestedSpec {

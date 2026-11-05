@@ -44,7 +44,10 @@ export function entityCollection(item: ShapeNested, entityPascal: string, propsR
 		...item.fields.flatMap((member) => childMembers(member, propsRoot)),
 		...childParts.map((child) => child.getter),
 	];
-	const classText = [...childParts.map((child) => child.classText), `class ${className} implements ${propsType} {\n\tconstructor(public readonly doc: ${docType}) {}\n\n\t${members.join('\n\t')}\n}`].join('\n\n');
+	const classText = [
+		...childParts.map((child) => child.classText),
+		`class ${className} implements ${propsType} {\n\tpublic readonly doc: ${docType};\n\tconstructor(doc: ${docType}) {\n\t\tthis.doc = doc;\n\t}\n\n\t${members.join('\n\t')}\n}`,
+	].join('\n\n');
 	const getter = `get ${item.camel}(): PropArray<${propsType}> {\n\t\treturn new MongooseSeedwork.MongoosePropArray(this.doc.${item.camel}, ${className});\n\t}`;
 	return { getter: `\t${getter.replaceAll('\n', '\n\t')}`, classText, docTypes: [docType, ...childParts.flatMap((child) => child.docTypes)] };
 }

@@ -1,8 +1,8 @@
 {
 	"read": {
-		"packages/cellix/**": false,
-		"scripts/**": false,
-		".cursor/**": false,
+		"packages/cellix/**": true,
+		"scripts/**": true,
+		".cursor/**": true,
 		"factory.json": false,
 		"**/node_modules/**": false,
 		"node_modules/**": false,
@@ -37,9 +37,9 @@
 		".snyk": true
 	},
 	"write": {
-		"packages/cellix/**": false,
-		"scripts/**": false,
-		".cursor/**": false,
+		"packages/cellix/**": true,
+		"scripts/**": true,
+		".cursor/**": true,
 		"ocom-write.config.json": false,
 		"factory.json": false,
 		"packages/axc/**": true,

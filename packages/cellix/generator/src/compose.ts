@@ -16,9 +16,10 @@ import {
 	modelsIndex,
 	persistenceRoot,
 } from './templates/composition/indexes.ts';
-import { schema } from './templates/graphql/schema.ts';
+import { mutationField, mutationResolverHelper } from './templates/graphql/resolvers.ts';
+import { insertGraphqlField } from './templates/graphql/schema.ts';
 import { modelsPackageJson, modelsTsconfig } from './templates/models/package-manifest.ts';
-import { actionKind, azureRoute, commandFields, graphqlFieldName, httpMethod, httpReadArgument, mutationArgument, namespacePath, paramShape, serviceResult } from './text.ts';
+import { actionKind, azureRoute, commandFields, graphqlFieldName, httpMethod, httpReadArgument, mutationArgument, namespacePath, paramShape, readParameterList, serviceResult } from './text.ts';
 import type { GenerateFeatureOptions } from './types.ts';
 
 // Edits barrels and host files that already exist. New-file patterns live under src/templates. Disk helpers for a brand-new file are src/write/new-files.ts.
@@ -60,6 +61,7 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 			permissionsFile: path.join(domainSrc, 'domain/contexts', context, `${context}.domain-permissions.ts`),
 		})),
 		...(await ensureModelsIndex(path.join(modelsSrc, 'index.ts'), entity, entityPascal)),
+		...(await ensureStringIdLookup(path.join(persistenceSrc, 'datasources/readonly/mongo-data-source.ts'))),
 		...(await ensureModelsPackage(options)),
 		...(await ensureDependency(path.join(domainSrc, '..', 'package.json'), '@lucaspaganini/value-objects', '1.3.1')),
 		...(options.action ? await ensureDependency(path.join(applicationSrc, '..', 'package.json'), `${scope}/domain`, 'workspace:*') : []),
@@ -159,6 +161,7 @@ export async function wireComposition(options: GenerateFeatureOptions): Promise<
 					actionPascal,
 					operation: graphqlOperation,
 					inputs,
+					scope: options.lint.scope,
 				})),
 			);
 		}
@@ -271,9 +274,14 @@ async function spliceReadMethod(file: string, method: { entityPascal: string; na
 	const interfaceEnd = interfaceAt < 0 ? -1 : current.indexOf('\n}', interfaceAt);
 	const factoryAt = current.indexOf(`export const get${method.entityPascal}ReadRepository`);
 	if (interfaceEnd < 0 || factoryAt < 0) return [];
-	const inline = method.command.replaceAll('\n', ' ');
-	const member = `\n\t${method.name}: (command: { ${inline} }) => Promise<${method.result}>;`;
-	const body = `\n\t${method.name}(command: { ${inline} }): Promise<${method.result}> {\n\t\treturn Promise.reject(new Error(\`not implemented: \${JSON.stringify(command)}\`));\n\t}\n`;
+	const parameters = readParameterList(method.command.replaceAll('\n', ' '));
+	const names = parameters
+		.split(',')
+		.map((part) => part.trim().split(':')[0]?.split('=')[0]?.replace('?', '').trim() ?? '')
+		.filter((name) => name.length > 0);
+	const detail = names.length > 0 ? `\`not implemented: \${[${names.map((name) => `${name} ?? ''`).join(', ')}].join(',')}\`` : "'not implemented'";
+	const member = `\n\t${method.name}: (${parameters}) => Promise<${method.result}>;`;
+	const body = `\n\tasync ${method.name}(${parameters}): Promise<${method.result}> {\n\t\treturn await Promise.reject(new Error(${detail}));\n\t}\n`;
 	current = `${current.slice(0, interfaceEnd)}${member}${current.slice(interfaceEnd)}`;
 	const factory = current.indexOf(`export const get${method.entityPascal}ReadRepository`);
 	const classEnd = current.lastIndexOf('\n}', factory);
@@ -340,8 +348,12 @@ function restRoute(method: string, route: string, call: string, command: string)
 		`\t\ttry {`,
 		`\t\t\treturn c.json(await ${call}${command}));`,
 		`\t\t} catch (error) {`,
-		`\t\t\tconst status = typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;`,
-		`\t\t\tconst message = error instanceof Error ? error.message : '';`,
+		`\t\t\tlet failure: unknown = error;`,
+		`\t\t\tfor (let depth = 0; depth < 5 && typeof failure === 'object' && failure !== null && !('status' in failure); depth += 1) {`,
+		`\t\t\t\tfailure = 'cause' in failure ? failure.cause : undefined;`,
+		`\t\t\t}`,
+		`\t\t\tconst status = typeof failure === 'object' && failure !== null && 'status' in failure ? failure.status : undefined;`,
+		`\t\t\tconst message = failure instanceof Error ? failure.message : error instanceof Error ? error.message : '';`,
 		`\t\t\tif (status === 400) return c.json({ message }, 400);`,
 		`\t\t\tif (status === 404) return c.json({ message }, 404);`,
 		`\t\t\tif (status === 409) return c.json({ message }, 409);`,
@@ -375,15 +387,33 @@ async function spliceGraphql(input: {
 	actionPascal: string;
 	operation: 'Query' | 'Mutation';
 	inputs: { name: string; pascal: string; type: string }[];
+	scope: string;
 }): Promise<WrittenFile[]> {
 	const written: WrittenFile[] = [];
-	const field = `\t\t${input.fieldName}: async (_parent, args, context: GraphContext) => {\n\t\t\treturn await context.applicationServices.${input.contextPascal}.${input.entityPascal}.${input.actionCamel}(args.input);\n\t\t},\n`;
 	if (await exists(input.resolverFile)) {
 		let current = await readFile(input.resolverFile, 'utf8');
+		const contextType = current.includes(`type ${input.entityPascal}Context`) ? `${input.entityPascal}Context` : 'GraphContext';
+		const field =
+			input.operation === 'Mutation'
+				? mutationField({
+						entityPascal: input.entityPascal,
+						contextPascal: input.contextPascal,
+						actionCamel: input.actionCamel,
+						fieldName: input.fieldName,
+						inputType: `${input.entityPascal}${input.actionPascal}Input`,
+						contextType,
+						fields: input.inputs.map((field) => field.name),
+					})
+				: `\t\t${input.fieldName}: async (_parent, args, context: ${contextType}) => {\n\t\t\treturn await context.applicationServices.${input.contextPascal}.${input.entityPascal}.${input.actionCamel}(args.input);\n\t\t},\n`;
 		if (!current.includes(`\t\t${input.fieldName}:`)) {
+			if (input.operation === 'Mutation') current = ensureMutationResolver(current, input.entityPascal, input.contextPascal, input.scope);
+			current = ensureGeneratedInput(current, `${input.entityPascal}${input.actionPascal}Input`);
 			const header = `\t${input.operation}: {\n`;
-			if (current.includes(header)) current = current.replace(header, `${header}${field}`);
-			else {
+			if (current.includes(header)) {
+				const open = current.indexOf(header) + header.length;
+				const close = current.indexOf('\n\t},', open);
+				current = close < 0 ? current.replace(header, `${header}${field}`) : `${current.slice(0, close)}\n${field.trimEnd()}${current.slice(close)}`;
+			} else {
 				const exportAt = current.indexOf('\nexport default ');
 				const closeAt = exportAt < 0 ? -1 : current.lastIndexOf('\n};', exportAt);
 				if (closeAt >= 0) current = `${current.slice(0, closeAt)}\n\t${input.operation}: {\n${field}\t},${current.slice(closeAt)}`;
@@ -392,23 +422,44 @@ async function spliceGraphql(input: {
 			written.push({ path: input.resolverFile, contents: current });
 		}
 	}
-	const addition = schema({
-		entityPascal: input.entityPascal,
-		actionPascal: input.actionPascal,
-		actionCamel: input.fieldName,
-		operation: input.operation,
-		shape: { fields: [], permissions: [], nested: [] },
-		inputs: input.inputs,
-	});
 	if (await exists(input.schemaFile)) {
 		const current = await readFile(input.schemaFile, 'utf8');
-		if (!current.includes(`${input.fieldName}(input:`)) {
-			const next = `${current.trimEnd()}\n\n${addition}`;
+		const next = insertGraphqlField(current, {
+			entityPascal: input.entityPascal,
+			actionPascal: input.actionPascal,
+			fieldName: input.fieldName,
+			operation: input.operation,
+			inputs: input.inputs,
+		});
+		if (next !== current) {
 			await writeFile(input.schemaFile, next);
 			written.push({ path: input.schemaFile, contents: next });
 		}
 	}
 	return written;
+}
+
+function ensureGeneratedInput(source: string, inputType: string): string {
+	const match = source.match(/import type \{([^}]+)\} from '\.\.\/builder\/generated\.ts';/);
+	if (!match?.[1] || match[1].includes(inputType)) return source;
+	const names = match[1]
+		.split(',')
+		.map((name) => name.trim())
+		.filter((name) => name.length > 0);
+	const resolversAt = names.indexOf('Resolvers');
+	if (resolversAt >= 0) names.splice(resolversAt, 0, inputType);
+	else names.push(inputType);
+	return source.replace(match[0], `import type { ${names.join(', ')} } from '../builder/generated.ts';`);
+}
+
+function ensureMutationResolver(source: string, entityPascal: string, contextPascal: string, scope: string): string {
+	let current = source;
+	if (!current.includes(`from '${scope}/domain'`)) current = `import type { Domain } from '${scope}/domain';\n${current}`;
+	const helper = `${entityPascal}MutationResolver`;
+	if (current.includes(`const ${helper}`)) return current;
+	const block = `\n${mutationResolverHelper(entityPascal, contextPascal)}\n`;
+	const constAt = current.search(/\nconst \w+Resolvers/);
+	return constAt < 0 ? `${current.trimEnd()}\n${block}` : `${current.slice(0, constAt)}${block}${current.slice(constAt)}`;
 }
 
 async function spliceApi(file: string, input: { scope: string; entity: string; action: string; route: string; method: string }): Promise<WrittenFile[]> {
@@ -442,13 +493,10 @@ async function ensureModelsPackage(options: GenerateFeatureOptions): Promise<Wri
 
 async function ensureCatalogWiring(options: GenerateFeatureOptions): Promise<WrittenFile[]> {
 	const persistenceDir = path.join(options.root, options.lint.layers.persistence, '..');
-	const serviceDir = path.join(options.root, options.lint.layers.serviceMongoose, '..');
-	const acceptanceDir = path.join(options.root, options.lint.acceptance, '..');
 	const modelsDir = path.dirname(path.join(options.root, options.lint.layers.models));
 	return [
 		...(await ensureDependency(path.join(modelsDir, 'package.json'), '@cellix/mongoose-seedwork', 'workspace:*')),
 		...(await ensureDependency(path.join(modelsDir, 'package.json'), 'mongoose', 'catalog:')),
-		...(await ensureProjectReference(path.join(modelsDir, 'tsconfig.json'), path.relative(modelsDir, path.join(options.root, 'packages/cellix/mongoose-seedwork')))),
 		...(await ensureDependency(path.join(persistenceDir, 'package.json'), '@cellix/event-bus-seedwork-node', 'workspace:*')),
 		...(await ensureDependency(path.join(persistenceDir, 'package.json'), '@cellix/mongoose-seedwork', 'workspace:*')),
 		...(await ensureDependency(path.join(persistenceDir, 'package.json'), 'mongoose', 'catalog:')),
@@ -456,11 +504,6 @@ async function ensureCatalogWiring(options: GenerateFeatureOptions): Promise<Wri
 		...(await ensureProjectReference(path.join(persistenceDir, 'tsconfig.json'), path.relative(persistenceDir, path.join(options.root, 'packages/cellix/mongoose-seedwork')))),
 		...(await ensureProjectReference(path.join(persistenceDir, 'tsconfig.json'), path.relative(persistenceDir, path.join(options.root, options.lint.layers.domain, '..')))),
 		...(await ensureProjectReference(path.join(persistenceDir, 'tsconfig.json'), path.relative(persistenceDir, modelsDir))),
-		...(await ensureDependency(path.join(serviceDir, 'package.json'), `${options.lint.scope}/data-sources-mongoose-models`, 'workspace:*')),
-		...(await ensureProjectReference(path.join(serviceDir, 'tsconfig.json'), path.relative(serviceDir, modelsDir))),
-		...(await ensureDependency(path.join(acceptanceDir, 'package.json'), `${options.lint.scope}/service-mongoose`, 'workspace:*')),
-		...(await ensureDependency(path.join(acceptanceDir, 'package.json'), 'mongoose', 'catalog:')),
-		...(await ensureProjectReference(path.join(acceptanceDir, 'tsconfig.json'), path.relative(acceptanceDir, serviceDir))),
 	];
 }
 
@@ -561,6 +604,19 @@ async function ensurePersistenceRoot(file: string, contents: string): Promise<Wr
 	return [{ path: file, contents }];
 }
 
+async function ensureStringIdLookup(file: string): Promise<WrittenFile[]> {
+	if (!(await exists(file))) return [];
+	const current = await readFile(file, 'utf8');
+	const previous = `async findById(id: string, options?: FindOneOptions): Promise<Lean<TDoc> | null> {\n\t\tif (!isValidObjectId(id)) return null;`;
+	if (!current.includes(previous) || current.includes('collection.findOne')) return [];
+	const contents = current.replace(
+		previous,
+		`async findById(id: string, options?: FindOneOptions): Promise<Lean<TDoc> | null> {\n\t\tconst stored = await this.model.collection.findOne({ _id: id } as never);\n\t\tif (stored) return this.appendId(stored as LeanBase<TDoc>);\n\t\tif (!isValidObjectId(id)) return null;`,
+	);
+	await writeFile(file, contents);
+	return [{ path: file, contents }];
+}
+
 async function ensureModelsIndex(file: string, entity: string, entityPascal: string): Promise<WrittenFile[]> {
 	const written = await ensureObjectMember(file, {
 		importLine: `import { ${entityPascal}ModelFactory } from './models/${entity}/${entity}.model.ts';\n`,
@@ -569,9 +625,17 @@ async function ensureModelsIndex(file: string, entity: string, entityPascal: str
 		fallback: modelsIndex(entity, entityPascal),
 	});
 	if (!(await exists(file))) return written;
-	const typeLine = `export type { ${entityPascal}, ${entityPascal}ModelType } from './models/${entity}/${entity}.model.ts';\n`;
+	const modelPath = path.join(path.dirname(file), 'models', entity, `${entity}.model.ts`);
+	const nested = (await exists(modelPath)) ? [...(await readFile(modelPath, 'utf8')).matchAll(/^export interface (\w+)/gm)].map((match) => match[1]).filter((name) => name !== undefined && name !== entityPascal) : [];
+	const typeLine = `export type { ${entityPascal}${nested.length > 0 ? `, ${nested.join(', ')}` : ''}, ${entityPascal}ModelType } from './models/${entity}/${entity}.model.ts';\n`;
 	const nameLine = `export { ${entityPascal}ModelName } from './models/${entity}/${entity}.model.ts';\n`;
 	let current = await readFile(file, 'utf8');
+	const previous = `export type { ${entityPascal}, ${entityPascal}ModelType } from './models/${entity}/${entity}.model.ts';`;
+	if (nested.length > 0 && current.includes(previous) && !current.includes(typeLine.trim())) {
+		current = current.replace(previous, typeLine.trim());
+		await writeFile(file, current);
+		return [...written.filter((item) => item.path !== file), { path: file, contents: current }];
+	}
 	if (current.includes(typeLine.trim()) && current.includes(nameLine.trim())) return written;
 	const marker = 'export const mongooseContextBuilder';
 	const at = current.indexOf(marker);

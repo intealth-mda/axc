@@ -56,4 +56,20 @@ ignore:
           webpack-merge uses it while Docusaurus builds.
         expires: 2027-02-03T00:00:00.000Z
         created: 2026-11-03T14:13:00.000Z
+  SNYK-JS-OPEN-22112123:
+    - '*':
+        reason: >-
+          No direct upgrade or patch. open before 11.0.0 is pulled by
+          @docusaurus/core@3.10.2 (^8.4.0) and storybook@10.6.2 (^10.2.0).
+          11.0.4 is the first fixed release.
+        expires: 2027-02-05T00:00:00.000Z
+        created: 2026-11-05T18:55:00.000Z
+  SNYK-JS-GLOB-22112102:
+    - '*':
+        reason: >-
+          glob before 14.0.2 comes from @cucumber/cucumber@12.8.1.
+          Cucumber 13.0.0 drops glob. @serenity-js/cucumber@3.46.0 accepts
+          that release. The catalog stays on 12.8.1 until that upgrade lands.
+        expires: 2027-02-05T00:00:00.000Z
+        created: 2026-11-05T18:55:00.000Z
 patch: {}

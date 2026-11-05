@@ -34,8 +34,8 @@ export function modelField(prefix: string, item: ShapeNested): string {
 }
 
 export function modelSchemaField(prefix: string, item: ShapeNested): string {
-	if (item.kind === 'entity') return `\t\t${item.camel}: [${prefix}${item.pascal}Schema],`;
-	return `\t\t${item.camel}: {\n${mongooseMembers(item, '\t\t', prefix)}\n\t\t},`;
+	const schema = `${prefix}${item.pascal}Schema`;
+	return item.kind === 'entity' ? `\t\t${item.camel}: [${schema}],` : `\t\t${item.camel}: ${schema},`;
 }
 
 export function nestedSchemaConsts(prefix: string, items: ShapeNested[]): string {
@@ -43,8 +43,8 @@ export function nestedSchemaConsts(prefix: string, items: ShapeNested[]): string
 	const walk = (list: ShapeNested[]) => {
 		for (const item of list) {
 			walk(item.fields.filter(isShapeNested));
-			if (item.kind !== 'entity') continue;
-			chunks.push(`const ${prefix}${item.pascal}Schema = new Schema(\n\t{\n${mongooseMembers(item, '\t', prefix)}\n\t},\n\t{ timestamps: true, versionKey: 'version' },\n);`);
+			const options = item.kind === 'entity' ? "{ timestamps: true, versionKey: 'version' }" : "{ _id: false, timestamps: true, versionKey: 'version' }";
+			chunks.push(`const ${prefix}${item.pascal}Schema = new Schema(\n\t{\n${mongooseMembers(item, '\t', prefix)}\n\t},\n\t${options},\n);`);
 		}
 	};
 	walk(items);
@@ -71,8 +71,8 @@ function mongooseMembers(item: ShapeNested, indent: string, prefix = ''): string
 	return item.fields
 		.map((member) => {
 			if (isShapeNested(member)) {
-				if (member.kind === 'entity') return `${indent}\t${member.camel}: [${prefix}${member.pascal}Schema],`;
-				return `${indent}\t${member.camel}: {\n${mongooseMembers(member, `${indent}\t`, prefix)}\n${indent}\t},`;
+				const schema = `${prefix}${member.pascal}Schema`;
+				return member.kind === 'entity' ? `${indent}\t${member.camel}: [${schema}],` : `${indent}\t${member.camel}: ${schema},`;
 			}
 			return `${indent}\t${member.name}: ${mongooseField(member)},`;
 		})

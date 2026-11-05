@@ -20,10 +20,6 @@ export function filesToEdit(options: GenerateFeatureOptions): string[] {
 		files.push(`${lint.layers.graphql}/${entity}.resolvers.ts`);
 	}
 	if (operation !== 'query') files.push(seed);
-	if (lint.acceptance) {
-		files.push(`${lint.acceptance}/features/${entity}-${action}.feature`);
-		files.push(`${lint.acceptance}/step-definitions/${entity}-${action}.steps.ts`);
-	}
 	return files;
 }
 
@@ -87,10 +83,10 @@ function isNested(member: NestedSpec['fields'][number]): member is NestedSpec {
 /** Files the timed agent may read. Other subdomains, manifests, and tsconfig stay off this list. A failing check names any other file. */
 export function readsForEdit(options: GenerateFeatureOptions): string[] {
 	const { lint, context, entity } = options;
-	const acceptance = lint.acceptance;
+	const acceptance = lint.acceptance ? `${lint.acceptance.replace(/\/$/, '')}/` : undefined;
 	const behavior = [
 		`${lint.layers.domain}/domain/contexts/${context}/${entity}/${entity}.value-objects.ts`,
-		...(acceptance ? [`${acceptance}/infrastructure.ts`, `${acceptance}/cucumber-lifecycle-hooks.ts`] : []),
+		...(acceptance ? [acceptance, `${acceptance}infrastructure.ts`] : []),
 		...(lint.apiComposition ? [lint.apiComposition] : []),
 		'apps/docs/',
 		'.agents/skills/cellix-architecture/',
@@ -106,5 +102,5 @@ const INSTRUCTION = new Set(['AGENTS.md', '.agents/skills/cellix-architecture/SK
 
 /** Same slice as the read list. Instruction files stay readable and are not writable. */
 export function writesForEdit(options: GenerateFeatureOptions): string[] {
-	return readsForEdit(options).filter((entry) => !INSTRUCTION.has(entry) && !(entry.endsWith('/') && entry !== 'apps/docs/'));
+	return readsForEdit(options).filter((entry) => !INSTRUCTION.has(entry) && (!entry.endsWith('/') || entry === 'apps/docs/' || entry.endsWith('acceptance-api/src/')));
 }

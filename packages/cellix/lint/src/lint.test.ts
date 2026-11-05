@@ -150,7 +150,7 @@ export class Place extends DomainEntity<PlaceProps> implements PlaceEntityRefere
 }
 `,
 			'packages/axc/domain/src/domain/contexts/course/course/address.value-objects.ts': `import { ValueObject } from '@cellix/domain-seedwork/value-object';
-export class Address extends ValueObject<{ street: string }> {}
+export class Address extends Object {}
 `,
 			'packages/axc/domain/src/domain/contexts/course/course/title.value-objects.ts': `import { VOString } from '@lucaspaganini/value-objects';
 export class Title extends VOString({ trim: true, minLength: 1, maxLength: 20 }) {

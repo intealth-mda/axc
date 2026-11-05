@@ -59,10 +59,10 @@ pnpm --filter @cellix/generator query -- --context <context> --subdomain <subdom
 pnpm --filter @cellix/generator query -- --context <context> --subdomain <subdomain> --name <name> \
   --param <param>:<type> --transport graphql
 
-pnpm --filter @cellix/generator run update -- --context <context> --subdomain <subdomain> --name <name> \
+pnpm --filter @cellix/generator mutation -- --context <context> --subdomain <subdomain> --name <name> \
   --param <param>:<type> --route <route> --transport rest
 
-pnpm --filter @cellix/generator run update -- --context <context> --subdomain <subdomain> --name <name> \
+pnpm --filter @cellix/generator mutation -- --context <context> --subdomain <subdomain> --name <name> \
   --param <param>:<type> --transport graphql
 
 pnpm --filter @cellix/generator generate -- --context <context> --subdomain <subdomain> \

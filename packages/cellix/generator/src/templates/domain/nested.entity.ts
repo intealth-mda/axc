@@ -6,12 +6,12 @@ import { childImport, entityReference, nestedMembers, scalarMembers, valueObject
 export function nestedEntity(item: ShapeNested, context: string, permission: string): string {
 	const visa = `${pascal(context)}Visa`;
 	const childEntities = item.fields.filter((member): member is ShapeNested => isShapeNested(member) && member.kind === 'entity');
-	const reference = childEntities.length === 0 ? `export interface ${item.pascal}EntityReference extends Readonly<${item.pascal}Props> {}` : entityReference(item.pascal, childEntities);
+	const exposed = item.fields.filter(isShapeNested);
+	const reference = exposed.length === 0 ? `export interface ${item.pascal}EntityReference extends Readonly<${item.pascal}Props> {}` : entityReference(item.pascal, exposed);
 	const imports = [valueObjectImport(item), ...item.fields.filter(isShapeNested).map((child) => childImport(child))].filter((line) => line.length > 0).join('\n');
-	const members = [
-		...item.fields.filter((member): member is ShapeField => !isShapeNested(member)).map((field) => scalarMembers(field, permission)),
-		...item.fields.filter(isShapeNested).map((child) => nestedMembers(child, permission)),
-	].join('\n\n');
+	const members = [...item.fields.filter((member): member is ShapeField => !isShapeNested(member)).map((field) => scalarMembers(field, permission)), ...item.fields.filter(isShapeNested).map((child) => nestedMembers(child))].join(
+		'\n\n',
+	);
 	const propArrayImport = childEntities.length > 0 ? "import type { PropArray } from '@cellix/domain-seedwork/prop-array';\n" : '';
 	return `${propArrayImport}import { DomainEntity, type DomainEntityProps, PermissionError } from '@cellix/domain-seedwork/domain-entity';
 import type { ${visa} } from '../${context}.visa.ts';

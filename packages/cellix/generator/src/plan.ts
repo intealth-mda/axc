@@ -1,27 +1,26 @@
 import path from 'node:path';
 import { camel, pascal } from './names.ts';
 import { isShapeNested, normalizeShape, type Shape, type ShapeNested } from './shape.ts';
-import { feature, steps } from './templates/acceptance-api/scenario.ts';
-import { action, entityServiceIndex, entityServiceShell } from './templates/application-services/action.ts';
+import { action, entityServiceIndex, entityServiceShell, queryByIdAction } from './templates/application-services/action.ts';
 import { domainPermissions } from './templates/domain/context.domain-permissions.ts';
 import { visa } from './templates/domain/context.visa.ts';
-import { aggregate } from './templates/domain/entity.aggregate.ts';
-import { repository as domainRepository } from './templates/domain/entity.repository.ts';
-import { unitOfWork as domainUnitOfWork } from './templates/domain/entity.uow.ts';
-import { scalarValueObjects } from './templates/domain/entity.value-objects.ts';
 import { nestedEntity } from './templates/domain/nested.entity.ts';
 import { nestedValueObject } from './templates/domain/nested.value-objects.ts';
 import { passport } from './templates/domain/passport.ts';
+import { aggregate } from './templates/domain/subdomain.aggregate.ts';
+import { repository as domainRepository } from './templates/domain/subdomain.repository.ts';
+import { unitOfWork as domainUnitOfWork } from './templates/domain/subdomain.uow.ts';
+import { scalarValueObjects } from './templates/domain/subdomain.value-objects.ts';
 import { resolvers } from './templates/graphql/resolvers.ts';
 import { schema } from './templates/graphql/schema.ts';
-import { model } from './templates/models/entity.model.ts';
-import { seed } from './templates/models/entity.seed.ts';
-import { domainAdapter } from './templates/persistence/entity.domain-adapter.ts';
-import { persistenceRepository } from './templates/persistence/entity.repository.ts';
-import { persistenceUnitOfWork } from './templates/persistence/entity.uow.ts';
+import { model } from './templates/models/subdomain.model.ts';
+import { seed } from './templates/models/subdomain.seed.ts';
 import { mongoDataSource } from './templates/persistence/mongo-data-source.ts';
 import { entityData, readContextIndex, readEntityIndex, readonlyIndex, readRepository } from './templates/persistence/readonly.ts';
-import { actionKind, commandFields, graphqlFieldName, httpMethod, namespacePath, paramShape, serviceResult } from './text.ts';
+import { domainAdapter } from './templates/persistence/subdomain.domain-adapter.ts';
+import { persistenceRepository } from './templates/persistence/subdomain.repository.ts';
+import { persistenceUnitOfWork } from './templates/persistence/subdomain.uow.ts';
+import { actionKind, commandFields, creationFields, graphqlFieldName, namespacePath, paramShape, serviceResult } from './text.ts';
 import type { GeneratedFile, GenerateFeatureOptions } from './types.ts';
 
 export function plan(options: GenerateFeatureOptions): GeneratedFile[] {
@@ -58,7 +57,7 @@ function backendFiles(options: GenerateFeatureOptions): GeneratedFile[] {
 			),
 		},
 		{ path: path.join(entityDir, `${entity}.aggregate.ts`), contents: aggregate({ entity, entityPascal, context, shape }) },
-		{ path: path.join(entityDir, `${entity}.repository.ts`), contents: domainRepository(entity, entityPascal) },
+		{ path: path.join(entityDir, `${entity}.repository.ts`), contents: domainRepository(entity, entityPascal, shape) },
 		{ path: path.join(entityDir, `${entity}.uow.ts`), contents: domainUnitOfWork(entity, entityPascal) },
 		{ path: path.join(root, lint.layers.models, 'models', entity, `${entity}.model.ts`), contents: model(entityPascal, shape) },
 		{ path: path.join(root, lint.layers.models, 'models', entity, `${entity}.seed.ts`), contents: seed(entity, entityPascal, shape) },
@@ -72,7 +71,8 @@ function backendFiles(options: GenerateFeatureOptions): GeneratedFile[] {
 		{ path: path.join(readonlyRoot, context, 'index.ts'), contents: readContextIndex(contextPascal, entity, entityPascal, scope) },
 		{ path: path.join(readonlyRoot, 'index.ts'), contents: readonlyIndex(context, contextPascal, entity, entityPascal, scope) },
 	];
-	if (!options.action) files.push({ path: path.join(applicationDir, 'index.ts'), contents: entityServiceShell(entityPascal, scope) });
+	if (options.action !== 'query-by-id') files.push({ path: path.join(applicationDir, 'query-by-id.ts'), contents: queryByIdAction(entityPascal, contextPascal, scope) });
+	if (!options.action) files.push({ path: path.join(applicationDir, 'index.ts'), contents: entityServiceShell(entityPascal, contextPascal, scope) });
 	return files;
 }
 
@@ -88,7 +88,7 @@ function actionFiles(options: GenerateFeatureOptions): GeneratedFile[] {
 	const command = `${entityPascal}${actionPascal}Command`;
 	const kind = options.operation === 'query' ? 'read' : options.operation === 'update' ? 'update' : actionKind(actionCamel);
 	const shape = normalizeShape(entity, options.fields ?? [], options.permissions ?? [], options.nested ?? []);
-	const commandShape = options.operation ? paramShape(options.params ?? []) : shape;
+	const commandShape = actionCamel === 'queryById' ? paramShape([{ name: 'id', type: 'string' }]) : options.operation ? paramShape(options.params ?? []) : shape;
 	const reference = `Domain.Contexts.${namespacePath(contextPascal, entityPascal)}EntityReference`;
 	const result = serviceResult({ result: options.result, operation: options.operation, kind, actionCamel, reference });
 	const fieldName = graphqlFieldName(actionCamel, options.transport, options.route);
@@ -98,19 +98,31 @@ function actionFiles(options: GenerateFeatureOptions): GeneratedFile[] {
 	if (!options.operation) {
 		files.push({ path: path.join(applicationDir, 'index.ts'), contents: entityServiceIndex(actionName, actionCamel, command, contextPascal, entityPascal, result, scope) });
 	}
-	const acceptanceName = `${entity}-${actionName}`;
-	const request = options.route === undefined ? undefined : { method: httpMethod({ method: options.method, operation: options.operation, kind }), route: options.route };
-	files.push(
-		{ path: path.join(root, lint.acceptance, 'features', `${acceptanceName}.feature`), contents: feature(entity, actionName) },
-		{ path: path.join(root, lint.acceptance, 'step-definitions', `${acceptanceName}.steps.ts`), contents: steps(entity, actionName, request) },
-	);
 	if (resolver) {
 		const typesDir = path.join(root, lint.layers.graphql);
 		const operation = kind === 'read' ? 'Query' : 'Mutation';
 		const inputs = options.operation === 'query' ? queryInputs(commandShape.fields) : options.operation === 'update' ? updateInputs(commandShape.fields) : undefined;
+		const mutationFields = options.operation === 'update' ? (inputs ?? []).map((field) => field.name) : creationFields(shape).map((field) => field.name);
+		const byId = !options.operation && operation === 'Mutation';
 		files.push(
-			{ path: path.join(typesDir, `${entity}.graphql`), contents: schema({ entityPascal, actionPascal, actionCamel, fieldName, operation, shape, ...(inputs ? { inputs } : {}) }) },
-			{ path: path.join(typesDir, `${entity}.resolvers.ts`), contents: resolvers(entity, entityPascal, contextPascal, actionCamel, operation, fieldName) },
+			{ path: path.join(typesDir, `${entity}.graphql`), contents: schema({ entityPascal, actionPascal, actionCamel, fieldName, operation, shape, ...(inputs ? { inputs } : {}), ...(byId ? { byId } : {}) }) },
+			{
+				path: path.join(typesDir, `${entity}.resolvers.ts`),
+				contents: resolvers({
+					entity,
+					entityPascal,
+					contextPascal,
+					actionCamel,
+					actionPascal,
+					operation,
+					fieldName,
+					scope,
+					shape,
+					graphqlLayer: lint.layers.graphql,
+					...(operation === 'Mutation' ? { fields: mutationFields } : {}),
+					...(byId ? { byId } : {}),
+				}),
+			},
 		);
 	}
 	return files;
@@ -127,7 +139,8 @@ function embeddedRead(options: GenerateFeatureOptions): { name: string; command:
 	const shape = normalizeShape(options.entity, options.fields ?? [], options.permissions ?? [], options.nested ?? []);
 	const reference = `Domain.Contexts.${namespacePath(contextPascal, entityPascal)}EntityReference`;
 	const result = serviceResult({ result: options.result, kind, actionCamel, reference });
-	return { name: actionCamel, command: commandFields(shape, 'read').replaceAll('\n\t', ' '), result };
+	const command = actionCamel === 'queryById' ? 'id: string' : commandFields(shape, 'read').replaceAll('\n\t', ' ');
+	return { name: actionCamel, command, result };
 }
 
 function queryInputs(fields: { name: string; pascal: string; type: string }[]) {
@@ -174,9 +187,7 @@ function filesForNested(entityDir: string, context: string, item: ShapeNested, p
 	const children = item.fields.filter(isShapeNested).flatMap((child) => filesForNested(entityDir, context, child, permission));
 	const strings = item.fields.filter((member) => !isShapeNested(member) && member.type === 'string').map((member) => member.pascal);
 	const files = [...children];
-	if (item.kind === 'value' || strings.length > 0) {
-		files.push({ path: path.join(entityDir, `${item.name}.value-objects.ts`), contents: nestedValueObject(item, strings) });
-	}
+	if (item.kind === 'value' || strings.length > 0) files.push({ path: path.join(entityDir, `${item.name}.value-objects.ts`), contents: nestedValueObject(item, strings) });
 	if (item.kind === 'entity') files.push({ path: path.join(entityDir, `${item.name}.entity.ts`), contents: nestedEntity(item, context, permission) });
 	return files;
 }

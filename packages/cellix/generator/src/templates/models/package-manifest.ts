@@ -43,8 +43,7 @@ export function modelsTsconfig(): string {
 		"rootDir": "src",
 		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
 	},
-	"include": ["src/**/*.ts"],
-	"references": [{ "path": "../../cellix/mongoose-seedwork" }]
+	"include": ["src/**/*.ts"]
 }
 `;
 }
