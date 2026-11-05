@@ -17,8 +17,8 @@ packages/axc/domain/src/
   domain/contexts/<context>/index.ts         export * as <Entity> from './<entity>/index.ts'
   domain/contexts/passport.ts                write side only: Passport and Visa types
   domain/contexts/<context>/<entity>/
-    <entity>.entity.ts                       props and entity reference type
-    <entity>.value-objects.ts                allowed values (constants) and validation rules
+    <entity>.entity.ts                       <Entity>Props and <Entity>EntityReference, read side too (see Entities)
+    <entity>.value-objects.ts                allowed values, query criteria, rule checks and the error class they throw
     <entity>.aggregate.ts                    write side only: the class extending DomainSeedwork.AggregateRoot
     <entity>.repository.ts                   write side only: repository interface
     <entity>.uow.ts                          write side only: unit-of-work interface
@@ -29,7 +29,7 @@ packages/axc/persistence/src/
   datasources/index.ts                       DataSources = { readonlyDataSource, domainDataSource? }
   datasources/readonly/index.ts              ReadonlyDataSource = { <Context>: { <Entity>: { <Entity>ReadRepo } } }
   datasources/readonly/<context>/index.ts
-  datasources/readonly/<context>/<entity>/<entity>.read-repository.ts   interface + in-memory implementation
+  datasources/readonly/<context>/<entity>/<entity>.read-repository.ts   interface + in-memory implementation returning <Entity>EntityReference copies; its page type lives here
   datasources/domain/<context>/<entity>/     write side, in memory: <entity>.repository.ts and <entity>.uow.ts
   seed/<context>/<entity>.ts                 seed or fixture records (not *.data.ts: CellixJS uses that name for Mongo data sources)
 packages/axc/application-services/src/
@@ -57,12 +57,14 @@ const forRequest = async () => {
 };
 
 // contexts/<context>/<entity>/index.ts
-export interface ItemApplicationService { queryItems: (query: ItemSearchQuery) => Promise<ItemSearchResult> }
+export interface ItemApplicationService { queryItems: (query: ItemSearchQuery) => Promise<ItemPage> }
 export const Item = (dataSources: DataSources): ItemApplicationService => ({ queryItems: queryItems(dataSources) });
 
-// contexts/<context>/<entity>/query-items.ts: curried, DataSources first
-export const queryItems = (dataSources: DataSources) => async (query: ItemSearchQuery) =>
-	dataSources.readonlyDataSource.Inventory.Item.ItemReadRepo.search(query);
+// contexts/<context>/<entity>/query-items.ts: curried, DataSources first. The check runs here, so it holds for every caller.
+export const queryItems = (dataSources: DataSources) => async (query: ItemSearchQuery) => {
+	Domain.Contexts.Inventory.Item.assertItemSearch(query); // throws ItemValidationError listing every problem
+	return await dataSources.readonlyDataSource.Inventory.Item.ItemReadRepo.search(query);
+};
 ```
 
 Rules:
@@ -70,6 +72,30 @@ Rules:
 - Context `index.ts` imports entity APIs with an alias and their explicit type: `import { Item as ItemApi, type ItemApplicationService } from './item/index.ts'`.
 - Queries read through `readonlyDataSource`. Commands load the aggregate through the unit of work (`withScopedTransaction`), call a domain method, and save.
 - Business rules (allowed values, invariants such as uniqueness, allowed state changes) live in the domain entity or the application service, not only in REST, and must hold when the service is called directly.
+
+## Entities (read and write side)
+
+Every stored entity has these two files, even when the API only reads it. As in CellixJS, read repositories return entity references, never plain records, and `.entity.ts` holds no query, paging or HTTP types.
+
+```ts
+// item.value-objects.ts
+export const itemStatuses = ['draft', 'active'] as const;
+export type ItemStatus = (typeof itemStatuses)[number]; // props and checks use this, never a retyped union
+export class ItemValidationError extends Error {
+	readonly details: { field: string; message: string }[];
+	constructor(details: { field: string; message: string }[]) {
+		super('Invalid item input');
+		this.name = 'ItemValidationError';
+		this.details = details;
+	}
+}
+
+// item.entity.ts
+import type { DomainEntityProps } from '@cellix/domain-seedwork/domain-entity';
+import type { ItemStatus } from './item.value-objects.ts';
+export interface ItemProps extends DomainEntityProps { name: string; status: ItemStatus }
+export type ItemEntityReference = Readonly<ItemProps>;
+```
 
 ## Write side (commands)
 
@@ -79,11 +105,6 @@ The shared CellixJS checks read these files as text, so copy these shapes (`Item
 // domain/contexts/passport.ts: axc has no identity or permissions yet, so no permission checks
 export type Visa = Readonly<Record<string, never>>;
 export interface Passport { readonly visa: Visa }
-
-// item.entity.ts
-import type { DomainEntityProps } from '@cellix/domain-seedwork/domain-entity';
-export interface ItemProps extends DomainEntityProps { name: string }
-export type ItemEntityReference = Readonly<ItemProps>;
 
 // item.aggregate.ts
 import * as DomainSeedwork from '@cellix/domain-seedwork/aggregate-root';
@@ -122,13 +143,13 @@ export interface ItemUnitOfWork<P extends ItemProps> extends DomainSeedwork.Unit
 - Storage is in memory: the base API has no database, so do not add MongoDB or Mongoose. In-memory implementations live in `persistence/src/datasources/domain/<context>/<entity>/`. Copy objects on read and write so callers can't mutate stored state, and keep the store per process.
 - `withScopedTransaction` works on copies and commits only when the callback resolves, so a thrown domain error leaves the store unchanged. Run transactions one at a time so a check-then-save rule can't race.
 
-## Validation and error contract (REST boundary)
+## Validation and error contract
 
-- Parse every query or body field explicitly and collect all problems into `details: [{ field, message }]` before answering 400.
-- Enumerated values come from the domain constants, never retyped lists.
-- Integers: digits only, then `Number.isSafeInteger`, then the range check. Huge values like `page=99999999999999999999` must be 400, not `Infinity` or `null`.
+- Check each rule once, in the domain or the application service, and throw an error class, never a plain `Error`: `NotFoundError` from `@cellix/domain-seedwork/repository` for a missing id, otherwise a class from `<entity>.value-objects.ts`. A validation error's `details: [{ field, message }]` lists every problem, not just the first.
+- REST parses each query or body field explicitly into the input type, calls the service, and maps each error class to the HTTP status and error code the task specifies, in one place per resource. It doesn't repeat the checks. Response bodies use the exact field names from the task.
+- Enumerated values come from the domain's `as const` tuples, never retyped lists.
+- Integers: REST turns anything but digits into `NaN`; the check then applies `Number.isSafeInteger` and the range. Huge values like `page=99999999999999999999` must be 400, not `Infinity` or `null`.
 - A parameter that is present but empty (`?filter=`) is not the same as absent. Either reject it with 400 or handle it on purpose, and test it.
-- Map domain errors to the HTTP status and error code the task specifies, in one place per resource. Response bodies use the exact field names from the task.
 
 ## Tests
 
@@ -137,7 +158,7 @@ export interface ItemUnitOfWork<P extends ItemProps> extends DomainSeedwork.Unit
 | Domain | `domain/src/domain/contexts/<context>/<entity>/*.test.ts` | rules and state transitions, including rejected ones |
 | Persistence | next to the repository | filtering, paging and sorting, copy-on-read, and on the write side that a thrown error inside a transaction leaves the store unchanged |
 | Application services | next to the operation | use cases called directly, including broken rules leaving state unchanged |
-| REST | `rest/src/features/<resource>.test.ts` with `app.request(...)` | validation, status codes, error bodies |
+| REST | `rest/src/features/<resource>.test.ts` with `app.request(...)` | parsing, status codes, error bodies (a stub service throws each error class) |
 | Acceptance | `axc-verification/acceptance-api/src/features/<capability>.feature` | one scenario per acceptance criterion, criterion id in the name (`Scenario: <criterion-id> <what it proves>`), over HTTP through the real host |
 
 - Each `features/<name>.feature` (next to every aggregate and every application-service operation) is run by the sibling `<name>.test.ts` with `@amiceli/vitest-cucumber`: add `"@amiceli/vitest-cucumber": "catalog:"` to that package's devDependencies. Step text must match the feature line exactly, and a scenario without code fails the test. Application-service tests pass a stub `DataSources`, as CellixJS does. REST and persistence tests stay plain Vitest.
@@ -172,8 +193,8 @@ describeFeature(feature, ({ Scenario }) => {
 ## Enforced by test:arch (Stop hook)
 
 These fail the gate, so build them in from the start:
-- Domain write side: the shapes above. The aggregate lives in `<entity>.aggregate.ts`, has `static getNewInstance` and imports `Passport, Visa` from `passport.ts` and its `.entity.ts`. The repository and unit of work export interfaces only, and the unit of work imports Passport, the `.entity.ts` and the `.repository.ts`. Siblings `<entity>.repository.ts`, `<entity>.uow.ts` and `features/<entity>.feature` are required.
-- Persistence: every `<entity>.uow.ts` under `datasources/domain` has a sibling `<entity>.repository.ts`, and files under `datasources/readonly` never call write methods (`create`, `save`, `insertMany`, `updateOne`, `deleteOne` and similar).
+- Domain: every `<entity>.entity.ts` declares `<Entity>Props extends DomainEntityProps` and `<Entity>EntityReference`. Write side: the shapes above. The aggregate lives in `<entity>.aggregate.ts`, has `static getNewInstance` and imports `Passport, Visa` from `passport.ts` and its `.entity.ts`. The repository and unit of work export interfaces only, and the unit of work imports Passport, the `.entity.ts` and the `.repository.ts`. Siblings `<entity>.repository.ts`, `<entity>.uow.ts` and `features/<entity>.feature` are required.
+- Persistence: every `<entity>.uow.ts` under `datasources/domain` has a sibling `<entity>.repository.ts`, and files under `datasources/readonly` never call write methods (`create`, `save`, `insertMany`, `updateOne`, `deleteOne` and similar). Every `<entity>.read-repository.ts` imports `@axc/domain` and returns `<Entity>EntityReference`.
 - Application services: every file under `contexts/` except `index.ts` is an operation `export const op = (dataSources: DataSources) => async (input) => ...` with its own `features/<op>.feature`, so keep helpers out of `contexts/`. Files named `query-*`, `get-*` or `find-*` read through `readonlyDataSource`; files named `create.ts`, `update.ts` or `delete.ts` call `withScopedTransaction`. Each entity `index.ts` exports an `interface <Entity>ApplicationService`.
 - Feature files: each scenario has a When and a Then, one When per scenario, unique titles; parameterise a `Then` instead of reusing the same unparameterised one.
 - Layers: domain imports no other axc package; application services import persistence types only and never rest; rest never imports persistence; `apps/api` imports packages by name, never `.../src/...`.

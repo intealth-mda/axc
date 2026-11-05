@@ -15,6 +15,15 @@ Read this before exploring. It replaces the usual orientation reads; open only t
 - A dependency between workspace packages (`workspace:*`) or a dev dependency already in the catalog (`catalog:`) is fine: add it to that package's `package.json` and name it in your summary. A hook then runs `pnpm install` outside the sandbox and updates `pnpm-lock.yaml` for you. Never run `pnpm install` yourself, and never edit or revert `pnpm-lock.yaml`. No new third-party packages.
 - Do not create branches, commit, or push.
 
+## Smallest complete change
+
+- First list every place the change must reach: callers, tests, fixtures, config, exports, docs. That is the scope. Features, options and flexibility the task doesn't ask for are not.
+- Reuse before you write: what this repo already has, then the standard library or an installed dependency, then the minimum new code.
+- No abstraction, wrapper, option or "for later" code the task doesn't need. Keep the existing layers, interfaces and conventions.
+- Once the scope is covered, the shortest working diff wins. A one-liner that needs decoding is not short. Between options of equal size, take the one that is correct on edge cases.
+- Comment only the why the code can't show, in one line.
+- Never cut validation, error handling, security, the tests and docs this file and the skill require, or anything the task asks for.
+
 ## Repo map
 
 Before adding or changing a feature, read the `cellix-slice` skill (`.agents/skills/cellix-slice/SKILL.md`): folder layout per layer, how `apps/api` injects data access, validation rules and where each test goes.
@@ -52,5 +61,5 @@ Architecture and acceptance tests run only in the Stop hook (acceptance needs th
 ## Final message
 
 - A table mapping each requirement and acceptance criterion to PASS or FAIL and the test or file that proves it.
-- Commands run with their result, dependency edges added, and known limitations.
+- Commands run with their result, dependency edges added, and known limitations, including anything you skipped or did not check.
 - Cost/usage: as your last command, run `node scripts/codex-session-usage.mjs --latest --line` and paste its line. The operator records the final totals.

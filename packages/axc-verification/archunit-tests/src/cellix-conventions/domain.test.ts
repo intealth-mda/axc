@@ -32,6 +32,16 @@ describe('axc domain conventions', () => {
 		expect(violations, 'aggregate roots must use the .aggregate.ts suffix').toEqual([]);
 	});
 
+	it('entity files declare props extending DomainEntityProps and an entity reference', async () => {
+		const violations: string[] = [];
+		for (const file of await listFiles(contextsDir, isProductionSource)) {
+			if (file.path.endsWith('.entity.ts') && !(/extends\s+DomainEntityProps\b/.test(file.content) && /\w+EntityReference\b/.test(file.content))) {
+				violations.push(file.relativePath);
+			}
+		}
+		expect(violations, '<entity>.entity.ts declares <Entity>Props extends DomainEntityProps and <Entity>EntityReference, read side too').toEqual([]);
+	});
+
 	it('every aggregate exposes its contracts in sibling files', async () => {
 		const violations: string[] = [];
 		for (const file of await listFiles(contextsDir, isProductionSource)) {

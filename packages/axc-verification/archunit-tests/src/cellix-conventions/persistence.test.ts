@@ -36,6 +36,16 @@ describe('axc persistence conventions', () => {
 		expect(violations, 'readonly data sources must only query').toEqual([]);
 	});
 
+	it('read repositories return domain entity references', async () => {
+		const violations: string[] = [];
+		for (const file of await listFiles(path.join(srcDir, 'datasources/readonly'), isProductionSource)) {
+			if (file.path.endsWith('.read-repository.ts') && !(importedSpecifiers(file.content).includes('@axc/domain') && /\w+EntityReference\b/.test(file.content))) {
+				violations.push(file.relativePath);
+			}
+		}
+		expect(violations, 'CellixJS read repositories return <Entity>EntityReference from the domain, not plain records').toEqual([]);
+	});
+
 	it('persistence does not import the delivery or application layers', async () => {
 		const forbidden = ['hono', '@axc/rest', '@axc/application-services', '@apps/'];
 		const violations: string[] = [];
