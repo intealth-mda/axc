@@ -94,10 +94,11 @@ own unit test (rest is test-wired too).
 - **Repository lifetime.** Build in-memory repositories once in
   `buildApplicationServicesFactory`, outside `forRequest`, so state survives across requests.
   Seed data lives in the in-memory repository.
-- **One capability, one module per layer.** application-services gets `<capability>.ts`
-  (use cases) and one key on `ApplicationServices`. rest gets one route line per endpoint.
-  Create returns 201.
-- **Write order.** Batch 1 is domain and persistence. Batch 2 is application-services, rest,
+- **One capability, one module per layer** (when the task adds a capability).
+  application-services gets `<capability>.ts` (use cases) and one key on `ApplicationServices`.
+  rest gets one route line per endpoint. Create returns 201.
+- **Write order** (when the task adds a capability; a fix or refactor touches only the layers
+  it needs). Batch 1 is domain and persistence. Batch 2 is application-services, rest,
   acceptance and docs. Write each batch's tests in the same batch, then run the precheck
   once (Tests below).
 

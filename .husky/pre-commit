@@ -1,2 +1,3 @@
 pnpm exec lint-staged
+python3 .claude/hooks/test_harness.py
 pnpm run verify
