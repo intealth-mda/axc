@@ -34,9 +34,12 @@ packages/cellix/*              vendored framework — read, reuse, never edit
 2. `packages/axc/rest/src/index.ts` — `createRestApp(applicationServicesFactory): Hono`;
    each handler does `await applicationServicesFactory.forRequest(c.req.header('Authorization'))`
    then calls a service. `restHandlerCreator` wraps it with `azureHonoHandler`.
-   Query string: `c.req.query()` returns `Record<string,string>`; destructure it
-   (`const { page, sort = 'title' } = query`). `query.page` is TS4111 and `query['page']`
-   trips biome `useLiteralKeys`. Respond with `c.json(body, status)`.
+   Query string: `c.req.query()` returns `Record<string,string>`. Pass the whole record to
+   the service and destructure it there (`const { page, sort = 'title' } = query`).
+   `query.page` is TS4111 and `query['page']` trips biome `useLiteralKeys`. Destructured
+   keys are `string | undefined`, so a type that receives them declares
+   `page?: string | undefined` (`exactOptionalPropertyTypes`), or TS2345 follows.
+   Respond with `c.json(body, status)`.
 3. `packages/axc/application-services/src/index.ts` — `interface ApplicationServices { health: {...} }`,
    `interface ApiContext { environment }`, `buildApplicationServicesFactory(context)` returns
    `{ forRequest }`. Add a capability by extending `ApplicationServices` and the object the
@@ -119,8 +122,12 @@ own unit test (rest is test-wired too).
   `Ensure.that(resolved(LastResponse.status()), equals(200))`;
   `Ensure.that(resolved(Question.about('…', async a => (await a.answer(LastResponse.body<T>())).field)), equals(x))`.
   Every `Question` passed to `Ensure.that` needs `resolved(...)`, or tsgo reports TS2345.
-  `includes(x)` is for strings only; for an array answer use `contain(x)` or
-  `containAtLeastOneItemThat(equals(x))` (all from `@serenity-js/assertions`).
+  `@serenity-js/assertions` exports exactly: `and`, `contain`, `containAtLeastOneItemThat`,
+  `containItemsWhereEachItem`, `endsWith`, `equals`, `includes`, `isAfter`, `isBefore`,
+  `isCloseTo`, `isFalse`, `isGreaterThan`, `isLessThan`, `isPresent`, `isTrue`, `matches`,
+  `not`, `or`, `property`, `startsWith`. There is no `…OrEqualTo`: use
+  `not(isGreaterThan(x))`. `includes(x)` is for strings only; for an array answer use
+  `contain(x)` or `containAtLeastOneItemThat(equals(x))`.
   The suite boots the real Functions host on :7071 (minutes) — it is the slowest gate.
   The task's requirements file is `task-set-<x>-requirements.md` at the repo root. Cover every
   row of its acceptance-criteria table (ids `<X>-AC<n>`) with its own scenario in the

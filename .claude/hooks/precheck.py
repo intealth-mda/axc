@@ -2,7 +2,8 @@
 """One self-check before the full gate. In order: biome --write on changed
 files, turbo typecheck + test for every changed package (the same package
 scripts verify runs, deps built as verify builds them), then the coverage,
-cellix and knip checks. Prints only problems; last line is `precheck OK` or
+cellix and knip checks. turbo runs with --continue, so one pass lists the
+errors of every failing package. Prints only problems; last line is `precheck OK` or
 `precheck FAIL: <steps>`. Exit 0 / 1.
 Usage: python3 .claude/hooks/precheck.py"""
 import json, os, re, subprocess, sys
@@ -51,7 +52,7 @@ def main():
     pkgs = sorted({p for p in (package_of(root, f) for f in files if f.endswith(".ts")) if p})
     if pkgs:
         code, out = run(["corepack", "pnpm", "exec", "turbo", "run", "typecheck", "test",
-                         "--output-logs=errors-only", *[f"--filter={p}" for p in pkgs]], root)
+                         "--continue", "--output-logs=errors-only", *[f"--filter={p}" for p in pkgs]], root)
         if code:
             failed.append("typecheck/test")
             keep = [l for l in out.splitlines()
