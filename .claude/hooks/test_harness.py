@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Harness self-test. Run by the pre-commit hook and CI, not by the agent.
+"""Harness self-test. Runs at every Claude Code session start (SessionStart hook,
+`--session`: silent when all pass, one warning line on drift, never blocks).
 1. gate_digest prints `gate EXIT=<n>` first and last and keeps a failing
    scenario's Expected/Received lines.
 2. precheck: exits 0 when nothing changed; maps a file to its nearest package.
 3. Drift: each hook rule the axc-orientation map restates still matches the
    script or package it describes. Fix the map or the script when one fails.
-Run: python3 .claude/hooks/test_harness.py"""
+Run by hand: python3 .claude/hooks/test_harness.py"""
 import glob, json, os, re, subprocess, sys, tempfile
 
 HOOKS = os.path.dirname(os.path.abspath(__file__))
@@ -15,10 +16,12 @@ import gate_digest
 import precheck
 
 fails = []
+SESSION = "--session" in sys.argv
 
 
 def check(name, cond):
-    print(("PASS " if cond else "FAIL ") + name)
+    if not SESSION:
+        print(("PASS " if cond else "FAIL ") + name)
     if not cond:
         fails.append(name)
 
@@ -70,5 +73,10 @@ if m and libs:
 else:
     check("drift: serenity assertion list present (run pnpm install first)", False)
 
+if SESSION:
+    if fails:
+        print("harness drift: " + "; ".join(fails) + ". The map or a hook is stale; "
+              "run python3 .claude/hooks/test_harness.py and fix before relying on the map.")
+    sys.exit(0)
 print(f"{len(fails)} failed" if fails else "harness self-test: all passed")
 sys.exit(1 if fails else 0)

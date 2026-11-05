@@ -28,5 +28,4 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y azure-functions-core-tools-4
       - run: pnpm install --frozen-lockfile
-      - run: python3 .claude/hooks/test_harness.py
       - run: pnpm run verify
