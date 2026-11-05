@@ -12,6 +12,7 @@ engineStrict: true
 verifyDepsBeforeRun: false
 
 catalog:
+  '@amiceli/vitest-cucumber': 6.5.0
   '@apollo/server': 5.5.0
   '@azure/functions': 4.11.0
   '@cucumber/cucumber': 12.8.1
@@ -23,7 +24,7 @@ catalog:
   '@serenity-js/rest': 3.46.0
   '@serenity-js/serenity-bdd': 3.46.0
   '@storybook/addon-vitest': ^10.4.2
-  '@types/node': 24.10.1
+  '@types/node': 25.9.9
   '@typescript/native-preview': 7.0.0-dev.20260428.1
   '@vitest/browser-playwright': 4.1.12
   '@vitest/coverage-istanbul': 4.1.12

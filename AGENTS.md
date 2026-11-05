@@ -48,8 +48,10 @@ Architecture and acceptance tests run only in the Stop hook (acceptance needs th
 - Locate with `rg -n` or `rg --files`, then read line ranges (`sed -n 'a,bp'`). Do not `cat` whole files or several files at once.
 - Do not re-read a file you just wrote. Pipe check output through `tail -n 40`.
 - No sub-agents. Keep progress notes to one line.
+- The `turborepo` and `portless` skills are disabled. Don't open them; the commands above are all you need.
 
 ## Final message
 
 - A table mapping each requirement and acceptance criterion to PASS or FAIL and the test or file that proves it.
-- Commands run with their result, dependency edges added, and known limitations. Token usage and cost are measured by the operator.
+- Commands run with their result, dependency edges added, and known limitations.
+- Cost/usage: as your last command, run `node scripts/codex-session-usage.mjs --latest --line` and paste its line. The operator records the final totals.

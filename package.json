@@ -30,7 +30,7 @@
 		"@rolldown/binding-linux-x64-gnu": "1.2.9"
 	},
 	"devDependencies": {
-		"@amiceli/vitest-cucumber": "^6.3.0",
+		"@amiceli/vitest-cucumber": "catalog:",
 		"@biomejs/biome": "2.4.10",
 		"@types/node": "catalog:",
 		"@types/react": "19.2.7",
