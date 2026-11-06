@@ -329,8 +329,8 @@ importers:
         specifier: 2.4.10
         version: 2.4.10
       '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
+        specifier: 26.6.2
+        version: 26.6.2
       '@types/react':
         specifier: 19.2.7
         version: 19.2.7
@@ -345,7 +345,7 @@ importers:
         version: 9.1.7
       knip:
         specifier: ^5.64.2
-        version: 5.88.1(@types/node@24.10.1)(typescript@6.0.3)
+        version: 5.88.1(@types/node@26.6.2)(typescript@6.0.3)
       lint-staged:
         specifier: ^16.2.0
         version: 16.4.0
@@ -363,7 +363,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: 4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
     optionalDependencies:
       '@rolldown/binding-darwin-arm64':
         specifier: 1.2.9
@@ -8887,7 +8887,7 @@ snapshots:
       minimist: 1.2.8
       parsecurrency: 1.1.1
       ts-morph: 28.0.0
-      vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   '@apollo/cache-control-types@1.0.3(graphql@16.14.2)':
     dependencies:
@@ -12673,7 +12673,7 @@ snapshots:
       magicast: 0.5.5
       obug: 2.2.1
       tinyrainbow: 3.1.1
-      vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -14863,10 +14863,10 @@ snapshots:
 
   kleur@3.0.3: {}
 
-  knip@5.88.1(@types/node@24.10.1)(typescript@6.0.3):
+  knip@5.88.1(@types/node@26.6.2)(typescript@6.0.3):
     dependencies:
       '@nodelib/fs.walk': 1.2.8
-      '@types/node': 24.10.1
+      '@types/node': 26.6.2
       fast-glob: 3.3.3
       formatly: 0.3.0
       jiti: 2.7.0

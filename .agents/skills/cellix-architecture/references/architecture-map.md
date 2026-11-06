@@ -75,6 +75,17 @@ Expected shape: application services depend on `DataSources` and the read reposi
 
 Expected shape: `service-ticket-v1.domain-adapter.ts` contains a props adapter over the stored document and a converter that constructs the aggregate from existing storage and creates an adapter for a new aggregate. The repository uses the converter in `getNewInstance` and `getById`; the Cellix repository base uses it for save. The unit-of-work factory passes the converter and repository to the transaction implementation, and entity `index.ts` exposes the initialized unit of work. Reproduce these responsibilities for an in-memory store with in-memory record types and transaction semantics; naming a map-backed store `*.domain-adapter.ts` and constructing aggregates directly from cloned records leaves the conversion boundary missing. Directly test adapter field mapping and round trips (including nested history), repository creation/retrieval/save, composition, commit, rollback, isolation or serialization, and defensive copying. Mongoose base classes, ObjectIds, event buses, and population apply only when the selected feature behavior and storage technology require them; record behavior-based omissions.
 
+## Mongoose Storage Models
+
+| Pattern | Reference |
+| --- | --- |
+| Model context builder | `packages/ocom/data-sources-mongoose-models/src/index.ts` |
+| Standalone typed model | `packages/ocom/data-sources-mongoose-models/src/models/community/community.model.ts` |
+| Nested history model | `packages/ocom/data-sources-mongoose-models/src/models/case/service-ticket.model.ts` |
+| Persistence model-context consumption | `packages/ocom/persistence/src/index.ts`; `packages/ocom/persistence/src/datasources/index.ts` |
+
+For each persisted business object, inspect the matching model and context composition. Export a typed schema's name, factory, and type, register the factory in `mongooseContextBuilder`, and keep models independent of upper layers. Represent owned history as a nested path or subdocument. Fixture-backed persistence may avoid a database connection, but must still consume the model package's contracts and test schema constraints, registration, and nested round trips. Do not copy discriminator inheritance without a shared storage hierarchy.
+
 ## Cross-Layer Naming Check
 
 For every chosen context and named entity, including one currently exposed only through queries, verify that the same names appear in the domain context, application-service context, persistence context, entity modules, and data-source bindings. Inspect the analogous Cellix files before choosing exact files and exports. Check for missing applicable behavior, tests, and public types as well as matching names. A persistence-owned `Course` interface without a domain `Course` aggregate and `CourseEntityReference` is an incomplete slice.

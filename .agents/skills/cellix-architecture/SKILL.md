@@ -30,6 +30,8 @@ Search the local Cellix repository with `rg` and `rg --files`. Select a vertical
 
 Read [the architecture map](references/architecture-map.md) to locate common reference patterns. Inspect the actual referenced source files and their sibling and parent `index.ts`, interface, repository, and test files before making design decisions because the source repository remains authoritative. For a stateful workflow, read the entire `persistence/src/datasources/domain/case/service-ticket-v1` slice, including adapter/converter, repository, unit of work, composition, and each focused test. Record the applicable reference tree and the planned destination tree, including suffixes, exports, and behavior; package-level similarity alone is insufficient.
 
+For persisted business objects in Task Sets A and B, including fixture-backed Course and EnrollmentRequest, also inspect the Cellix Mongoose model and model-context anchors in the architecture map. Create the separate `packages/axc/data-sources-mongoose-models` package under the narrow AGENTS.md exception. Keep the actual storage in memory when the task calls for fixtures; no live database is required. Map typed schemas, model factories, context registration, persistence consumption, and focused schema/history tests. Do not add an empty or disconnected model package merely to satisfy a folder check.
+
 ### 3. Build an Alignment Map
 
 Before editing, record this compact map in working notes:

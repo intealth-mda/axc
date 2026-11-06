@@ -36,6 +36,8 @@ Complete this review after implementation and before the final verification comm
 
 ## Dependency Direction
 
+For persisted Task A/B objects, confirm the separate models package has typed schemas, factory/name/type exports, model-context registration, persistence consumption, and focused constraint/nested-history evidence; explain any in-memory storage substitution without leaving the models package disconnected.
+
 1. Does domain avoid application, transport, persistence, and infrastructure dependencies?
 2. Does API composition inject the data-sources factory through context, and do application services avoid constructing a concrete persistence adapter or depending on concrete infrastructure?
 3. Does production transport depend on application services as its feature boundary, without importing persistence contracts or accessing persistence directly? Is every direct domain import supported by the selected Cellix pattern?
