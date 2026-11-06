@@ -57,4 +57,9 @@ ignore:
         reason: Upgrade to 7.1.6 breaks @apps/docs build for docusaurus
         expires: 2027-01-31T22:36:52.000Z
         created: 2026-10-06T09:36:52.003Z
+  SNYK-JS-FLAT-22148819:
+    - '*':
+        reason: No upgrade or patch available
+        expires: 2027-01-31T22:36:52.000Z
+        created: 2026-11-02T15:00:00.000Z
 patch: {}
