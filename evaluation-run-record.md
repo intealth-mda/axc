@@ -22,7 +22,7 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Input Tokens | 352,817 |
 | Cached Tokens |16,201,638|
 | Output Tokens |100,059|
-| Total Tokens or Credits Used |14,922,559 |
+| Total Tokens or Credits Used |16,654,514|
 | Estimated Cost | $9.21  |
 | Elapsed Time |36 minutes |
 | Number of Human Interventions / Redirects | |
