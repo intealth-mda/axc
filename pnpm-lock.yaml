@@ -282,6 +282,7 @@ catalogs:
       version: 6.0.3
 
 overrides:
+  '@cellix/serenity-framework>@types/node': 25.9.9
   '@graphql-tools/utils': 12.0.2
   '@happy-dom/global-registrator': 21.0.4
   body-parser@<2.0.0: 1.20.9
@@ -377,6 +378,9 @@ importers:
       '@axc/application-services':
         specifier: workspace:*
         version: link:../../packages/axc/application-services
+      '@axc/persistence':
+        specifier: workspace:*
+        version: link:../../packages/axc/persistence
       '@axc/rest':
         specifier: workspace:*
         version: link:../../packages/axc/rest
@@ -517,6 +521,41 @@ importers:
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/application-services:
+    dependencies:
+      '@axc/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@axc/persistence':
+        specifier: workspace:*
+        version: link:../persistence
+    devDependencies:
+      '@cellix/config-typescript':
+        specifier: workspace:*
+        version: link:../../cellix/config-typescript
+      '@cellix/config-vitest':
+        specifier: workspace:*
+        version: link:../../cellix/config-vitest
+      '@vitest/coverage-istanbul':
+        specifier: 'catalog:'
+        version: 4.1.12(vitest@4.1.12)
+      rimraf:
+        specifier: 'catalog:'
+        version: 6.0.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/axc/data-sources-mongoose-models:
+    dependencies:
+      '@cellix/mongoose-seedwork':
+        specifier: workspace:*
+        version: link:../../cellix/mongoose-seedwork
+      mongoose:
+        specifier: 'catalog:'
+        version: 8.24.1(supports-color@8.1.1)
     devDependencies:
       '@cellix/config-typescript':
         specifier: workspace:*
@@ -546,15 +585,30 @@ importers:
       '@cellix/config-typescript':
         specifier: workspace:*
         version: link:../../cellix/config-typescript
+      '@cellix/config-vitest':
+        specifier: workspace:*
+        version: link:../../cellix/config-vitest
+      '@vitest/coverage-istanbul':
+        specifier: 'catalog:'
+        version: 4.1.12(vitest@4.1.12)
       rimraf:
         specifier: 'catalog:'
         version: 6.0.1
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/persistence:
     dependencies:
+      '@axc/data-sources-mongoose-models':
+        specifier: workspace:*
+        version: link:../data-sources-mongoose-models
+      '@axc/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@cellix/domain-seedwork':
         specifier: workspace:*
         version: link:../../cellix/domain-seedwork
@@ -562,12 +616,24 @@ importers:
       '@cellix/config-typescript':
         specifier: workspace:*
         version: link:../../cellix/config-typescript
+      '@cellix/config-vitest':
+        specifier: workspace:*
+        version: link:../../cellix/config-vitest
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
+      '@vitest/coverage-istanbul':
+        specifier: 'catalog:'
+        version: 4.1.12(vitest@4.1.12)
       rimraf:
         specifier: 'catalog:'
         version: 6.0.1
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/rest:
     dependencies:
@@ -584,15 +650,27 @@ importers:
         specifier: 4.13.11
         version: 4.13.11
     devDependencies:
+      '@axc/persistence':
+        specifier: workspace:*
+        version: link:../persistence
       '@cellix/config-typescript':
         specifier: workspace:*
         version: link:../../cellix/config-typescript
+      '@cellix/config-vitest':
+        specifier: workspace:*
+        version: link:../../cellix/config-vitest
+      '@vitest/coverage-istanbul':
+        specifier: 'catalog:'
+        version: 4.1.12(vitest@4.1.12)
       rimraf:
         specifier: 'catalog:'
         version: 6.0.1
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/service-mongoose:
     dependencies:
@@ -880,8 +958,8 @@ importers:
         specifier: ^1.1.0
         version: 1.1.6
       '@types/node':
-        specifier: 'catalog:'
-        version: 24.10.1
+        specifier: 25.9.9
+        version: 25.9.9
       '@types/react':
         specifier: ^19.1.8
         version: 19.3.0
@@ -902,7 +980,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: 4.1.12
-        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/cellix/server-mongodb-memory-mock-seedwork:
     dependencies:
@@ -3710,6 +3788,9 @@ packages:
 
   '@types/node@24.10.1':
     resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
+
+  '@types/node@25.9.9':
+    resolution: {integrity: sha512-b4e2xxj/yMeT2hNlD6x7zNFiQK2Dlmkb9CQ6v3/1G2RezKN4YS2lcEv8lzGm1mhs4f2lM4yNAMI/zUDBZBBt7w==}
 
   '@types/node@26.6.2':
     resolution: {integrity: sha512-X1P21scMv4zGKLYqjdGjaKa7COa0RKVYYZZN/NfvLQ1JegxFhdhpZG/Lyn8AXx6CDUavKAd11v6BvfpkDByK8g==}
@@ -8281,6 +8362,9 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
+  undici-types@7.24.6:
+    resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
+
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
@@ -8930,7 +9014,7 @@ snapshots:
       '@apollo/utils.withrequired': 3.0.0
       '@graphql-tools/schema': 10.1.1(graphql@16.14.2)
       async-retry: 1.3.3
-      body-parser: 2.4.0
+      body-parser: 2.4.0(supports-color@8.1.1)
       content-type: 1.0.5
       cors: 2.8.6
       finalhandler: 2.1.1(supports-color@8.1.1)
@@ -12467,6 +12551,10 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
+  '@types/node@25.9.9':
+    dependencies:
+      undici-types: 7.24.6
+
   '@types/node@26.6.2':
     dependencies:
       undici-types: 8.9.0
@@ -12613,6 +12701,20 @@ snapshots:
       - vite
     optional: true
 
+  '@vitest/browser-playwright@4.1.12(playwright@1.59.0)(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.12)':
+    dependencies:
+      '@vitest/browser': 4.1.12(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.12)
+      '@vitest/mocker': 4.1.12(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      playwright: 1.59.0
+      tinyrainbow: 3.1.1
+      vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+    transitivePeerDependencies:
+      - bufferutil
+      - msw
+      - utf-8-validate
+      - vite
+    optional: true
+
   '@vitest/browser-playwright@4.1.12(playwright@1.59.0)(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.12)':
     dependencies:
       '@vitest/browser': 4.1.12(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.12)
@@ -12636,6 +12738,24 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.1
       vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      ws: 8.21.3
+    transitivePeerDependencies:
+      - bufferutil
+      - msw
+      - utf-8-validate
+      - vite
+    optional: true
+
+  '@vitest/browser@4.1.12(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.12)':
+    dependencies:
+      '@blazediff/core': 1.9.1
+      '@vitest/mocker': 4.1.12(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      '@vitest/utils': 4.1.12
+      magic-string: 0.30.21
+      pngjs: 7.0.0
+      sirv: 3.0.2
+      tinyrainbow: 3.1.1
+      vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
       ws: 8.21.3
     transitivePeerDependencies:
       - bufferutil
@@ -12701,6 +12821,14 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
+
+  '@vitest/mocker@4.1.12(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))':
+    dependencies:
+      '@vitest/spy': 4.1.12
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
 
   '@vitest/mocker@4.1.12(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
@@ -13138,7 +13266,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  body-parser@2.4.0:
+  body-parser@2.4.0(supports-color@8.1.1):
     dependencies:
       bytes: 3.1.2
       content-type: 2.1.0
@@ -15695,7 +15823,7 @@ snapshots:
       find-cache-dir: 3.3.2
       follow-redirects: 1.16.2(debug@4.4.3)
       https-proxy-agent: 7.0.6(supports-color@8.1.1)
-      mongodb: 6.18.0
+      mongodb: 6.21.0
       new-find-package-json: 2.0.0(supports-color@8.1.1)
       semver: 7.8.5
       tar-stream: 3.2.1
@@ -15722,7 +15850,7 @@ snapshots:
       find-cache-dir: 3.3.2
       follow-redirects: 1.16.2(debug@4.4.3(supports-color@8.1.1))
       https-proxy-agent: 7.0.6(supports-color@8.1.1)
-      mongodb: 6.18.0
+      mongodb: 6.21.0
       new-find-package-json: 2.0.0(supports-color@8.1.1)
       semver: 7.8.5
       tar-stream: 3.2.1
@@ -17761,6 +17889,8 @@ snapshots:
 
   undici-types@7.16.0: {}
 
+  undici-types@7.24.6: {}
+
   undici-types@8.9.0: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
@@ -17923,6 +18053,22 @@ snapshots:
       tsx: 4.23.15
       yaml: 2.9.1
 
+  vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1):
+    dependencies:
+      lightningcss: 1.33.0
+      picomatch: 4.0.7
+      postcss: 8.5.28
+      rolldown: 1.2.14
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      '@types/node': 25.9.9
+      esbuild: 0.28.2
+      fsevents: 2.3.3
+      jiti: 2.7.0
+      terser: 5.51.2
+      tsx: 4.23.15
+      yaml: 2.9.1
+
   vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1):
     dependencies:
       lightningcss: 1.33.0
@@ -17965,6 +18111,37 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       '@types/node': 24.10.1
       '@vitest/browser-playwright': 4.1.12(playwright@1.59.0)(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.12)
+      '@vitest/coverage-istanbul': 4.1.12(vitest@4.1.12)
+      happy-dom: 21.0.4
+    transitivePeerDependencies:
+      - msw
+
+  vitest@4.1.12(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)):
+    dependencies:
+      '@vitest/expect': 4.1.12
+      '@vitest/mocker': 4.1.12(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      '@vitest/pretty-format': 4.1.12
+      '@vitest/runner': 4.1.12
+      '@vitest/snapshot': 4.1.12
+      '@vitest/spy': 4.1.12
+      '@vitest/utils': 4.1.12
+      es-module-lexer: 2.3.2
+      expect-type: 1.4.0
+      magic-string: 0.30.21
+      obug: 2.2.1
+      pathe: 2.0.3
+      picomatch: 4.0.7
+      std-env: 4.2.0
+      tinybench: 2.9.0
+      tinyexec: 1.3.1
+      tinyglobby: 0.2.17
+      tinyrainbow: 3.1.1
+      vite: 8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      '@types/node': 25.9.9
+      '@vitest/browser-playwright': 4.1.12(playwright@1.59.0)(vite@8.3.3(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.12)
       '@vitest/coverage-istanbul': 4.1.12(vitest@4.1.12)
       happy-dom: 21.0.4
     transitivePeerDependencies:
