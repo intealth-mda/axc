@@ -20,22 +20,25 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Tests Passed / Failed | |
 | Static Analysis / Security Findings | |
 | Input Tokens | 352,817 |
-| Cached Tokens |14,500,864 |
-| Output Tokens |68,878 |
+| Cached Tokens |16,201,638|
+| Output Tokens |100,059|
 | Total Tokens or Credits Used |14,922,559 |
-| Estimated Cost | 8.37  |
-| Elapsed Time |41 minutes |
+| Estimated Cost | $9.21  |
+| Elapsed Time |36 minutes |
 | Number of Human Interventions / Redirects | |
 | Reviewer Notes | (leave blank for now) |
 | Final Rubric Score | (leave blank for now) |
 | Recommendation | Continue / Remediate / Stop / Candidate for Pilot |
 
-Cache Read
-14,500,864
+ache Read
+15,716,032
 Cache Write
 0
 Input
-352,817
+385,547
 Output
-68,878
+100,059
 Total
+16,201,638
+
+

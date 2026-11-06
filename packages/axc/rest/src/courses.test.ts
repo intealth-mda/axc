@@ -1,5 +1,6 @@
 import { buildApplicationServicesFactory } from '@axc/application-services';
 import { Course, type CourseCatalog } from '@axc/domain';
+import { createEnrollmentRequestStore } from '@axc/persistence';
 import { describe, expect, it } from 'vitest';
 import { createRestApp } from './index.ts';
 
@@ -19,7 +20,7 @@ const catalog: CourseCatalog = {
 		]),
 };
 
-const app = createRestApp(buildApplicationServicesFactory({ environment: 'test' }, catalog));
+const app = createRestApp(buildApplicationServicesFactory({ environment: 'test' }, catalog, createEnrollmentRequestStore()));
 
 describe('GET /api/courses', () => {
 	it('returns 200 and the course page', async () => {

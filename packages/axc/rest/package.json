@@ -32,6 +32,7 @@
 	},
 	"devDependencies": {
 		"@axc/domain": "workspace:*",
+		"@axc/persistence": "workspace:*",
 		"@cellix/config-typescript": "workspace:*",
 		"@cellix/config-vitest": "workspace:*",
 		"@vitest/coverage-istanbul": "catalog:",

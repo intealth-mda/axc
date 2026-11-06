@@ -382,6 +382,9 @@ importers:
       '@axc/domain':
         specifier: workspace:*
         version: link:../domain
+      '@axc/persistence':
+        specifier: workspace:*
+        version: link:../persistence
       '@cellix/config-typescript':
         specifier: workspace:*
         version: link:../../cellix/config-typescript

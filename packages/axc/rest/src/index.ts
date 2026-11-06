@@ -1,4 +1,4 @@
-import type { ApplicationServices, ApplicationServicesFactory, CourseQueryInput } from '@axc/application-services';
+import { type ApplicationServices, type ApplicationServicesFactory, type CourseQueryInput, unreadableEnrollmentRequestBody } from '@axc/application-services';
 import type { HttpHandler, HttpRequest, InvocationContext } from '@azure/functions';
 import { azureHonoHandler } from '@marplex/hono-azurefunc-adapter';
 import { Hono } from 'hono';
@@ -20,6 +20,38 @@ export function createRestApp(applicationServicesFactory: ApplicationServicesFac
 		return c.json(result.body);
 	});
 
+	app.post('/api/enrollment-requests', async (c) => {
+		const applicationServices = await applicationServicesFor(applicationServicesFactory, c.req.header('Authorization'));
+		const body = await readJsonBody(c.req);
+		if (!body.ok) {
+			return c.json(unreadableEnrollmentRequestBody(), 400);
+		}
+		const result = await applicationServices.enrollmentRequests.create(body.value);
+		return c.json(result.body, result.status);
+	});
+
+	app.get('/api/enrollment-requests', async (c) => {
+		const applicationServices = await applicationServicesFor(applicationServicesFactory, c.req.header('Authorization'));
+		const result = await applicationServices.enrollmentRequests.list(collectQuery(c.req.url));
+		return c.json(result.body, result.status);
+	});
+
+	app.get('/api/enrollment-requests/:id', async (c) => {
+		const applicationServices = await applicationServicesFor(applicationServicesFactory, c.req.header('Authorization'));
+		const result = await applicationServices.enrollmentRequests.getById(c.req.param('id'));
+		return c.json(result.body, result.status);
+	});
+
+	app.patch('/api/enrollment-requests/:id/status', async (c) => {
+		const applicationServices = await applicationServicesFor(applicationServicesFactory, c.req.header('Authorization'));
+		const body = await readJsonBody(c.req);
+		if (!body.ok) {
+			return c.json(unreadableEnrollmentRequestBody(), 400);
+		}
+		const result = await applicationServices.enrollmentRequests.updateStatus(c.req.param('id'), body.value);
+		return c.json(result.body, result.status);
+	});
+
 	return app;
 }
 
@@ -28,6 +60,14 @@ async function applicationServicesFor(applicationServicesFactory: ApplicationSer
 		return await applicationServicesFactory.forRequest();
 	}
 	return await applicationServicesFactory.forRequest(authorization);
+}
+
+async function readJsonBody(request: { json(): Promise<unknown> }): Promise<{ readonly ok: true; readonly value: unknown } | { readonly ok: false }> {
+	try {
+		return { ok: true, value: await request.json() };
+	} catch {
+		return { ok: false };
+	}
 }
 
 function collectQuery(rawUrl: string): CourseQueryInput {

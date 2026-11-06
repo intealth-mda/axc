@@ -1,5 +1,6 @@
-import type { CourseCatalog } from '@axc/domain';
+import type { CourseCatalog, EnrollmentRequestStore } from '@axc/domain';
 import { type CourseQueryInput, type SearchCoursesResult, searchCourses } from './courses.ts';
+import { createEnrollmentRequest, type EnrollmentCommandResult, type EnrollmentListResult, type EnrollmentQueryInput, getEnrollmentRequest, listEnrollmentRequests, updateEnrollmentRequestStatus } from './enrollment-requests.ts';
 
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
@@ -25,6 +26,16 @@ export interface ApplicationServices {
 	courses: {
 		search(query: CourseQueryInput): Promise<SearchCoursesResult>;
 	};
+	enrollmentRequests: {
+		create(body: unknown): Promise<EnrollmentCommandResult>;
+		getById(id: string): Promise<EnrollmentCommandResult>;
+		list(query: EnrollmentQueryInput): Promise<EnrollmentListResult>;
+		updateStatus(id: string, body: unknown): Promise<EnrollmentCommandResult>;
+	};
+}
+
+export interface ApplicationServicesOptions {
+	readonly now?: () => string;
 }
 
 export interface ApplicationServicesFactory {
@@ -41,7 +52,9 @@ export function resolveEnvironment(nodeEnv: string | undefined): HealthEnvironme
 	return 'local';
 }
 
-export function buildApplicationServicesFactory(context: ApiContext, courseCatalog: CourseCatalog): ApplicationServicesFactory {
+export function buildApplicationServicesFactory(context: ApiContext, courseCatalog: CourseCatalog, enrollmentRequestStore: EnrollmentRequestStore, options: ApplicationServicesOptions = {}): ApplicationServicesFactory {
+	const now = options.now ?? ((): string => new Date().toISOString());
+	const enrollmentDependencies = { courseCatalog, enrollmentRequests: enrollmentRequestStore, now };
 	const forRequest = (): Promise<ApplicationServices> =>
 		Promise.resolve({
 			health: {
@@ -60,9 +73,25 @@ export function buildApplicationServicesFactory(context: ApiContext, courseCatal
 					return searchCourses(courseCatalog, query);
 				},
 			},
+			enrollmentRequests: {
+				create(body: unknown): Promise<EnrollmentCommandResult> {
+					return createEnrollmentRequest(enrollmentDependencies, body);
+				},
+				getById(id: string): Promise<EnrollmentCommandResult> {
+					return getEnrollmentRequest(enrollmentDependencies, id);
+				},
+				list(query: EnrollmentQueryInput): Promise<EnrollmentListResult> {
+					return listEnrollmentRequests(enrollmentDependencies, query);
+				},
+				updateStatus(id: string, body: unknown): Promise<EnrollmentCommandResult> {
+					return updateEnrollmentRequestStatus(enrollmentDependencies, id, body);
+				},
+			},
 		});
 
 	return { forRequest };
 }
 
 export type { CourseListItem, CourseListPage, CourseQueryErrorBody, CourseQueryErrorDetail, CourseQueryInput, SearchCoursesResult } from './courses.ts';
+export type { EnrollmentCommandResult, EnrollmentErrorBody, EnrollmentErrorCode, EnrollmentErrorDetail, EnrollmentListResult, EnrollmentQueryInput, EnrollmentRequestDto, EnrollmentRequestList } from './enrollment-requests.ts';
+export { unreadableEnrollmentRequestBody } from './enrollment-requests.ts';

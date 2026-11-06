@@ -1,11 +1,11 @@
-import { createSeededCourseCatalog } from '@axc/persistence';
+import { createEnrollmentRequestStore, createSeededCourseCatalog } from '@axc/persistence';
 import { describe, expect, it } from 'vitest';
 import { buildApplicationServicesFactory, type CourseListPage, type CourseQueryErrorBody, type CourseQueryInput, type SearchCoursesResult } from './index.ts';
 
 const catalog = createSeededCourseCatalog();
 
 async function search(query: CourseQueryInput = {}): Promise<SearchCoursesResult> {
-	const services = await buildApplicationServicesFactory({ environment: 'test' }, catalog).forRequest();
+	const services = await buildApplicationServicesFactory({ environment: 'test' }, catalog, createEnrollmentRequestStore()).forRequest();
 	return await services.courses.search(query);
 }
 
