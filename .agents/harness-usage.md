@@ -23,6 +23,10 @@ Snyk does not call `snyk monitor` and does not pass `--remote-repo-url`. The org
 
 `node scripts/verify-quiet.mjs` runs the same full `pnpm run verify` gate, saves complete stdout/stderr in ignored `.agents-work/verification/run-*/verify.log`, and prints its exit/signal and log location. Open the log for diagnostics and individual stage results; a stopped gate leaves subsequent stages unexecuted. The wrapper does not convert unavailable scans into passes. See the [harness workflow](harness-run-workflow.md) and [security policy](verification-policy.md).
 
+Use the wrapper for the final gate to keep successful Turbo and Snyk output out of the conversation. Keep the log path in the working record. After it exits, inspect a short stage summary from that log; if it fails, read the failing section and any downstream-stage gaps before deciding what to rerun. Keep complete logs on disk, including security output. Run `pnpm audit --audit-level=low --json` separately as required by the security policy, saving its JSON for inspection.
+
+For focused checks, redirect verbose output to a `.log` file in the same run directory and return the exit code plus matching diagnostics and summary lines. A command's exit code and saved log remain the evidence; a filtered preview alone does not establish success. Avoid repeating a successful focused check unless its inputs changed. Check that newly added test files typecheck before starting the full gate.
+
 For focused acceptance output after building prerequisites, run from `packages/axc-verification/acceptance-api`:
 
 ```sh
@@ -36,4 +40,4 @@ For a controlled comparison, use the evaluation-only [comparison guidance](evalu
 
 ## Task B storage model alignment
 
-Task B allows `packages/axc/data-sources-mongoose-models/**`, including new context directories. Persisted business features require Cellix-aligned schemas/factories and model context composition alongside domain, persistence, and application services, even when backed by fixtures. The scaffold remains empty until those features exist; the harness does not introduce a live database. See [shared architecture](skills/cellix-architecture/references/shared-architecture.md) and the [model reference anchors](skills/cellix-architecture/references/architecture-map.md#mongoose-storage-models). Architecture checks reject missing model coverage and apply Cellix's reusable model conventions plus AXC-specific dependency boundaries.
+For Task Sets A and B, [AGENTS.md](../AGENTS.md) authorizes `packages/axc/data-sources-mongoose-models/**` as the narrow top-level-directory exception. Create it when Course or EnrollmentRequest is modeled as a persisted business object, even with in-memory fixtures. Keep the fixed prompts and requirements unchanged. Persisted business features require Cellix-aligned schemas/factories and model context composition alongside domain, persistence, and application services. The scaffold remains empty until those features exist; the harness does not introduce a live database. See [shared architecture](skills/cellix-architecture/references/shared-architecture.md) and the [model reference anchors](skills/cellix-architecture/references/architecture-map.md#mongoose-storage-models). Architecture checks reject missing model coverage and apply Cellix's reusable model conventions plus AXC-specific dependency boundaries.

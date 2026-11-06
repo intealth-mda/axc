@@ -5,6 +5,7 @@ Applies repository-wide. Preserve user changes, task scope, and the `apps/`, `pa
 ## Boundaries and routing
 
 - Fixed `task-set-*-prompt.md` and `task-set-*-requirements.md` are immutable unless explicitly requested. Preserve `super-prompt.md` as the original scaffold brief.
+- For Task Sets A and B, `packages/axc/data-sources-mongoose-models/**` is the narrow exception to the prompt's prohibition on new top-level directories under `packages/axc/`. Create that workspace package and its context directories when persisted business objects require Cellix storage models, including fixture-backed Course and EnrollmentRequest. Keep the fixed prompts and requirements unchanged; this exception does not authorize another package or a live database.
 - Keep `README.md` unchanged. Put harness operating notes in the [harness usage guide](.agents/harness-usage.md).
 - Do not modify vendored `packages/cellix/**` for application features. Port upstream changes exactly only when explicitly requested.
 - For implementation, review, or harness maintenance, follow the [run workflow](.agents/harness-run-workflow.md). It owns scope/dependency decisions, deliberate context gathering, and the single working record.
