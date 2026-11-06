@@ -19,10 +19,10 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Acceptance Criteria Passed / Total | |
 | Tests Passed / Failed | |
 | Static Analysis / Security Findings | |
-| Input Tokens | 352,817 |
+| Input Tokens | 385,547 |
 | Cached Tokens |16,201,638|
 | Output Tokens |100,059|
-| Total Tokens or Credits Used |16,654,514|
+| Total Tokens or Credits Used |16,687,244|
 | Estimated Cost | $9.21  |
 | Elapsed Time |36 minutes |
 | Number of Human Interventions / Redirects | |
