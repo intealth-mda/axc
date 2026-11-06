@@ -4,7 +4,7 @@ Mandatory for implementation, completion verification, and remediation, even whe
 
 ## Evidence
 
-- In addition to the gate's `pnpm run audit`, run `pnpm audit --audit-level=low --json` and inspect every severity. The current audit script uses `--audit-level=high`; a zero exit does not prove low or moderate advisories are absent. Record open, policy-ignored, and unavailable findings separately.
+- Use the gate's `pnpm run audit` result as the required pnpm audit evidence. The script uses `--audit-level=high`; record its scope and do not describe a passing result as an all-severity scan. Record open, policy-ignored, and unavailable findings separately. Run additional severity checks only when explicitly requested.
 - Inspect Snyk through `pnpm run snyk`, separately if the gate stopped before it. Reuse a completed scan within the same run when dependencies, policy, registry availability, and credentials are unchanged; record its source and freshness. An unavailable CLI or credential is an environment limitation, not a passing scan.
 - For each finding, record ID, package, installed version, dependency path, affected range, published fixed version, actual registry availability, and comparison with the baseline. Keep raw output in a log and return only relevant diagnostics to the model.
 
