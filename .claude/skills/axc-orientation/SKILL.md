@@ -65,7 +65,8 @@ House file shapes (how CellixJS codebases lay a context out — match these):
 
 ```
 domain/src/domain/contexts/<context>/<entity>/
-  <entity>.aggregate.ts        class extends AggregateRoot; `<Entity>Props extends
+  <entity>.aggregate.ts        class extends AggregateRoot<Props, undefined> (no passport
+                               until auth exists); `<Entity>Props extends
                                DomainEntityProps`; a readonly `<Entity>EntityReference` view
   <entity>.value-objects.ts    one named class per constrained value; status/kind maps as
                                `const X = {...} as const` + derived union type
@@ -91,6 +92,20 @@ own unit test (rest is test-wired too).
   `new Date().toISOString()`) and passes them in: `getNewInstance(id, input, now)`,
   `changeX(…, now)`. The domain never reads a clock or a random source, so its tests are
   deterministic.
+- **Typed domain.** `unknown` stops at the service. Each use case takes a typed command
+  (`interface ChangeXCommand { readonly status: string; … }`, as CellixJS does); the service
+  narrows the request body to it field by field (`typeof v === 'string'`, else
+  `ServiceError('INVALID_REQUEST', …, [{ field, message }])`) and narrows a status string with
+  the value-objects type guard. Domain constructors, factories, methods and value objects take
+  only typed values (`string`, a value-object class, the status union): no `unknown` or `any`
+  anywhere in domain source.
+- **Unit of work.** A use case that reads and then writes (a status change, a create guarded by
+  a uniqueness rule) does its read, check and save inside one transaction of
+  `InMemoryUnitOfWork` from `@axc/persistence` (pre-built; same contract as CellixJS's Mongo
+  unit of work). Build it once beside its repository: `const uow = new InMemoryUnitOfWork(repo)`.
+  Transactions run one at a time, so two requests cannot both pass the same check:
+  `await uow.withScopedTransaction(async (repo) => { const x = await repo.get(id); x.changeX(…); saved = await repo.save(x); })`.
+  Reads that do not write use the repository directly.
 - **Repository lifetime.** Build in-memory repositories once in
   `buildApplicationServicesFactory`, outside `forRequest`, so state survives across requests.
   Seed data lives in the in-memory repository.
@@ -150,7 +165,9 @@ own unit test (rest is test-wired too).
     aggregate under `domain/src/domain/contexts/<ctx>/<agg>/` has the five files above; no
     domain file directly in `domain/src/` except `index.ts`; every changed `src/*.ts` with
     runtime code has a colocated `<name>.test.ts` (exempt: `index.ts`, `*.d.ts`, files whose
-    name contains `seed` or `fixture`, type-only files); at least one rest `src/*.test.ts`.
+    name contains `seed` or `fixture`, type-only files); at least one rest `src/*.test.ts`;
+    no `unknown`/`any` in domain source (tests exempt); every application-services module
+    that calls `.save(` also calls `withScopedTransaction`.
   - knip: every new file and export is reachable from its package's `src/index.ts` and used.
 - Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in CLAUDE.md.
 
@@ -186,6 +203,7 @@ declared where allowed.
 | `@cellix/domain-seedwork/domain-entity` | `interface DomainEntityProps { readonly id: string }`; entities expose `.id` and `.props` |
 | `@cellix/domain-seedwork/repository` | `interface Repository<T> { get(id: string): Promise<T>; save(item: T): Promise<T> }`; `class NotFoundError` |
 | `@cellix/domain-seedwork/value-object` | `abstract class ValueObject<Props>`; constructor `(props)`; `props` is protected |
+| `@cellix/domain-seedwork/unit-of-work` | `UnitOfWork` / `InitializedUnitOfWork` contracts; `@axc/persistence` exports `InMemoryUnitOfWork(repo)` implementing them (`withScopedTransaction(fn)`, `withScopedTransactionById(id, fn)`) |
 
 ## Harness files
 

@@ -56,6 +56,9 @@ check("drift: seed/fixture exemption", "(seed|fixture)" in cellix and "`seed` or
 check("drift: five aggregate files", all(s in cellix for s in
       ('.aggregate.ts"', '.value-objects.ts"', '.repository.ts"', '"index.ts"', '.aggregate.test.ts"')))
 check("drift: rest unit test rule", "rest/src/" in cellix and "at least one rest `src/*.test.ts`" in skill)
+check("drift: typed-domain and unit-of-work rules", "(unknown|any)" in cellix and "withScopedTransaction" in cellix
+      and "no `unknown`/`any` in domain source" in skill and "calls `withScopedTransaction`" in skill)
+check("drift: map's InMemoryUnitOfWork is exported", "InMemoryUnitOfWork" in read("packages/axc/persistence/src/index.ts"))
 check("drift: coverage bar", "n >= len(crit)" in cov and "at least as many scenarios as criteria" in skill)
 check("drift: healthcheck.feature excluded", '"healthcheck.feature"' in cov and "not `healthcheck.feature`" in skill)
 

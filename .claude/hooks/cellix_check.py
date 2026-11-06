@@ -8,6 +8,8 @@ against the CellixJS house shapes reviewers judge as Cellix-level:
     <agg>.repository.ts, index.ts, and a colocated <agg>.aggregate.test.ts
   - no new domain source files sit flat in domain/src/ (outside contexts/)
   - all four layers touched; a rest-layer unit test exists
+  - no `unknown`/`any` in domain source; application-services saves only inside
+    a unit of work (withScopedTransaction)
 Prints exactly what is missing, with the expected paths. Advisory: exit 0.
 With --stop it is a Stop hook: blocks finishing (at most MAX_BLOCKS times per
 session, then allows it) while the shape is wrong. Agents never ran the advisory
@@ -100,6 +102,25 @@ def check(root):
                 and not os.path.exists(os.path.join(root, f[:-3] + ".test.ts")) and runtime_code(f)]
     if untested:
         problems.append("modules without a colocated <name>.test.ts: " + ", ".join(untested))
+
+    # Eddie's review (2026-11-06): domain inputs typed; read-check-save in a unit of work.
+    def code(f):
+        try:
+            src = open(os.path.join(root, f), errors="replace").read()
+        except Exception:
+            return ""
+        src = re.sub(r"/\*.*?\*/|//[^\n]*", "", src, flags=re.S)
+        return re.sub(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|`(?:\\.|[^`\\])*`", "''", src)
+    src_files = [f for f in files if not f.endswith((".test.ts", ".d.ts"))]
+    untyped = [f for f in src_files if f.startswith(dom) and re.search(r"\b(unknown|any)\b", code(f))]
+    if untyped:
+        problems.append("domain takes untyped input (`unknown`/`any`) in: " + ", ".join(untyped)
+                        + " - narrow the body to a typed command in application-services, pass typed values")
+    unscoped = [f for f in src_files if f.startswith(pr + "application-services/src/")
+                and ".save(" in code(f) and "withScopedTransaction" not in code(f)]
+    if unscoped:
+        problems.append("saves outside a unit of work in: " + ", ".join(unscoped)
+                        + " - do read, check and save inside InMemoryUnitOfWork.withScopedTransaction")
 
     if not any(f.startswith(pr + "rest/src/") and f.endswith(".test.ts") for f in files):
         problems.append(f"no rest unit test under {pr}rest/src/*.test.ts")
