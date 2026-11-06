@@ -30,6 +30,12 @@
 		"@vitest/coverage-istanbul": "catalog:",
 		"rimraf": "catalog:",
 		"typescript": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"@amiceli/vitest-cucumber": "catalog:"
+	},
+	"dependencies": {
+		"@axc/domain": "workspace:*",
+		"@axc/persistence": "workspace:*",
+		"@cellix/domain-seedwork": "workspace:*"
 	}
 }
