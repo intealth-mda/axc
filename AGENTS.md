@@ -57,6 +57,7 @@ Architecture and acceptance tests run only in the Stop hook (acceptance needs th
 - Locate with `rg -n` or `rg --files`, then read line ranges (`sed -n 'a,bp'`). Do not `cat` whole files or several files at once.
 - Do not re-read a file you just wrote. Pipe check output through `tail -n 40`.
 - No sub-agents. Keep progress notes to one line.
+- Start builds, tests and typechecks with `yield_time_ms: 30000`, the maximum. If one is still running, poll it with `write_stdin` and `yield_time_ms: 120000`. Both return as soon as the command ends, and every poll costs a full request.
 
 ## Final message
 

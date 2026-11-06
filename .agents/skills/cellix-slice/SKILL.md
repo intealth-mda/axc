@@ -147,6 +147,7 @@ export interface ItemUnitOfWork<P extends ItemProps> extends DomainSeedwork.Unit
 
 - Check each rule once, in the domain or the application service, and throw an error class, never a plain `Error`: `NotFoundError` from `@cellix/domain-seedwork/repository` for a missing id, otherwise a class from `<entity>.value-objects.ts`. A validation error's `details: [{ field, message }]` lists every problem, not just the first.
 - REST parses each query or body field explicitly into the input type, calls the service, and maps each error class to the HTTP status and error code the task specifies, in one place per resource. It doesn't repeat the checks. Response bodies use the exact field names from the task.
+- Error classes declare their fields and assign them in the constructor, as in the Entities example: `erasableSyntaxOnly` rejects constructor parameter properties such as `constructor(readonly details)`.
 - Enumerated values come from the domain's `as const` tuples, never retyped lists.
 - Integers: REST turns anything but digits into `NaN`; the check then applies `Number.isSafeInteger` and the range. Huge values like `page=99999999999999999999` must be 400, not `Infinity` or `null`.
 - A parameter that is present but empty (`?filter=`) is not the same as absent. Either reject it with 400 or handle it on purpose, and test it.
@@ -188,6 +189,7 @@ describeFeature(feature, ({ Scenario }) => {
 ```
 
 - Assert concrete results: expected ids, counts or field values. A check like `every item matches` passes on an empty list, so also assert that the list isn't empty.
+- A stub that awaits nothing is a plain function returning `Promise.resolve(...)`: Biome's `useAwait` rejects an `async` function without `await`.
 - A package without Vitest copies the setup from `application-services` (`vitest.config.ts`, `tsconfig.vitest.json`, `test` script, `vitest` / `@vitest/coverage-istanbul` / `@cellix/config-vitest` dev dependencies). Domain tests must not import infrastructure, because the architecture test scans them.
 
 ## Enforced by test:arch (Stop hook)
@@ -203,5 +205,6 @@ These fail the gate, so build them in from the start:
 ## Docs
 
 - One page per resource in `apps/docs/docs/`: path, parameters or body, success response, every error case with status and code. Add its id to `apps/docs/sidebars.ts`; ids must match file names.
+- Pages are MDX, so a bare `<placeholder>` fails the docs build as an unclosed tag. Put it in backticks.
 - When you make an architectural choice the task doesn't dictate, add a decision record. Storage is always one: state that data is kept in memory and cite the requirement or constraint that allows it. Write each one as `apps/docs/docs/decisions/NNNN-<title>.md` in the CellixJS MADR short format: front matter `id: NNNN-<title>`, `status: accepted` and `date`, then the sections Context and Problem Statement, Considered Options, Decision Outcome, Consequences. Docusaurus drops a leading `NNNN-` from doc ids unless `id` is set, so always set it and list the page in the sidebar as `decisions/NNNN-<title>`.
 - Keep one traceability page, `apps/docs/docs/traceability.md` (front matter `id: traceability`, listed in the sidebar): a table per task mapping each requirement and acceptance criterion id to the test file and test or scenario name that proves it. Add a section to it instead of creating a second page.
