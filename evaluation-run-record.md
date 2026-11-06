@@ -27,5 +27,5 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Elapsed Time | 7 min 06 sec (including one passing run of the CI gate) |
 | Number of Human Interventions / Redirects | 0 |
 | Reviewer Notes | Everything I tested works, and the agent needed no help. The layout follows Cellix with persistence injected from apps/api, and the docs have the API page, a MADR decision record and a traceability page. The domain model is lighter than CellixJS: Course is a plain interface rather than CourseProps and CourseEntityReference, the read repository returns plain records, the query and page types sit in the entity file, and the application service throws a plain Error after REST has already run the same validation. Tokens are down 45% from the baseline and 29% from djh-oai-4, but the cost stayed at $0.29. Output grew with the extra tests and docs, and two requests missed OpenAI's prompt cache, which accounts for 36.6k of the 54.8k uncached tokens. The workspace plugins' skill descriptions were about 25k of the input. |
-| Final Rubric Score | 97 / 100 |
+| Final Rubric Score | 95 / 100 |
 | Recommendation | Candidate for Pilot. Before freezing I'm running djh-oai-6, which fixes the gaps above and turns plugins off in the repo config, and I'll keep whichever does better for Task B. |
