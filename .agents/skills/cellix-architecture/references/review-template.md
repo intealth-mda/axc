@@ -13,7 +13,7 @@ Complete this review after implementation and before the final verification comm
 
 ## Domain Modeling Classification
 
-1. Is each concept an aggregate root, child entity, value object, or derived projection based on its identity and lifecycle? What behavior supports that classification? Does any concept have only query endpoints today yet still own persisted identity and future lifecycle? For each such business object, identify its aggregate root, static `getNewInstance` factory and initial-state rules, props, entity reference, exports, applicable value objects, and focused tests. Is stored-object reconstruction distinct from new-instance creation? A persistence-only interface or a `DomainEntity` chosen solely because writes are absent is insufficient.
+1. Is each concept an aggregate root, child entity, value object, or derived projection based on its identity and lifecycle? What behavior supports that classification? Does any concept have only query endpoints today yet still own persisted identity and future lifecycle? For each such business object, identify its aggregate root, static `getNewInstance` factory and initial-state rules, props, entity reference, exports, applicable value objects, and focused tests. Feed invalid constrained values directly to the factory; a TypeScript union alone is not runtime validation. Is stored-object reconstruction distinct from new-instance creation? A persistence-only interface or a `DomainEntity` chosen solely because writes are absent is insufficient.
 2. Does any persisted concept support creation plus state transitions, audit or history, nested lifecycle, or transactional invariants? If so, where are its aggregate root, props, entity reference, constrained value objects, repository, unit of work, and focused tests?
 3. Do mutation repository and unit-of-work contracts reuse `@cellix/domain-seedwork` rather than a reduced project-local abstraction?
 4. Are nested records modeled according to identity and lifecycle? Are visa or passport rules, events, and versioning implemented when the selected Cellix behavior requires them, or explicitly omitted for a behavior-based reason?
@@ -31,7 +31,7 @@ Complete this review after implementation and before the final verification comm
 8. Where are application-facing input, output, and error contracts defined? Does production transport avoid importing persistence contracts and unnecessary domain internals?
    Does each public operation declare its input in an application-service file, without exposing persistence query, page, filter, or repository types? Is each public method implemented by its own curried operation file rather than inline in the entity `index.ts`?
 9. Where are request validation and HTTP error mapping implemented?
-   Do application failures contain only codes and details, with HTTP status numbers mapped in REST? Are the direct application error and transport status/code both tested?
+   Do application failures contain only codes and details, with HTTP status numbers mapped in REST? Are the direct application error and transport status/code both tested? For every public query or command, does an invalid runtime input fail at the application or domain boundary with the intended code, even when REST is bypassed? Does a rejected command leave state unchanged?
 10. Are package root `index.ts` files limited to public contracts, exports, and composition?
 
 ## Dependency Direction
@@ -50,7 +50,7 @@ For persisted Task A/B objects, confirm the separate models package has typed sc
 2. For each material rule, what plausible incorrect implementation does its test reject? Would omitting, weakening, inverting, or incorrectly ordering the rule cause at least one test to fail?
 3. Where multiple rules are exercised together, do focused cases or independently discriminating data prove each rule rather than allowing one result to mask another?
 4. Do predicate-based behaviors include counterexamples that satisfy the other relevant conditions, and do assertions identify the complete expected result or ordering?
-   For every quantified acceptance criterion, how many distinct executed test inputs are present, and what exact expected result does each assert? For Task Set A's A-AC11, identify two separate course-search filter combinations and the counterexamples that expose an ignored `q`, `modality`, or `status` predicate.
+   For every quantified acceptance criterion, how many distinct executed test inputs are present, and what exact expected result does each assert? For Task Set A's A-AC11, identify two separately executed course-search combinations. In the `q` + `modality` + `status` case, name a fixture that matches the other two predicates but fails `q`, another that fails `modality`, and another that fails `status`; assert the complete expected IDs. If deleting any predicate leaves the assertion true, the criterion is open.
 5. Do composed public-path tests prove the externally visible workflow?
 6. For each specified failure, do tests assert both the status or result and the error code, as well as any required absence of state change or side effect?
 7. Do tests verify material response, state-transition, and audit fields directly rather than only counts or broad status checks?
