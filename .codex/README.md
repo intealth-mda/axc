@@ -7,7 +7,7 @@ What is in here and how to rerun it on another machine.
 | `../AGENTS.md` | Rules the agent reads on every request: definition of done, scope, smallest complete change (adapted from Ponytail, see `THIRD_PARTY_NOTICES.md`), repo map, token discipline |
 | `../.agents/skills/cellix-slice/SKILL.md` | CellixJS layout and patterns, loaded only when the agent works on a feature |
 | `../.agents/skills/{turborepo,portless}/agents/openai.yaml` | Keeps main's turborepo and portless skills out of the agent's skill list (see below) |
-| `config.toml` | Model and reasoning effort (`gpt-6.1-sol`, medium), so every machine runs the same settings |
+| `config.toml` | Model and reasoning effort (`gpt-6.1-sol`, medium) and plugins off, so every machine runs the same settings |
 | `hooks.json` | Registers the two hooks below |
 | `hooks/verify-gate.mjs` | `sync` (after each tool call): if a `package.json` changed, runs `pnpm install` outside the sandbox. `stop` (when the agent finishes): checks the write boundary, then runs what CI runs (`pnpm install --frozen-lockfile`, `pnpm run verify`) and sends back only the failing lines, at most 3 times |
 
@@ -28,9 +28,9 @@ Same as the repo README: Node 24 (`nvm use`), pnpm 11.11.0 (via corepack), Azure
    [projects."/path/to/your/clone"]
    trust_level = "trusted"
    ```
-4. Check that the agent sees only this harness, at no token cost. Plugins and skills in your home folder load in every project, and Codex can install remote plugins for your workspace by itself.
-   - `codex plugin list | grep 'installed, enabled'` should print nothing. Turn off each plugin it lists with `enabled = false` under `[plugins."<id>"]` in `~/.codex/config.toml`. `codex debug prompt-input` does not show these plugins' skills, but a real session loads them.
-   - In the clone, `codex debug prompt-input | grep -o -E -- '- [a-z0-9:_-]+: ' | sort -u` should list `cellix-slice` and Codex's built-in skills (`imagegen`, `openai-docs`, `skill-creator`, `skill-installer`) and nothing else. Turn off any other skill with a `[[skills.config]]` entry holding its absolute `path` and `enabled = false`.
+4. Check that the agent sees only this harness, at no token cost. Codex installs plugins for a ChatGPT workspace by itself, and their skills load even when `~/.codex/config.toml` sets `enabled = false`, so `config.toml` here turns plugins off. Skills in your home folder still load in every project.
+   - In the clone, `codex plugin list` should print `No marketplace plugins found.` Anything else means Codex didn't load this `config.toml`: check that the folder is trusted.
+   - In the clone, `codex debug prompt-input | grep -o -E -- '- [a-z0-9:_-]+: ' | sort -u` should list `cellix-slice` and Codex's built-in skills (`imagegen`, `openai-docs`, `skill-creator`, `skill-installer`) and nothing else. Turn off any other skill in `~/.codex/config.toml` with a `[[skills.config]]` entry holding its `name` or absolute `path` and `enabled = false`.
    - Each run record lists what was turned off. The skill list a session actually received is in its log: search the rollout file for `<skills_instructions>`.
 5. Start `codex` in the clone and approve the hooks when asked. `/hooks` should then show PostToolUse 1 and Stop 1, and `/status` should show `Agents.md: AGENTS.md` and GPT-6.1-Sol medium.
 6. Paste the task prompt (`task-set-a-prompt.md` or `task-set-b-prompt.md`) as is, and approve nothing beyond plain one-time prompts.

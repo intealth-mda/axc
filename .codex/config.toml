@@ -2,3 +2,7 @@
 # Codex loads this file only when the folder is trusted (see .codex/README.md).
 model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
+
+# Plugins Codex installs for a ChatGPT workspace load their skills in every session and ignore `enabled = false` in ~/.codex/config.toml.
+[features]
+plugins = false
