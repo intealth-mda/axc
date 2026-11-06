@@ -30,15 +30,4 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Final Rubric Score | (leave blank for now) |
 | Recommendation | Continue / Remediate / Stop / Candidate for Pilot |
 
-ache Read
-15,716,032
-Cache Write
-0
-Input
-385,547
-Output
-100,059
-Total
-16,201,638
-
 
