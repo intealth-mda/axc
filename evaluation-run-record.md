@@ -6,7 +6,7 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Team | OpenAI (Modern Apps) |
 | Developer / Operator | Dhaval Heruwala |
 | Reviewer | Dhaval Heruwala (self-review) |
-| Harness | OpenAI Codex CLI 0.162.1 (interactive) |
+| Harness | OpenAI Codex CLI 0.162.1 (interactive); the session ran on Codex's self-updating app-server 0.166.0 |
 | Model | GPT-6.1-Sol, medium reasoning |
 | License / Plan | ChatGPT Business (Business Premium seat) |
 | Codebase | ECFMG/axc (agentCourses) |
