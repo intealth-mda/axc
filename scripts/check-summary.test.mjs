@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { summarize } from './check-summary.mjs';
+import { report, summarize } from './check-summary.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const log = [
@@ -36,6 +36,21 @@ test('one line per problem: file + rule/error id', () => {
 		'knip   Unused exports: helper packages/axc/rest/src/a.ts:9:14 — drop `export`; keep it local',
 		'ac     missing X-AC2',
 	]);
+});
+
+test('a failure only under node_modules or packages/cellix is not given to the agent as a file to edit', () => {
+	const dir = mkdtempSync(path.join(tmpdir(), 'check-summary-'));
+	try {
+		const file = path.join(dir, 'check.log');
+		writeFileSync(
+			file,
+			"packages/cellix/serenity-framework/../../../node_modules/.pnpm/happy-dom@21.0.4/node_modules/happy-dom/lib/window/BrowserWindow.d.ts(692,67): error TS2694: Namespace '\"node:stream/web\"' has no exported member 'UnderlyingSource'.\n",
+		);
+		assert.match(report(file, root), /Do not open or edit those trees/);
+		assert.equal(report(file, root).includes('BrowserWindow'), false);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 });
 test('cli: header + summary; unrecognised failure falls back to the excerpt/tail', () => {
 	const dir = mkdtempSync(path.join(tmpdir(), 'check-summary-'));

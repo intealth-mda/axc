@@ -58,7 +58,12 @@ export function summarize(log, root = process.cwd()) {
 		if (m) {
 			const [file, l, c, rule] = m[4] ? [m[1], m[2], m[3], m[4]] : [m[1], '', '', m[2]];
 			const level = next(i + 1, /^\s*([×!])\s/);
-			const hint = { 'lint/style/useImportType': 'use `import type` for type-only imports; ', 'lint/suspicious/useAwait': 'drop `async` (return the value/Promise directly) or add a real await; ' }[rule] ?? '';
+			const hint =
+				{
+					'lint/style/useImportType': 'use `import type` for type-only imports; ',
+					'lint/suspicious/useAwait': 'drop `async` (return the value/Promise directly) or add a real await; ',
+					'lint/complexity/useLiteralKeys': 'index signature: brackets plus `// biome-ignore lint/complexity/useLiteralKeys: <reason>`; ',
+				}[rule] ?? '';
 			out.push(`biome${level === '!' ? ' (warn)' : ''}  ${rel(pkg, file)}${l ? `:${l}:${c}` : ''} ${rule} — ${hint}${next(i + 1, /^\s*[×!]\s+(.*)/)}`);
 			continue;
 		}
@@ -99,6 +104,11 @@ export function summarize(log, root = process.cwd()) {
 	return [...new Set(out)];
 }
 
+/** Typecheck noise from vendored packages and installed dependencies. The task does not edit those trees. */
+export function outsideTask(line) {
+	return line.includes('node_modules/') || line.includes('packages/cellix/');
+}
+
 function excerpt(file) {
 	try {
 		execFileSync(process.execPath, [path.join(import.meta.dirname, 'verify-excerpt.mjs'), file], { encoding: 'utf8' });
@@ -112,10 +122,12 @@ function excerpt(file) {
 export function report(file, root = process.cwd()) {
 	const log = readFileSync(file, 'utf8');
 	const found = summarize(log, root);
+	const own = found.filter((line) => !outsideTask(line));
+	if (found.length && !own.length) return 'Typecheck failed only under node_modules or packages/cellix. Do not open or edit those trees. Existing lockfile versions stay.';
 	const clip = (l) => (l.length > WIDTH && !l.startsWith('scenario  ') ? `${l.slice(0, WIDTH)}…` : l);
-	if (!found.length) return excerpt(file) || log.trimEnd().split('\n').slice(-30).join('\n');
-	const more = found.length > MAX ? [`… +${found.length - MAX} more (full log: ${file})`] : [];
-	return [`check FAILED: ${found.length} problem(s) — full log: ${file}`, ...found.slice(0, MAX).map(clip), ...more].join('\n');
+	if (!own.length) return excerpt(file) || log.trimEnd().split('\n').slice(-30).join('\n');
+	const more = own.length > MAX ? [`… +${own.length - MAX} more (full log: ${file})`] : [];
+	return [`check FAILED: ${own.length} problem(s) — full log: ${file}`, ...own.slice(0, MAX).map(clip), ...more].join('\n');
 }
 
 // realpath + file URL: a symlinked or space-containing path must still run main, not no-op.

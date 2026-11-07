@@ -6,7 +6,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSy
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { commitEnv, commitMessage, dependencyViolations, mergeFixLog, plan } from './stop-gate.mjs';
+import { commitEnv, commitMessage, dependencyViolations, lockfileVersionDrifts, mergeFixLog, plan } from './stop-gate.mjs';
 
 const gate = path.join(import.meta.dirname, 'stop-gate.mjs');
 const failLog = path.join(import.meta.dirname, 'fixtures/acceptance-fail.log');
@@ -43,6 +43,14 @@ beforeEach(() => {
 	hook('start');
 });
 afterEach(() => rmSync(repo, { recursive: true, force: true }));
+
+test('lockfile refresh may add a dependency and may not move an existing version', () => {
+	const before = `importers:\n\n  packages/axc/rest:\n    devDependencies:\n      vitest:\n        specifier: catalog:\n        version: 4.1.12(@types/node@24.10.1)\n\npackages:\n`;
+	const withNew = `importers:\n\n  packages/axc/rest:\n    devDependencies:\n      typescript:\n        specifier: catalog:\n        version: 6.0.3\n      vitest:\n        specifier: catalog:\n        version: 4.1.12(@types/node@24.10.1)\n\npackages:\n`;
+	const moved = before.replace('@types/node@24.10.1', '@types/node@26.6.2');
+	assert.deepEqual(lockfileVersionDrifts(before, withNew), []);
+	assert.deepEqual(lockfileVersionDrifts(before, moved), ['packages/axc/rest devDependencies vitest: 4.1.12(@types/node@24.10.1) -> 4.1.12(@types/node@26.6.2)']);
+});
 
 test('dependency specs: workspace and catalog are allowed, a registry version is not', () => {
 	const before = { dependencies: { '@axc/domain': 'workspace:*' } };

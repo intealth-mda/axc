@@ -2,7 +2,8 @@
 // The agent only writes code; this hook installs, verifies and commits. Dependency-free; fails open.
 //   start: record HEAD + tree fingerprint once per session (SessionStart; UserPromptSubmit fallback).
 //   stop:  nothing changed since start → allow (pure Q&A). Changes → `pnpm install` (frozen unless a
-//          package.json dependency changed, in which case the lockfile is refreshed and committed), auto-fix
+//          package.json dependency changed, in which case `pnpm install --offline` refreshes the lockfile;
+//          a refresh that moves an already-resolved version is restored and blocked), auto-fix
 //          (scripts/auto-fix.mjs: useAwait, knip exports/types, biome safe fixes; never tests), then `git add` the
 //          write dirs + `git commit` with husky ON: its pre-commit runs the one full `pnpm run verify`.
 //          Green (verify log ends with `verify ok`, tree clean) → silent allow. Red → block with a terse
@@ -210,6 +211,53 @@ export function dependencyViolations(before = {}, after = {}) {
 	return bad;
 }
 
+/** Importer dependency resolutions (`importer bucket dep` → version). A new key is fine; a changed value is drift. */
+export function lockfileVersionDrifts(before, after) {
+	const prior = importerVersions(before);
+	const next = importerVersions(after);
+	const drifts = [];
+	for (const [key, version] of prior) {
+		const now = next.get(key);
+		if (now !== undefined && now !== version) drifts.push(`${key}: ${version} -> ${now}`);
+	}
+	return drifts;
+}
+
+function importerVersions(yaml) {
+	const map = new Map();
+	let section = '';
+	let importer = '';
+	let bucket = '';
+	let dep = '';
+	for (const line of String(yaml).split(/\r?\n/)) {
+		if (line === 'importers:') {
+			section = 'importers';
+			continue;
+		}
+		if (section === 'importers' && /^(?:packages|snapshots):$/.test(line)) break;
+		if (section !== 'importers') continue;
+		if (/^  \S/.test(line)) {
+			importer = line.trim().replace(/:$/, '');
+			bucket = '';
+			dep = '';
+			continue;
+		}
+		if (/^    [^ ].*:\s*$/.test(line)) {
+			bucket = line.trim().replace(/:$/, '');
+			dep = '';
+			continue;
+		}
+		const named = line.match(/^      ([^:]+):\s*$/);
+		if (named) {
+			dep = named[1].replaceAll(/['"]/g, '');
+			continue;
+		}
+		const version = line.match(/^        version: (.+)$/);
+		if (version && importer && bucket && dep) map.set(`${importer} ${bucket} ${dep}`, version[1].trim());
+	}
+	return map;
+}
+
 function packageJsonViolations(root) {
 	const bad = [];
 	for (const file of changedPackageJsons()) {
@@ -251,11 +299,23 @@ export function autoCommit(root) {
 			const bad = packageJsonViolations(root);
 			if (bad.length) return block(`A dependency must be workspace:* or catalog:. Prefer a dependency the package already has.\n${bad.join('\n')}`);
 		}
-		const install = depsChanged ? 'pnpm install' : 'pnpm install --frozen-lockfile';
+		const lockPath = path.join(root, 'pnpm-lock.yaml');
+		const beforeLock = depsChanged ? readFileSync(lockPath, 'utf8') : '';
+		const install = depsChanged ? 'pnpm install --offline' : 'pnpm install --frozen-lockfile';
 		const i = run('sh', ['-c', `${NVM}${install}`], { ...env, HUSKY: '0' }); // HUSKY=0: no hooksPath rewrite
 		if (i.status !== 0) {
+			if (depsChanged) writeFileSync(lockPath, beforeLock);
 			writeFileSync(out, `${i.stdout}${i.stderr}`);
-			return block(`${install} failed:\n${report(out, root)}`);
+			const store = depsChanged ? ' A new dependency must already be in the workspace store as workspace:* or catalog:.' : '';
+			return block(`${install} failed.${store}\n${report(out, root)}`);
+		}
+		if (depsChanged) {
+			const drifts = lockfileVersionDrifts(beforeLock, readFileSync(lockPath, 'utf8'));
+			if (drifts.length) {
+				writeFileSync(lockPath, beforeLock);
+				run('sh', ['-c', `${NVM}pnpm install --offline --frozen-lockfile`], { ...env, HUSKY: '0' });
+				return block(`The lockfile refresh moved an existing version. Those versions stay. Do not edit pnpm-lock.yaml, node_modules, or packages/cellix.\n${drifts.slice(0, 15).join('\n')}`);
+			}
 		}
 	}
 	const dirs = writeDirs(root);

@@ -18,7 +18,7 @@ function named(root, input) {
 }
 
 function deny(file) {
-	return `BLOCKED (read-budget): ${file}. That tree is closed. Read packages/axc, apps, or acceptance files.`;
+	return `BLOCKED (read-budget): ${file}. That tree is closed. The API is in the repo map. Open a file only when the map, the health slice, the task spec, or a compiler error names it.`;
 }
 
 function shellRead() {
