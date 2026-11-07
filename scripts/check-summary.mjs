@@ -127,6 +127,9 @@ export function knipUnusedFiles(log) {
 	return [...new Set(files)];
 }
 
+/** The whole typecheck failure was under node_modules or packages/cellix. */
+export const OUTSIDE_TASK = 'Typecheck failed only under node_modules or packages/cellix. Do not open or edit those trees. Existing lockfile versions stay.';
+
 /** Typecheck noise from vendored packages and installed dependencies. The task does not edit those trees. */
 export function outsideTask(line) {
 	return line.includes('node_modules/') || line.includes('packages/cellix/');
@@ -146,7 +149,7 @@ export function report(file, root = process.cwd()) {
 	const log = readFileSync(file, 'utf8');
 	const found = summarize(log, root);
 	const own = found.filter((line) => !outsideTask(line));
-	if (found.length && !own.length) return 'Typecheck failed only under node_modules or packages/cellix. Do not open or edit those trees. Existing lockfile versions stay.';
+	if (found.length && !own.length) return OUTSIDE_TASK;
 	const clip = (l) => (l.length > WIDTH && !l.startsWith('scenario  ') ? `${l.slice(0, WIDTH)}…` : l);
 	if (!own.length) return excerpt(file) || log.trimEnd().split('\n').slice(-30).join('\n');
 	const more = own.length > MAX ? [`… +${own.length - MAX} more (full log: ${file})`] : [];

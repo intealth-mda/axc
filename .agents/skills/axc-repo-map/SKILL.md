@@ -12,7 +12,7 @@ Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirem
 
 Domain files live under `packages/axc/domain/src/domain/contexts/<context>/<entity>/`: `<entity>.aggregate.ts`, `<entity>.value-objects.ts`, `<entity>.repository.ts`, `index.ts`, `<entity>.aggregate.test.ts`. Domain imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/*`.
 
-Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. The in-memory server is `createMemoryMongoServer()` from `@axc/service-mongoose`. Do not import `mongodb-memory-server`. If absent, persistence adds `@axc/domain` and `@axc/service-mongoose`; application services add `@axc/domain` and `@axc/persistence`. A `mongoose` import is `catalog:`.
+Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. The in-memory server is `createMemoryMongoServer()` from `@axc/service-mongoose`. Do not import `mongodb-memory-server`. If absent, persistence adds `@axc/domain` and `@axc/service-mongoose`; application services add `@axc/domain` and `@axc/persistence`. Keep `mongoose` on `@axc/service-mongoose`.
 
 Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. The entity index exports a factory named after the folder. Do not keep stored state in an application-service array. Services and REST import no `mongoose`, `mongodb`, or `@axc/service-mongoose`. REST does not import `@axc/persistence`. REST parses the request, calls the service, and shapes the response.
 

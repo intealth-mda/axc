@@ -9,6 +9,8 @@
 //          Green (verify log ends with `verify ok`, tree clean) → silent allow. Red → block with a terse
 //          one-line-per-problem report; nothing committed. The fingerprint covers untracked file contents. A plain
 //          re-stop on the same tree state is allowed; a stopHookActive retry after a block always re-verifies.
+//          The outside-task typecheck sentence is reported once; the same sentence on the next stop ends the turn.
+//          A new workspace dependency is added to that package's tsconfig references before verify.
 //          At most 6 blocks per session; then allow with a one-line note. A green commit is pushed;
 //          an output branch (`-a-out` / `-b-out`) gets a PR when `gh` is available. On an output branch, a changed
 //          tree that misses the generic Cellix shape blocks before verify, and the cited paths become readable. A pre-existing Snyk/audit
@@ -17,12 +19,12 @@
 //   run:   the same for tools without a Stop hook: report + exit 1 on failure, one `verify ok` line on success.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
-import { knipUnusedFiles, report } from './check-summary.mjs';
+import { knipUnusedFiles, OUTSIDE_TASK, report } from './check-summary.mjs';
 import { isOutputBranch, readableFile, rememberPaths, securityEnd, sessionKey, shapeGaps } from './read-allow.mjs';
 
 const MAX_BLOCKS = 6;
@@ -338,6 +340,135 @@ function dependencySpecsTouched(root) {
 	return false;
 }
 
+const REF_KINDS = ['dependencies', 'peerDependencies'];
+
+/** Directories of workspace dependencies added or retargeted. Dev dependencies stay out of the project graph. */
+export function workspaceDependencyDirs(before = {}, after = {}, byName = new Map()) {
+	const dirs = [];
+	for (const kind of REF_KINDS) {
+		const prev = before[kind] ?? {};
+		const next = after[kind] ?? {};
+		for (const [name, spec] of Object.entries(next)) {
+			if (prev[name] === spec || typeof spec !== 'string' || !spec.startsWith('workspace:')) continue;
+			const dir = byName.get(name);
+			if (dir) dirs.push(dir);
+		}
+	}
+	return dirs;
+}
+
+function referenceListed(text, rel) {
+	return new RegExp(`"path"\\s*:\\s*"${rel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`).test(text);
+}
+
+/** Project-reference paths from `fromDir` to `depDirs` that `text` does not already list. */
+export function missingProjectReferences(fromDir, depDirs, text) {
+	const rels = [];
+	for (const depDir of depDirs) {
+		const rel = path.relative(fromDir, depDir).split(path.sep).join('/');
+		if (!rel || rel === '.') continue;
+		if (!referenceListed(text, rel)) rels.push(rel);
+	}
+	return rels;
+}
+
+/** Insert project references. Existing text, including a one-line or multi-line array, stays. */
+export function withProjectReferences(text, rels) {
+	const missing = rels.filter((rel) => !referenceListed(text, rel));
+	if (!missing.length) return text;
+	const src = text.endsWith('\n') ? text : `${text}\n`;
+	if (!/"references"\s*:/.test(src)) {
+		const entries = missing.map((rel) => `\t\t{ "path": "${rel}" }`).join(',\n');
+		return src.replace(/\n\}\s*$/, `,\n\t"references": [\n${entries}\n\t]\n}\n`);
+	}
+	return src.replace(/"references"\s*:\s*\[([\s\S]*?)\]/, (_full, body) => {
+		if (!body.includes('\n')) {
+			const inner = body.trim();
+			const joined = missing.map((rel) => `{ "path": "${rel}" }`).join(', ');
+			return `"references": [${inner ? `${inner}, ${joined}` : joined}]`;
+		}
+		const indent = body.match(/\n(\s*)\{/)?.[1] ?? '\t\t';
+		const close = body.match(/\n(\s*)$/)?.[1] ?? '\t';
+		const added = missing.map((rel) => `\n${indent}{ "path": "${rel}" }`).join(',');
+		return `"references": [${body.replace(/\s*$/, '')},${added}\n${close}]`;
+	});
+}
+
+function workspacePackages(root) {
+	const found = [];
+	const consider = (dir) => {
+		const file = path.join(dir, 'package.json');
+		if (!existsSync(file)) return;
+		try {
+			const name = JSON.parse(readFileSync(file, 'utf8')).name;
+			if (typeof name === 'string' && name) found.push({ name, dir });
+		} catch {
+			// not a package
+		}
+	};
+	for (const top of ['apps', 'packages']) {
+		const base = path.join(root, top);
+		if (!existsSync(base)) continue;
+		for (const ent of readdirSync(base, { withFileTypes: true })) {
+			if (!ent.isDirectory() || ent.name === 'node_modules') continue;
+			const dir = path.join(base, ent.name);
+			consider(dir);
+			if (top !== 'packages') continue;
+			let children = [];
+			try {
+				children = readdirSync(dir, { withFileTypes: true });
+			} catch {
+				continue;
+			}
+			for (const child of children) {
+				if (child.isDirectory() && child.name !== 'node_modules' && child.name !== 'dist') consider(path.join(dir, child.name));
+			}
+		}
+	}
+	return found;
+}
+
+function compositePackage(dir) {
+	const ts = path.join(dir, 'tsconfig.json');
+	if (!existsSync(ts)) return false;
+	const body = readFileSync(ts, 'utf8');
+	return body.includes('"composite": true') || body.includes('@cellix/config-typescript');
+}
+
+/** Give each new workspace dependency a project reference. The agent does not edit tsconfig. */
+function syncProjectReferences(root) {
+	const byName = new Map(workspacePackages(root).map((pkg) => [pkg.name, pkg.dir]));
+	for (const file of changedPackageJsons()) {
+		let before = {};
+		const shown = run('git', ['show', `HEAD:${file}`]);
+		if (shown.status === 0 && shown.stdout.trim()) {
+			try {
+				before = JSON.parse(shown.stdout);
+			} catch {
+				continue;
+			}
+		}
+		let after;
+		try {
+			after = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
+		} catch {
+			continue;
+		}
+		const fromDir = path.join(root, path.dirname(file));
+		const tsPath = path.join(fromDir, 'tsconfig.json');
+		if (!existsSync(tsPath)) continue;
+		const depDirs = workspaceDependencyDirs(before, after, byName).filter(compositePackage);
+		const body = readFileSync(tsPath, 'utf8');
+		const missing = missingProjectReferences(fromDir, depDirs, body);
+		if (missing.length) writeFileSync(tsPath, withProjectReferences(body, missing));
+	}
+}
+
+/** True when this Stop report is the same outside-task typecheck failure already shown. */
+export function sameOutsideFailure(previous, reason) {
+	return typeof previous === 'string' && previous === reason && reason.includes(OUTSIDE_TASK);
+}
+
 function removeUnusedAdded(root, log) {
 	const removed = [];
 	for (const file of unusedAddedFiles(log, git('status', '--porcelain', '-uall'))) {
@@ -351,6 +482,7 @@ function removeUnusedAdded(root, log) {
 
 /** install → add → commit (husky verify). Returns null on success, a block string, or `{ end }` for a pre-existing security finding. */
 export function autoCommit(root, { retryUnused = false } = {}) {
+	syncProjectReferences(root);
 	const branch = git('rev-parse', '--abbrev-ref', 'HEAD').trim();
 	if (isOutputBranch(branch)) {
 		const gaps = shapeGaps(root);
@@ -500,8 +632,13 @@ function main() {
 		return;
 	}
 	const now = snapshot();
+	if (sameOutsideFailure(start.lastReason, reason)) {
+		writeFileSync(file, JSON.stringify({ ...start, last: 'allow', lastReason: reason, lastBlocked: `${now.head}:${now.fingerprint}` }));
+		process.stdout.write(JSON.stringify({ systemMessage: 'Stop allowed — the only typecheck failure is still under node_modules or packages/cellix, already reported. Left uncommitted.' }));
+		return;
+	}
 	rememberPaths(readableFile(gitDir, id), reason);
-	writeFileSync(file, JSON.stringify({ ...start, blocks: start.blocks + 1, last: 'block', needsPublish: reason.includes('committed,'), lastBlocked: `${now.head}:${now.fingerprint}` }));
+	writeFileSync(file, JSON.stringify({ ...start, blocks: start.blocks + 1, last: 'block', lastReason: reason, needsPublish: reason.includes('committed,'), lastBlocked: `${now.head}:${now.fingerprint}` }));
 	process.stdout.write(JSON.stringify({ decision: 'block', reason }));
 }
 

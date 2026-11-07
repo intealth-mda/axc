@@ -32,6 +32,7 @@ test('writes: boundary + path deny', () => {
 	assert.equal(edit('packages/axc/application-services/src/contexts/catalog/course/create.ts', 'write'), undefined);
 	assert.equal(edit('packages/axc/rest/src/x.routes.ts', 'write'), undefined);
 	assert.equal(edit('packages/axc-verification/acceptance-api/src/features/x.feature', 'write'), undefined);
+	assert.match(edit('packages/cellix/serenity-framework/tsconfig.json'), /Vendored CellixJS/);
 	assert.equal(check({ toolName: 'read_file', toolInput: { target_file: 'pnpm-lock.yaml' } }, rules, root), undefined);
 });
 test('cli: deny JSON on stdout (Grok + Claude shapes), silent allow, fail open', () => {
@@ -52,6 +53,7 @@ test('harness branch may edit the hook and commit', () => {
 		assert.equal(sh('git commit -qm x'), undefined);
 		assert.equal(edit('scripts/write-guard.mjs'), undefined);
 		assert.equal(edit('.github/hooks/write-boundary.json'), undefined);
+		assert.equal(edit('packages/cellix/serenity-framework/tsconfig.json'), undefined);
 		assert.match(edit('pnpm-lock.yaml'), /Lockfile/);
 	} finally {
 		process.env.AXC_GUARD_BRANCH = 'nrn-xai-4-a-out';

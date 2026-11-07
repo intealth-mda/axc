@@ -6,7 +6,21 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSy
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { commitEnv, commitMessage, dependencySpecsChanged, dependencyViolations, lockfileVersionDrifts, mergeFixLog, plan, unusedAddedFiles } from './stop-gate.mjs';
+import { OUTSIDE_TASK } from './check-summary.mjs';
+import {
+	commitEnv,
+	commitMessage,
+	dependencySpecsChanged,
+	dependencyViolations,
+	lockfileVersionDrifts,
+	mergeFixLog,
+	missingProjectReferences,
+	plan,
+	sameOutsideFailure,
+	unusedAddedFiles,
+	withProjectReferences,
+	workspaceDependencyDirs,
+} from './stop-gate.mjs';
 
 const gate = path.join(import.meta.dirname, 'stop-gate.mjs');
 const failLog = path.join(import.meta.dirname, 'fixtures/acceptance-fail.log');
@@ -93,6 +107,40 @@ printf '$ pnpm run verify\\nverify ok · acceptance 1/1\\n' > "$LOG"
 	assert.equal(existsSync(path.join(repo, 'packages/axc/persistence/src/models/course.model.ts')), false);
 	assert.match(sh('log', '-1', '--name-only'), /keep\.md/);
 	assert.doesNotMatch(sh('log', '-1', '--name-only'), /course\.model/);
+});
+
+test('a new workspace dependency becomes a tsconfig reference; a devDependency does not', () => {
+	const byName = new Map([
+		['@axc/domain', '/repo/packages/axc/domain'],
+		['@cellix/config-vitest', '/repo/packages/cellix/config-vitest'],
+	]);
+	const before = { dependencies: { '@cellix/domain-seedwork': 'workspace:*' } };
+	const after = {
+		dependencies: { '@cellix/domain-seedwork': 'workspace:*', '@axc/domain': 'workspace:*' },
+		devDependencies: { '@cellix/config-vitest': 'workspace:*' },
+	};
+	assert.deepEqual(workspaceDependencyDirs(before, after, byName), ['/repo/packages/axc/domain']);
+	const text = '{\n\t"include": ["src/**/*.ts"],\n\t"references": [{ "path": "../../cellix/domain-seedwork" }]\n}\n';
+	const missing = missingProjectReferences('/repo/packages/axc/persistence', ['/repo/packages/axc/domain'], text);
+	assert.deepEqual(missing, ['../domain']);
+	const next = withProjectReferences(text, missing);
+	assert.match(next, /domain-seedwork/);
+	assert.match(next, /"path": "\.\.\/domain"/);
+	assert.equal(withProjectReferences(next, missing), next);
+	const bare = '{\n\t"include": ["src/**/*.ts"]\n}\n';
+	const added = withProjectReferences(bare, ['../domain', '../persistence']);
+	assert.match(added, /"references": \[\n\t\t\{ "path": "\.\.\/domain" \},\n\t\t\{ "path": "\.\.\/persistence" \}\n\t\]/);
+	const multi = '{\n\t"references": [\n\t\t{ "path": "../application-services" }\n\t]\n}\n';
+	const multiNext = withProjectReferences(multi, ['../domain']);
+	assert.match(multiNext, /"path": "\.\.\/application-services"/);
+	assert.match(multiNext, /"path": "\.\.\/domain"/);
+});
+
+test('an outside-task typecheck failure is asked once', () => {
+	const reason = `Stop blocked — nothing committed. Fix, then stop again (no verify/commit calls):\n${OUTSIDE_TASK}`;
+	assert.equal(sameOutsideFailure(undefined, reason), false);
+	assert.equal(sameOutsideFailure('other', reason), false);
+	assert.equal(sameOutsideFailure(reason, reason), true);
 });
 
 test('dependency specs: workspace and catalog are allowed, a registry version is not', () => {

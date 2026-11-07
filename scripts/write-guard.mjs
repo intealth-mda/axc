@@ -208,7 +208,8 @@ function rulesFor(rules, root) {
 	}
 	const bash_deny = (rules.bash_deny ?? []).filter((item) => item[0] !== '^' && item[1] !== 'The Stop hook verifies and commits. Just stop.');
 	const allowed_write_globs = [...new Set([...(rules.allowed_write_globs ?? []), ...HARNESS_GLOBS])];
-	return { ...rules, bash_deny, allowed_write_globs };
+	const path_deny = (rules.path_deny ?? []).filter((item) => !String(item[1]).includes('Vendored Cellix'));
+	return { ...rules, bash_deny, allowed_write_globs, path_deny };
 }
 
 export function check(input, rules, root) {
