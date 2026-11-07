@@ -28,10 +28,6 @@ Application services live under `packages/axc/application-services/src/contexts/
 
 `apps/api/src/index.ts` is the composition root. `host.json` sets `routePrefix` empty, so `api/courses` is `GET /api/courses`. Register one `registerAzureFunctionHttpHandler` per route. Each package's public API is `src/index.ts`. Re-export what another package imports, or the build fails with TS2305, TS2459, or TS2724. In-memory Mongo, through `@axc/persistence` and `@axc/service-mongoose`, stores catalog and enrollment state. Keep `src/index.ts` free of seed records and `.filter(`, `.sort(`, or `.slice(`.
 
-## Cheap checks
-
-The Stop hook runs `pnpm run verify`. While editing, use one of: `pnpm exec biome check <path>`, `pnpm --filter @axc/<pkg> run test`, `cd packages/axc/<pkg> && ../../../node_modules/.bin/tsgo --noEmit`, `pnpm exec turbo run test:arch`. The Stop report names the failing lines. Do not read the verify log.
-
 ## Types and lint
 
 `exactOptionalPropertyTypes`: omit an absent key. `noUncheckedIndexedAccess`: narrow `arr[i]` (TS18048). `verbatimModuleSyntax`: `import type` for types. No enums. An exported REST helper needs a return type (TS2883). An `async` function with no `await` drops `async`. Export only what another file imports. On a block, do not hand-delete an unused export; the Stop hook un-exports it.
@@ -44,4 +40,4 @@ Import Serenity statically, as `healthcheck.steps.ts` does. Step text is global.
 
 ## Repair
 
-On a Stop block, change only the files the report names, then stop. Cheap checks are for a path you are editing. Full verify stays on the Stop hook.
+On a Stop block, change only the files the report names, then stop. Full verify stays on the Stop hook.

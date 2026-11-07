@@ -67,6 +67,17 @@ export function isOutputBranch(name) {
 	return /-[ab]-out$/.test(name);
 }
 
+/** Harness edits run on any other branch. An unknown branch stays tight. */
+export function harnessBranch(name) {
+	return name !== '' && !isOutputBranch(name);
+}
+
+export function currentBranch(root) {
+	if (process.env.AXC_GUARD_BRANCH) return process.env.AXC_GUARD_BRANCH;
+	const git = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root, encoding: 'utf8' });
+	return git.status === 0 ? git.stdout.trim() : '';
+}
+
 function hasSeedArray(text) {
 	return /\[[^[\]]*(?:\n[^[\]]*){15,}\]/.test(text);
 }

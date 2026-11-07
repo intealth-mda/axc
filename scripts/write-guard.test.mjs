@@ -5,6 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { check, loadRules } from './write-guard.mjs';
 
+process.env.AXC_GUARD_BRANCH = 'nrn-xai-4-a-out';
 const root = path.resolve(import.meta.dirname, '..');
 const rules = loadRules(root);
 const sh = (command) => check({ toolName: 'run_terminal_command', toolInput: { command } }, rules, root);
@@ -14,12 +15,12 @@ test('shell: deny rules match on every line', () => {
 	assert.match(sh('pnpm add left-pad'), /dependency/);
 	assert.match(sh('echo ok\ngit reset --hard'), /irreversibly/);
 	assert.match(sh('ls\n  git -C ../x config core.bare true'), /git config/);
-	assert.equal(sh('mkdir -p packages/axc/application-services/src/contexts/catalog'), undefined);
-	assert.equal(sh('mkdir -p /tmp/x'), undefined);
-	assert.equal(sh('pnpm install --frozen-lockfile && git status'), undefined);
+	assert.match(sh('mkdir -p packages/axc/application-services/src/contexts/catalog'), /No shell/);
+	assert.match(sh('mkdir -p /tmp/x'), /No shell/);
+	assert.match(sh('pnpm install --frozen-lockfile && git status'), /No shell/);
 });
 test('shell: quoted heredoc bodies are inert', () => {
-	assert.equal(sh("cat > notes.md <<'EOF'\ngit reset --hard\nEOF"), undefined);
+	assert.match(sh("cat > notes.md <<'EOF'\ngit reset --hard\nEOF"), /No shell/);
 	assert.match(sh("cat <<'EOF'\nx\nEOF\ngit reset --hard"), /irreversibly/);
 });
 test('writes: boundary + path deny', () => {
@@ -38,8 +39,23 @@ test('cli: deny JSON on stdout (Grok + Claude shapes), silent allow, fail open',
 	const out = JSON.parse(run(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'sudo ls' }, workspaceRoot: root })));
 	assert.equal(out.decision, 'deny');
 	assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
-	assert.equal(run(JSON.stringify({ toolName: 'run_terminal_command', toolInput: { command: 'ls' }, workspaceRoot: root })), '');
+	const ls = JSON.parse(run(JSON.stringify({ toolName: 'run_terminal_command', toolInput: { command: 'ls' }, workspaceRoot: root })));
+	assert.equal(ls.decision, 'deny');
+	assert.match(ls.reason, /No shell/);
 	assert.equal(run('not json'), '');
+});
+
+test('harness branch may edit the hook and commit', () => {
+	process.env.AXC_GUARD_BRANCH = 'nrn-xai-4';
+	try {
+		assert.equal(sh('ls'), undefined);
+		assert.equal(sh('git commit -qm x'), undefined);
+		assert.equal(edit('scripts/write-guard.mjs'), undefined);
+		assert.equal(edit('.github/hooks/write-boundary.json'), undefined);
+		assert.match(edit('pnpm-lock.yaml'), /Lockfile/);
+	} finally {
+		process.env.AXC_GUARD_BRANCH = 'nrn-xai-4-a-out';
+	}
 });
 
 // Shell writes to protected paths — same table for this guard and the Copilot guard (.github/hooks/write-boundary.py).
@@ -79,18 +95,14 @@ const allowed = [
 	"cat > packages/axc/rest/src/x.ts <<'EOF'\nconst s = 'pnpm-workspace.yaml' > 'x';\nEOF",
 	'git tag -m "move a > b in package.json" t1',
 ];
-test('shell: writes to protected paths are denied, reads allowed (both guards)', () => {
+test('shell: every command is denied (both guards)', () => {
 	const pyOk = py('ls') !== null;
-	for (const c of denied) {
-		assert.match(sh(c) ?? '', /protected path/, `node should deny: ${c}`);
-		if (pyOk) assert.match(py(c) ?? '', /protected path|generated/i, `python should deny: ${c}`);
-	}
-	for (const c of allowed) {
-		assert.equal(sh(c), undefined, `node should allow: ${c}`);
-		if (pyOk) assert.equal(py(c), undefined, `python should allow: ${c}`);
+	for (const c of [...denied, ...allowed]) {
+		assert.match(sh(c) ?? '', /No shell/, `node should deny: ${c}`);
+		if (pyOk) assert.match(py(c) ?? '', /No shell/, `python should deny: ${c}`);
 	}
 });
-test('shell: git config reads allowed; writes and git init denied (both guards)', () => {
+test('shell: git config writes keep their reason; reads are denied (both guards)', () => {
 	const reads = [
 		'git config core.bare',
 		'git config --get core.bare',
@@ -117,8 +129,8 @@ test('shell: git config reads allowed; writes and git init denied (both guards)'
 	];
 	const pyOk = py('ls') !== null;
 	for (const c of reads) {
-		assert.equal(sh(c), undefined, `node should allow: ${c}`);
-		if (pyOk) assert.equal(py(c), undefined, `python should allow: ${c}`);
+		assert.match(sh(c) ?? '', /No shell/, `node should deny: ${c}`);
+		if (pyOk) assert.match(py(c) ?? '', /No shell/, `python should deny: ${c}`);
 	}
 	for (const c of writes) {
 		assert.match(sh(c) ?? '', /git config/, `node should deny: ${c}`);
@@ -133,12 +145,12 @@ test('shell: agent commit / verify are denied (Stop hook owns them), both guards
 		if (pyOk) assert.match(py(c) ?? '', /Stop hook/, `python should deny: ${c}`);
 	}
 	for (const c of ['node scripts/stop-gate.mjs run', 'git log -1 --format=%s', "cat > n.md <<'EOF'\ngit commit\nEOF"]) {
-		assert.equal(sh(c), undefined, `node should allow: ${c}`);
-		if (pyOk) assert.equal(py(c), undefined, `python should allow: ${c}`);
+		assert.match(sh(c) ?? '', /No shell/, `node should deny: ${c}`);
+		if (pyOk) assert.match(py(c) ?? '', /No shell/, `python should deny: ${c}`);
 	}
 });
 
-test('shell: ad-hoc checks are denied (Stop hook verifies), both guards; hook fallback, builds and reads allowed', () => {
+test('shell: ad-hoc checks are denied (Stop hook verifies), both guards', () => {
 	const pyOk = py('ls') !== null;
 	const denied = [
 		'vitest run',
@@ -180,7 +192,7 @@ test('shell: ad-hoc checks are denied (Stop hook verifies), both guards; hook fa
 		if (pyOk) assert.match(py(c) ?? '', /Stop hook verifies; just stop\./, `python should deny: ${c}`);
 	}
 	for (const c of allowed) {
-		assert.equal(sh(c), undefined, `node should allow: ${c}`);
-		if (pyOk) assert.equal(py(c), undefined, `python should allow: ${c}`);
+		assert.match(sh(c) ?? '', /No shell/, `node should deny: ${c}`);
+		if (pyOk) assert.match(py(c) ?? '', /No shell/, `python should deny: ${c}`);
 	}
 });

@@ -6,6 +6,6 @@ CellixJS is the architecture. Port a missing package from `/Volumes/files/src/ce
 
 ## Tools
 
-The Stop hook auto-fixes and commits. Cheap checks are in the repo map. Do not run knip, audit, Snyk, `pnpm run verify`, or `git commit`. On a block, fix the named cause and stop again.
+The Stop hook auto-fixes, verifies, and commits. Do not run a shell command. On a block, fix the named cause and stop again.
 
 After a green stop, push the branch. An output branch ending in `-a-out` or `-b-out` needs a pull request whose base is that name without the `-<attempt>-out` suffix. Do not merge it.

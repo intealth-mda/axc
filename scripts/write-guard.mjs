@@ -5,6 +5,9 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { currentBranch, harnessBranch } from './read-allow.mjs';
+
+const HARNESS_GLOBS = ['AGENTS.md', '.agents/**', '.github/**', 'scripts/**', 'docs/**'];
 
 const HEREDOC_ANY = /<<-?\s*(?:'(\w+)'|"(\w+)"|\\?(\w+))/;
 const WRITE_CMDS = new Set(['tee', 'cp', 'mv', 'install', 'ln', 'rsync', 'truncate', 'dd', 'sed', 'perl']);
@@ -197,7 +200,19 @@ function isProtected(p, rules, root) {
 
 const inGlobs = (rel, globs) => globs.some((g) => (g.endsWith('/**') ? rel === g.slice(0, -3) || rel.startsWith(g.slice(0, -2)) : rel === g));
 
+/** On a harness branch the operator can edit the hook and run tests. Output branches stay tight. */
+function rulesFor(rules, root) {
+	if (!harnessBranch(currentBranch(root))) {
+		const allowed_write_globs = (rules.allowed_write_globs ?? []).filter((g) => !HARNESS_GLOBS.includes(g));
+		return { ...rules, allowed_write_globs };
+	}
+	const bash_deny = (rules.bash_deny ?? []).filter((item) => item[0] !== '^' && item[1] !== 'The Stop hook verifies and commits. Just stop.');
+	const allowed_write_globs = [...new Set([...(rules.allowed_write_globs ?? []), ...HARNESS_GLOBS])];
+	return { ...rules, bash_deny, allowed_write_globs };
+}
+
 export function check(input, rules, root) {
+	rules = rulesFor(rules, root);
 	const tool = String(input.toolName ?? input.tool_name ?? '').toLowerCase();
 	const args = input.toolInput ?? input.tool_input ?? {};
 	if (SHELL_TOOLS.has(tool)) {

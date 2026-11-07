@@ -21,7 +21,7 @@
 	"bash_deny": [
 		[
 			"(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)(?:corepack\\s+)?(npm|pnpm|yarn)\\s+(add|install)\\s+(?:-{1,2}[A-Za-z][\\w-]*\\s+)*[A-Za-z@._/][^\\s;&|]*",
-			"Adding a dependency rewrites the lockfile outside the write boundary. Prefer workspace packages; state the need in notes instead of installing. (Bare `pnpm install` to restore the lockfile is allowed.)"
+			"Adding a dependency rewrites the lockfile outside the write boundary. Prefer workspace packages; state the need in notes instead of installing."
 		],
 		[">>?\\s*\\S*(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml)\\b", "Redirecting output into a lockfile."],
 		["\\b(tee|cp|mv|sed\\s+-i\\S*)\\b[^|;&]*\\s\\S*(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml)\\b", "Modifying a lockfile."],
@@ -37,8 +37,8 @@
 			"(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)git\\s+(?:-C\\s+\\S+\\s+)?(?:config\\s+(?!(?:(?:--(?:global|system|local|worktree|show-origin|show-scope|null|name-only|includes|no-includes|type=\\S+|bool|int|path)|-z|(?:-f|--file|--blob)(?:=|\\s+)\\S+)\\s+)*(?:--get(?:-all|-regexp|-urlmatch|-color(?:bool)?)?\\s|(?:-l|--list)\\b|(?:get|list)\\b|\\w[\\w.-]*\\s*(?:$|[|;&)]|\\d?>)))|config\\s*$|init\\b)",
 			"Writes git config/repo setup shared by every worktree (reads: git config <key> / --get / --list). Do this yourself."
 		],
-		["(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)git\\s+(?:-C\\s+\\S+\\s+)?commit\\b", "The Stop hook verifies and commits. Just stop (no Stop hook: node scripts/stop-gate.mjs run)."],
-		["(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)(?:corepack\\s+)?(?:pnpm|npm|yarn)\\s+(?:run\\s+)?verify\\b", "Verify runs once in the Stop hook. Just stop (no Stop hook: node scripts/stop-gate.mjs run)."],
+		["(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)git\\s+(?:-C\\s+\\S+\\s+)?commit\\b", "The Stop hook verifies and commits. Just stop."],
+		["(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)(?:corepack\\s+)?(?:pnpm|npm|yarn)\\s+(?:run\\s+)?verify\\b", "Verify runs once in the Stop hook. Just stop."],
 		[
 			"(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)(?:(?:npx|bunx|yarn)\\s+|pnpm\\s+(?:(?:--filter[=\\s]|-F\\s|-C\\s|--dir[=\\s])\\S+\\s+|-r\\s+|--recursive\\s+|-w\\s+)*(?:exec|dlx)\\s+)?(?:vitest|knip|tsc)\\b",
 			"Stop hook verifies; just stop."
@@ -56,6 +56,7 @@
 		["\\b(psql|mysql|mariadb|sqlite3|mongosh?|sqlcmd|snowsql)\\b[^|;&]*\\b(DROP\\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\\s+TABLE)\\b", "Destructive SQL."],
 		["(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)kubectl\\s+delete\\b", "Deletes cluster resources."],
 		["(?:^|[;&|(`]\\s*|\\$\\(\\s*)(?![^|;&]*<<)terraform\\s+(destroy|apply)\\b", "Mutates real infrastructure."],
-		["\\baws\\s+\\S+\\s+(delete|terminate|remove)", "Destructive cloud operation."]
+		["\\baws\\s+\\S+\\s+(delete|terminate|remove)", "Destructive cloud operation."],
+		["^", "No shell. Write the slice and stop."]
 	]
 }
