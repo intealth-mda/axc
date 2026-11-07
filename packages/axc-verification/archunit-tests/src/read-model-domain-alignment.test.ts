@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const projectRoot = path.resolve(packageDir, '../..');
+const projectRoot = path.resolve(packageDir, '../../..');
 const applicationContexts = path.join(projectRoot, 'packages/axc/application-services/src/contexts');
 const readonlyContexts = path.join(projectRoot, 'packages/axc/persistence/src/datasources/readonly');
 const domainContexts = path.join(projectRoot, 'packages/axc/domain/src/domain/contexts');
@@ -33,6 +33,11 @@ async function aggregateFiles(root: string): Promise<string[]> {
 }
 
 describe('read-side domain alignment', () => {
+	it('resolves the repository root before scanning feature slices', async () => {
+		expect(await exists(path.join(projectRoot, 'package.json'))).toBe(true);
+		expect(await exists(path.join(projectRoot, 'packages/axc/domain/package.json'))).toBe(true);
+	});
+
 	it('requires an aggregate and public reference for every persisted business object, even when the API only queries it', async () => {
 		const slices = new Set([...(await entitySlices(applicationContexts)), ...(await entitySlices(readonlyContexts))]);
 		const violations: string[] = [];
@@ -71,6 +76,32 @@ describe('read-side domain alignment', () => {
 		for (const file of await aggregateFiles(domainContexts)) {
 			const source = await readFile(file, 'utf8');
 			if (!/\bstatic\s+getNewInstance\b/.test(source)) violations.push(path.relative(projectRoot, file));
+		}
+		expect(violations).toStrictEqual([]);
+	});
+
+	it('requires read-side aggregates to define, use, export, and test constrained value objects', async () => {
+		const slices = new Set([...(await entitySlices(applicationContexts)), ...(await entitySlices(readonlyContexts))]);
+		const violations: string[] = [];
+		for (const slice of slices) {
+			const [context, entity] = slice.split('/');
+			if (!context || !entity) continue;
+			const domainDir = path.join(domainContexts, context, entity);
+			const aggregateFile = path.join(domainDir, `${entity}.aggregate.ts`);
+			if (!(await exists(aggregateFile))) continue; // The aggregate check reports this omission.
+			const valueObjectsFile = `${entity}.value-objects.ts`;
+			const valueObjectsPath = path.join(domainDir, valueObjectsFile);
+			if (!(await exists(valueObjectsPath))) {
+				violations.push(`${slice}: missing ${valueObjectsFile}`);
+				continue;
+			}
+			const source = await readFile(valueObjectsPath, 'utf8');
+			if (!/export\s+class\s+\w+\s+extends\s+(?:ValueObject|VO\w+)\b/.test(source)) violations.push(`${slice}: value objects must define exported constrained classes`);
+			const aggregateSource = await readFile(aggregateFile, 'utf8');
+			if (!aggregateSource.includes(`./${valueObjectsFile}`)) violations.push(`${slice}: aggregate must use its value objects`);
+			if (!(await exists(path.join(domainDir, `${entity}.value-objects.test.ts`)))) violations.push(`${slice}: missing focused value-object tests`);
+			const indexPath = path.join(domainDir, 'index.ts');
+			if (!(await exists(indexPath)) || !(await readFile(indexPath, 'utf8')).includes(`./${valueObjectsFile}`)) violations.push(`${slice}: value objects must be publicly exported`);
 		}
 		expect(violations).toStrictEqual([]);
 	});
