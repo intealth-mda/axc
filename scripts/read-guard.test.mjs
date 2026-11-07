@@ -22,6 +22,19 @@ test('shell is denied, including node reads of package source', () => {
 	}
 });
 
+test('product source is readable and discovery trees are not', () => {
+	const read = (target_file) => check({ toolName: 'read_file', toolInput: { target_file } }, root);
+	assert.equal(read('packages/axc/domain/src/index.ts'), undefined);
+	assert.equal(read('packages/axc/persistence/src/index.ts'), undefined);
+	assert.equal(read('packages/axc/service-mongoose/src/index.ts'), undefined);
+	assert.equal(read('packages/axc/domain/package.json'), undefined);
+	assert.equal(read('packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts'), undefined);
+	assert.match(read('packages/cellix/package.json'), /closed/);
+	assert.match(read('packages/axc-verification/archunit-tests/src/x.ts'), /closed/);
+	assert.match(read('node_modules/@cellix/domain-seedwork/package.json'), /closed/);
+	assert.match(read('scripts/read-allow.mjs'), /closed/);
+});
+
 test('harness branch may run a shell', () => {
 	process.env.AXC_GUARD_BRANCH = 'nrn-xai-4';
 	try {

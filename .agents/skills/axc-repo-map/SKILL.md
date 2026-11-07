@@ -6,15 +6,7 @@ disable-model-invocation: true
 
 # axc-repo-map
 
-Read in this turn, then nothing else until a compiler or test error names a file:
-
-- the task prompt's requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`)
-- `packages/axc/rest/src/index.ts`
-- `apps/api/src/index.ts`
-- `packages/axc/application-services/src/index.ts`
-- `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`
-
-Do not open skill reference trees, lockfiles, or `dist`.
+Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then the `packages/axc`, `apps`, and acceptance files you will edit. Do not open `packages/cellix`, `archunit-tests`, `node_modules`, `scripts/`, skill reference trees, lockfiles, or `dist`.
 
 ## House shape
 

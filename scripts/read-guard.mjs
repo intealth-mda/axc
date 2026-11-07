@@ -1,6 +1,5 @@
-// PreToolUse read budget. Until a Stop block names a file, only the repo-map list may be read.
-// The shell is closed. The Stop hook verifies. Dependency-free. A thrown hook fails open.
-// A missing session still enforces the map list.
+// PreToolUse read budget. Product source is readable. Cellix, archunit, node_modules, and scripts are not.
+// The shell is closed on an output branch. The Stop hook verifies. Dependency-free. A thrown hook fails open.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
@@ -19,7 +18,7 @@ function named(root, input) {
 }
 
 function deny(file) {
-	return `BLOCKED (read-budget): ${file}. Read only the repo-map list until a Stop block names a file.`;
+	return `BLOCKED (read-budget): ${file}. That tree is closed. Read packages/axc, apps, or acceptance files.`;
 }
 
 function shellRead() {

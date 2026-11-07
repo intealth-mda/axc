@@ -1,5 +1,5 @@
-// Shared read budget and output-branch shape check. The repo map names the only files a task
-// agent may read until a Stop block names another path. Dependency-free.
+// Shared read budget and output-branch shape check. Product source is readable. Discovery trees
+// (Cellix, archunit, node_modules, scripts) are not. Dependency-free.
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -57,10 +57,22 @@ export function rememberPaths(file, text) {
 	return found;
 }
 
+function closed(normalized) {
+	if (normalized === 'packages/cellix' || normalized.startsWith('packages/cellix/')) return true;
+	if (normalized === 'node_modules' || normalized.startsWith('node_modules/')) return true;
+	if (normalized === 'scripts' || normalized.startsWith('scripts/')) return true;
+	if (normalized.includes('/archunit-tests/') || normalized.endsWith('/archunit-tests')) return true;
+	return false;
+}
+
 export function allows(relPath, named = []) {
 	const normalized = relPath.replace(/^\.\//, '');
+	if (closed(normalized)) return false;
 	if (MAP_FILES.includes(normalized)) return true;
-	return named.some((entry) => (entry.endsWith('/') ? normalized.startsWith(entry) : normalized === entry));
+	if (named.some((entry) => (entry.endsWith('/') ? normalized.startsWith(entry) : normalized === entry))) return true;
+	if (normalized.startsWith('packages/axc/') || normalized.startsWith('apps/')) return true;
+	if (normalized.startsWith('packages/axc-verification/')) return true;
+	return normalized.startsWith('task-set-') && normalized.endsWith('.md');
 }
 
 export function isOutputBranch(name) {
