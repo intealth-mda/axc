@@ -65,10 +65,39 @@ export const CELLIX_CONTRACTS = [
 	'packages/cellix/domain-seedwork/src/domain-seedwork/value-object.ts',
 	'packages/cellix/domain-seedwork/src/domain-seedwork/unit-of-work.ts',
 	'packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts',
+	'packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts',
 ];
 
+/** Architecture checks the Stop report points at. Not the graphql, frontend, or metrics suites. */
+const ARCH_CHECKS = [
+	'packages/cellix/archunit-tests/src/domain.ts',
+	'packages/cellix/archunit-tests/src/persistence.ts',
+	'packages/cellix/archunit-tests/src/application-services.ts',
+	'packages/cellix/archunit-tests/src/checks/domain-conventions.ts',
+	'packages/cellix/archunit-tests/src/checks/persistence-conventions.ts',
+	'packages/cellix/archunit-tests/src/checks/application-services-conventions.ts',
+	'packages/cellix/archunit-tests/src/test-suites/domain-conventions.ts',
+	'packages/cellix/archunit-tests/src/test-suites/persistence-conventions.ts',
+	'packages/cellix/archunit-tests/src/test-suites/application-services-conventions.ts',
+	'packages/axc-verification/archunit-tests/src/domain.ts',
+	'packages/axc-verification/archunit-tests/src/persistence.ts',
+	'packages/axc-verification/archunit-tests/src/application-services.ts',
+	'packages/axc-verification/archunit-tests/src/checks/domain-conventions.ts',
+	'packages/axc-verification/archunit-tests/src/checks/persistence-conventions.ts',
+	'packages/axc-verification/archunit-tests/src/checks/application-services-conventions.ts',
+	'packages/axc-verification/archunit-tests/src/test-suites/domain-conventions.ts',
+	'packages/axc-verification/archunit-tests/src/test-suites/persistence-conventions.ts',
+	'packages/axc-verification/archunit-tests/src/test-suites/application-services-conventions.ts',
+	'packages/axc-verification/archunit-tests/src/utils/source-files.ts',
+];
+
+function archCheck(normalized) {
+	if (/^packages\/axc\/[^/]+\/src\/archunit-tests\//.test(normalized)) return true;
+	return ARCH_CHECKS.includes(normalized);
+}
+
 function closed(normalized) {
-	if (CELLIX_CONTRACTS.includes(normalized)) return false;
+	if (CELLIX_CONTRACTS.includes(normalized) || archCheck(normalized)) return false;
 	if (normalized === 'packages/cellix' || normalized.startsWith('packages/cellix/')) return true;
 	if (normalized === 'node_modules' || normalized.startsWith('node_modules/')) return true;
 	if (normalized === 'scripts' || normalized.startsWith('scripts/')) return true;
@@ -79,7 +108,7 @@ function closed(normalized) {
 export function allows(relPath, named = []) {
 	const normalized = relPath.replace(/^\.\//, '');
 	if (closed(normalized)) return false;
-	if (CELLIX_CONTRACTS.includes(normalized)) return true;
+	if (CELLIX_CONTRACTS.includes(normalized) || archCheck(normalized)) return true;
 	if (MAP_FILES.includes(normalized)) return true;
 	if (named.some((entry) => (entry.endsWith('/') ? normalized.startsWith(entry) : normalized === entry))) return true;
 	if (normalized.startsWith('packages/axc/') || normalized.startsWith('apps/')) return true;

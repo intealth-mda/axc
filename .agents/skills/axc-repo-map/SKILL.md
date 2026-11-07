@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # axc-repo-map
 
-Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts, and no other `packages/cellix` file: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, and `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`. Do not open `archunit-tests`, `node_modules`, `scripts/`, skill reference trees, lockfiles, `dist`, or `/Volumes/files/src/cellixjs`. Open another file only when the task spec or a Stop report names it.
+Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`. Do not open `node_modules`, `scripts/`, `dist`, or `/Volumes/files/src/cellixjs`. When a Stop report names an architecture test, read that file and the check it imports. See `packages/cellix/archunit-tests/src/checks/`. Do not copy those tests. Open another file only when the task spec or a Stop report names it.
 
 ## House shape
 
@@ -26,11 +26,11 @@ Omit an absent optional key. Narrow `arr[i]` (TS18048). An index signature uses 
 
 One scenario per criterion, titled `<ID>-AC<n>`. An unprovable criterion gets `# ac-meta: <ID>-AC<n>` in the feature. One boundary test and one negative test per validation rule. When a 400 lists several fields, assert the field set, not the order.
 
-Import Serenity statically, as `healthcheck.steps.ts` does. Name steps `src/step-definitions/<feature>.steps.ts`. Copy the local `resolved()` cast. Use `isGreaterThan` and `isLessThan`.
+Import Serenity statically, as `healthcheck.steps.ts` does. Name steps `src/step-definitions/<feature>.steps.ts`. Copy the local `resolved()` cast.
 
 ## Dependencies
 
-Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. Do not add a `test` script or a `vitest` dependency to a package that does not already have them. Do not edit `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`, and do not copy architecture tests.
+Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. Do not add a `test` script or a `vitest` dependency to a package that does not already have them. Do not edit `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`,
 
 ## Repair
 

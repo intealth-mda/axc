@@ -32,6 +32,13 @@ test('product source is readable and discovery trees are not', () => {
 	assert.equal(read('packages/cellix/domain-seedwork/src/domain-seedwork/aggregate-root.ts'), undefined);
 	assert.equal(read('packages/cellix/domain-seedwork/src/domain-seedwork/repository.ts'), undefined);
 	assert.equal(read('packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts'), undefined);
+	assert.equal(read('packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts'), undefined);
+	assert.equal(read('packages/axc/domain/src/archunit-tests/domain-conventions.test.ts'), undefined);
+	assert.equal(read('packages/cellix/archunit-tests/src/checks/domain-conventions.ts'), undefined);
+	assert.equal(read('packages/cellix/archunit-tests/src/domain.ts'), undefined);
+	assert.equal(read('packages/axc-verification/archunit-tests/src/checks/domain-conventions.ts'), undefined);
+	assert.match(read('packages/cellix/archunit-tests/src/graphql.ts'), /src\/checks/);
+	assert.match(read('packages/cellix/archunit-tests/src/checks/frontend-architecture.ts'), /src\/checks/);
 	assert.match(read('packages/cellix/package.json'), /framework contract/);
 	assert.match(read('packages/cellix/domain-seedwork/src/domain-seedwork/aggregate-root.test.ts'), /framework contract/);
 	assert.equal(read('packages/cellix/package.json').includes('compiler error'), false);
@@ -41,7 +48,7 @@ test('product source is readable and discovery trees are not', () => {
 	assert.match(list('packages/cellix/domain-seedwork/src/domain-seedwork'), /framework contract/);
 	assert.match(list('/Volumes/files/src/cellixjs'), /framework contract/);
 	assert.match(list(''), /closed/);
-	assert.match(read('packages/axc-verification/archunit-tests/src/x.ts'), /closed/);
+	assert.match(read('packages/axc-verification/archunit-tests/src/x.ts'), /src\/checks/);
 	assert.match(read('node_modules/@cellix/domain-seedwork/package.json'), /closed/);
 	assert.match(read('scripts/read-allow.mjs'), /closed/);
 });
