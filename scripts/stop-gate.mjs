@@ -8,7 +8,9 @@
 //          one-line-per-problem report; nothing committed. The fingerprint covers untracked file contents. A plain
 //          re-stop on the same tree state is allowed; a stopHookActive retry after a block always re-verifies.
 //          At most 3 blocks per session; then allow with a one-line note. A green commit is pushed;
-//          an output branch (`-a-out` / `-b-out`) gets a PR when `gh` is available. Auto-fix log lines survive a failed commit
+//          an output branch (`-a-out` / `-b-out`) gets a PR when `gh` is available. On an output branch, a missing
+//          catalog shape blocks before verify, and the cited paths become readable. A pre-existing Snyk/audit
+//          failure (no package.json edit) ends the turn instead of asking for a repair. Auto-fix log lines survive a failed commit
 //          (`<git dir>/stop-gate/auto-fix-log.json`, untracked): the next auto-commit body still lists them; cleared on commit.
 //   run:   the same for tools without a Stop hook: report + exit 1 on failure, one `verify ok` line on success.
 import { spawnSync } from 'node:child_process';
@@ -19,6 +21,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
 import { report } from './check-summary.mjs';
+import { isOutputBranch, readableFile, rememberPaths, securityEnd, sessionKey, shapeGaps } from './read-allow.mjs';
 
 const MAX_BLOCKS = 3;
 const NVM = 'export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 && nvm use >/dev/null 2>&1; ';
@@ -184,8 +187,18 @@ const readFixLog = (file) => {
 	}
 };
 
-/** install → add → commit (husky verify). Returns null on success, else the terse failure report. */
+const packageJsonChanged = () =>
+	git('status', '--porcelain', '-uall')
+		.split('\n')
+		.some((line) => /(^|\/)package\.json$/.test(line.slice(3).trim()));
+
+/** install → add → commit (husky verify). Returns null on success, a block string, or `{ end }` for a pre-existing security finding. */
 export function autoCommit(root) {
+	const branch = git('rev-parse', '--abbrev-ref', 'HEAD').trim();
+	if (isOutputBranch(branch)) {
+		const gaps = shapeGaps(root);
+		if (gaps.length) return block(gaps.join('\n'));
+	}
 	const t0 = Date.now();
 	const env = commitEnv();
 	const out = path.join(tmp(), `axc-stop-${path.basename(root)}.log`);
@@ -220,6 +233,9 @@ export function autoCommit(root) {
 	writeFileSync(out, `${c.stdout}${c.stderr}${fresh(verifyLog(root), t0) ? readFileSync(verifyLog(root), 'utf8') : ''}`);
 	if (c.status !== 0) {
 		run('git', ['reset', '-q']); // unstage only; the working tree stays as written
+		const logText = readFileSync(out, 'utf8');
+		const end = securityEnd(logText, packageJsonChanged(), root);
+		if (end) return { end };
 		return block(report(out, root));
 	}
 	rmSync(logFile, { force: true });
@@ -251,7 +267,13 @@ function main() {
 	const root = git('rev-parse', '--show-toplevel').trim();
 	process.chdir(root);
 	if (mode === 'run') {
-		const reason = git('status', '--porcelain').trim() ? (autoCommit(root) ?? publish()) : null;
+		const dirty = Boolean(git('status', '--porcelain').trim());
+		const produced = dirty ? autoCommit(root) : null;
+		if (produced && typeof produced === 'object') {
+			console.log(produced.end);
+			process.exit(1);
+		}
+		const reason = produced ?? (dirty ? publish() : null);
 		if (reason) {
 			console.log(reason);
 			process.exit(1);
@@ -260,12 +282,14 @@ function main() {
 		return;
 	}
 	const input = readInput();
-	const id = String(input.sessionId ?? input.session_id ?? input.conversation_id ?? process.env.GROK_SESSION_ID ?? 'default').replace(/[^\w.-]/g, '_');
-	const file = path.join(git('rev-parse', '--absolute-git-dir').trim(), 'stop-gate', `${id}.json`);
+	const id = sessionKey(input);
+	const gitDir = git('rev-parse', '--absolute-git-dir').trim();
+	const file = path.join(gitDir, 'stop-gate', `${id}.json`);
 	if (mode === 'start') {
 		if (existsSync(file)) return;
 		mkdirSync(path.dirname(file), { recursive: true });
 		writeFileSync(file, JSON.stringify({ ...snapshot(), at: Date.now(), blocks: 0 }));
+		writeFileSync(readableFile(gitDir, id), '');
 		return;
 	}
 	if (mode !== 'stop' || !existsSync(file)) return;
@@ -276,12 +300,20 @@ function main() {
 		process.stdout.write(JSON.stringify({ systemMessage: step.note }));
 		return;
 	}
-	const reason = step === 'commit' ? (autoCommit(root) ?? publish()) : step === 'publish' ? publish() : typeof step === 'object' ? step.block : null;
+	const produced = step === 'commit' ? autoCommit(root) : step === 'publish' ? publish() : typeof step === 'object' ? step.block : null;
+	if (produced && typeof produced === 'object') {
+		const now = snapshot();
+		writeFileSync(file, JSON.stringify({ ...start, last: 'allow', lastBlocked: `${now.head}:${now.fingerprint}` }));
+		process.stdout.write(JSON.stringify({ systemMessage: produced.end }));
+		return;
+	}
+	const reason = produced ?? null;
 	if (!reason) {
 		if (start.last === 'block' || start.needsPublish) writeFileSync(file, JSON.stringify({ ...start, last: 'allow', needsPublish: false }));
 		return;
 	}
 	const now = snapshot();
+	rememberPaths(readableFile(gitDir, id), reason);
 	writeFileSync(file, JSON.stringify({ ...start, blocks: start.blocks + 1, last: 'block', needsPublish: reason.includes('committed,'), lastBlocked: `${now.head}:${now.fingerprint}` }));
 	process.stdout.write(JSON.stringify({ decision: 'block', reason }));
 }

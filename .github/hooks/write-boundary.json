@@ -11,7 +11,9 @@
 		["(^|/)(id_rsa|id_ed25519|\\.pem|\\.p12|\\.keystore)$", "Private key material."],
 		["(^|/)(node_modules|vendor|dist|build|\\.next|target|__pycache__)/", "Generated or vendored output — edit sources, not build artifacts."],
 		["\\.(min\\.js|min\\.css|pb\\.go|generated\\.ts|g\\.dart)$", "Generated file. Edit the source."],
-		["(^|/)(\\.github/workflows/|azure-pipelines\\.ya?ml$)", "CI / pipeline config — outside SCORE write boundary."]
+		["(^|/)(\\.github/workflows/|azure-pipelines\\.ya?ml$)", "CI / pipeline config — outside SCORE write boundary."],
+		["^packages/cellix(/|$)", "Vendored CellixJS. Do not edit it."],
+		["(^|/)[^/]*\\.snyk$", "Snyk policy is not a task file."]
 	],
 	"_comment_shell_writes": "Shell writes to protected paths (path_deny, or an existing repo file outside allowed_write_globs): targets of > >> tee sed/perl -i cp mv install ln rsync dd of= truncate, plus interpreter code (python/node/perl/ruby/...: -c/-e/heredoc/stdin) that both names such a path in a quoted literal and calls a write API below.",
 	"shell_interpreters": "^(python[0-9.]*|node|nodejs|bun|deno|perl|ruby|php|tsx|ts-node)$",

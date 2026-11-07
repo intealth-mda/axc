@@ -1,0 +1,10 @@
+{
+	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "read_file|grep|run_terminal_command|Read|Grep|Bash",
+				"hooks": [{ "type": "command", "command": "node scripts/read-guard.mjs", "timeout": 10 }]
+			}
+		]
+	}
+}
