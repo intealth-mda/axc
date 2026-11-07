@@ -57,7 +57,18 @@ export function rememberPaths(file, text) {
 	return found;
 }
 
+/** Vendored framework contracts. Every other packages/cellix file stays closed. */
+export const CELLIX_CONTRACTS = [
+	'packages/cellix/domain-seedwork/src/domain-seedwork/aggregate-root.ts',
+	'packages/cellix/domain-seedwork/src/domain-seedwork/domain-entity.ts',
+	'packages/cellix/domain-seedwork/src/domain-seedwork/repository.ts',
+	'packages/cellix/domain-seedwork/src/domain-seedwork/value-object.ts',
+	'packages/cellix/domain-seedwork/src/domain-seedwork/unit-of-work.ts',
+	'packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts',
+];
+
 function closed(normalized) {
+	if (CELLIX_CONTRACTS.includes(normalized)) return false;
 	if (normalized === 'packages/cellix' || normalized.startsWith('packages/cellix/')) return true;
 	if (normalized === 'node_modules' || normalized.startsWith('node_modules/')) return true;
 	if (normalized === 'scripts' || normalized.startsWith('scripts/')) return true;
@@ -68,6 +79,7 @@ function closed(normalized) {
 export function allows(relPath, named = []) {
 	const normalized = relPath.replace(/^\.\//, '');
 	if (closed(normalized)) return false;
+	if (CELLIX_CONTRACTS.includes(normalized)) return true;
 	if (MAP_FILES.includes(normalized)) return true;
 	if (named.some((entry) => (entry.endsWith('/') ? normalized.startsWith(entry) : normalized === entry))) return true;
 	if (normalized.startsWith('packages/axc/') || normalized.startsWith('apps/')) return true;

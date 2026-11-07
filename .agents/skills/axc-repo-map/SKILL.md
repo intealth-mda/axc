@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # axc-repo-map
 
-Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. This map is the API. Do not open `packages/cellix`, `archunit-tests`, `node_modules`, `scripts/`, skill reference trees, lockfiles, or `dist` to recover it. Open another file only when the task spec or a Stop report names it.
+Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts, and no other `packages/cellix` file: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, and `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`. Do not open `archunit-tests`, `node_modules`, `scripts/`, skill reference trees, lockfiles, `dist`, or `/Volumes/files/src/cellixjs`. Open another file only when the task spec or a Stop report names it.
 
 ## House shape
 
-Domain files live under `packages/axc/domain/src/domain/contexts/<context>/<entity>/`: `<entity>.aggregate.ts`, `<entity>.value-objects.ts`, `<entity>.repository.ts`, `index.ts`, `<entity>.aggregate.test.ts`. Domain imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/*`. `@cellix/domain-seedwork`: `AggregateRoot<Props, Passport>` takes `(props, passport)`; an overridden member, including `get id()`, needs `override`. `Repository<T>` has `get(id: string): Promise<T>` and `save(item: T): Promise<T>`, plus `NotFoundError`. `ValueObject<Props>` takes `(props)`. `DomainEntityProps` is `{ readonly id: string }`.
+Domain files live under `packages/axc/domain/src/domain/contexts/<context>/<entity>/`: `<entity>.aggregate.ts`, `<entity>.value-objects.ts`, `<entity>.repository.ts`, `index.ts`, `<entity>.aggregate.test.ts`. Domain imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/*`.
 
 Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. The in-memory server is `createMemoryMongoServer()` from `@axc/service-mongoose`. Do not import `mongodb-memory-server`. If absent, persistence adds `@axc/domain` and `@axc/service-mongoose`; application services add `@axc/domain` and `@axc/persistence`. A `mongoose` import is `catalog:`.
 

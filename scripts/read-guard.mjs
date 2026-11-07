@@ -18,6 +18,10 @@ function named(root, input) {
 }
 
 function deny(file) {
+	const text = String(file);
+	if (text.includes('packages/cellix') || text.includes('cellixjs')) {
+		return `BLOCKED (read-budget): ${file}. That file is not a framework contract. Read the domain-seedwork and mongo-repository files the repo map names.`;
+	}
 	return `BLOCKED (read-budget): ${file}. That tree is closed. The API is in the repo map. Open a file only when the map, the health slice, the task spec, or a Stop report names its path.`;
 }
 
