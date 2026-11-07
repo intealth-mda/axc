@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { check } from './read-guard.mjs';
@@ -51,6 +52,10 @@ test('product source is readable and discovery trees are not', () => {
 	assert.match(read('packages/axc-verification/archunit-tests/src/x.ts'), /src\/checks/);
 	assert.match(read('node_modules/@cellix/domain-seedwork/package.json'), /closed/);
 	assert.match(read('scripts/read-allow.mjs'), /closed/);
+	const verifyLog = path.join(tmpdir(), 'axc-verify-axc-nrn-xai-4-a.log');
+	assert.equal(read(verifyLog), undefined);
+	assert.equal(check({ toolName: 'grep', toolInput: { pattern: 'error TS', path: path.join(tmpdir(), 'axc-stop-axc-nrn-xai-4-a.log') } }, root), undefined);
+	assert.match(read(path.join(tmpdir(), 'notes.log')), /closed/);
 });
 
 test('harness branch may run a shell', () => {

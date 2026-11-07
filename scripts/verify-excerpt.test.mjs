@@ -68,6 +68,23 @@ test('TS2883 (real tsgo output): hint names the function and says add explicit r
 	assert.match(r.stdout, /^hint: add an explicit return type to exported sendProbe, failProbe \(e\.g\. `: Response`/m);
 	assert.match(r.stdout, /error TS2883/);
 });
+test('a package cycle is included and the script-policy line is not the failure', () => {
+	const log = [
+		'$ node scripts/check-script-policy.mjs && pnpm run typecheck',
+		'dependency script policy: ignore-scripts=true and allowBuilds does not enable dependency scripts',
+		'✔ one line per problem: file + rule/error id (1ms)',
+		'$ turbo run typecheck',
+		' WARNING  Circular package dependency detected: @axc/rest, @axc/application-services',
+		'  x Cyclic dependency detected:',
+		'  | 	@axc/application-services#build, @axc/rest#build',
+		'[ELIFECYCLE] Command failed with exit code 1.',
+	].join('\n');
+	const r = run(log);
+	assert.equal(r.status, 1);
+	assert.match(r.stdout, /Circular package dependency detected: @axc\/rest, @axc\/application-services/);
+	assert.match(r.stdout, /@axc\/application-services#build, @axc\/rest#build/);
+	assert.doesNotMatch(r.stdout, /dependency script policy/);
+});
 test('knip unused exported types (real output): one hint line', () => {
 	const r = run(readFileSync(path.join(import.meta.dirname, 'fixtures/knip-unused.log'), 'utf8'));
 	assert.match(r.stdout, /^hint: knip unused exported types — drop `export`; keep the type local/m);

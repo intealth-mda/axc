@@ -6,7 +6,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSy
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { commitEnv, commitMessage, dependencyViolations, lockfileVersionDrifts, mergeFixLog, plan } from './stop-gate.mjs';
+import { commitEnv, commitMessage, dependencySpecsChanged, dependencyViolations, lockfileVersionDrifts, mergeFixLog, plan, unusedAddedFiles } from './stop-gate.mjs';
 
 const gate = path.join(import.meta.dirname, 'stop-gate.mjs');
 const failLog = path.join(import.meta.dirname, 'fixtures/acceptance-fail.log');
@@ -50,6 +50,49 @@ test('lockfile refresh may add a dependency and may not move an existing version
 	const moved = before.replace('@types/node@24.10.1', '@types/node@26.6.2');
 	assert.deepEqual(lockfileVersionDrifts(before, withNew), []);
 	assert.deepEqual(lockfileVersionDrifts(before, moved), ['packages/axc/rest devDependencies vitest: 4.1.12(@types/node@24.10.1) -> 4.1.12(@types/node@26.6.2)']);
+	const peer = before.replace('4.1.12(@types/node@24.10.1)', '8.24.1(supports-color@8.1.1)');
+	assert.deepEqual(lockfileVersionDrifts(peer, peer.replace('(supports-color@8.1.1)', '')), []);
+	assert.deepEqual(lockfileVersionDrifts(peer, peer.replace('8.24.1', '8.24.2')), ['packages/axc/rest devDependencies vitest: 8.24.1(supports-color@8.1.1) -> 8.24.2(supports-color@8.1.1)']);
+});
+
+test('a script-only package.json edit does not count as a dependency change', () => {
+	const before = { scripts: { 'test:arch': 'vitest' }, devDependencies: { vitest: 'catalog:' } };
+	assert.equal(dependencySpecsChanged(before, { ...before, scripts: { ...before.scripts, test: 'vitest run' } }), false);
+	assert.equal(dependencySpecsChanged(before, { ...before, dependencies: { mongoose: 'catalog:' } }), true);
+});
+
+test('knip unused added files can be removed; tests and tracked edits cannot', () => {
+	const status = ['?? packages/axc/persistence/src/models/course.model.ts', ' M packages/axc/rest/src/old.ts', '?? packages/axc/domain/src/domain/contexts/catalog/course/course.aggregate.test.ts'].join('\n');
+	const log = ['Unused files (3)', 'packages/axc/persistence/src/models/course.model.ts', 'packages/axc/rest/src/old.ts', 'packages/axc/domain/src/domain/contexts/catalog/course/course.aggregate.test.ts'].join('\n');
+	assert.deepEqual(unusedAddedFiles(log, status), ['packages/axc/persistence/src/models/course.model.ts']);
+});
+
+test('an unused added file is deleted and the stop commits what remains', () => {
+	const pre = path.join(repo, '.git/hooks/pre-commit');
+	writeFileSync(
+		pre,
+		`#!/bin/sh
+LOG="$TMPDIR/axc-verify-$(basename "$PWD").log"
+MARK="$PWD/.git/unused-once"
+if [ ! -f "$MARK" ]; then
+  echo 1 > "$MARK"
+  cat > "$LOG" <<'EOF'
+Unused files (1)
+packages/axc/persistence/src/models/course.model.ts
+EOF
+  exit 1
+fi
+printf '$ pnpm run verify\\nverify ok · acceptance 1/1\\n' > "$LOG"
+`,
+	);
+	chmodSync(pre, 0o755);
+	mkdirSync(path.join(repo, 'packages/axc/persistence/src/models'), { recursive: true });
+	write('packages/axc/persistence/src/models/course.model.ts', 'export {}\n');
+	write('keep.md', 'k\n');
+	assert.equal(stop(), null);
+	assert.equal(existsSync(path.join(repo, 'packages/axc/persistence/src/models/course.model.ts')), false);
+	assert.match(sh('log', '-1', '--name-only'), /keep\.md/);
+	assert.doesNotMatch(sh('log', '-1', '--name-only'), /course\.model/);
 });
 
 test('dependency specs: workspace and catalog are allowed, a registry version is not', () => {

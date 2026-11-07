@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { report, summarize } from './check-summary.mjs';
+import { knipUnusedFiles, report, summarize } from './check-summary.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const log = [
@@ -97,6 +97,37 @@ test('TS6133 / TS6196 unused declarations: one line naming the identifier and th
 		'ts     packages/axc/rest/src/a.steps.ts:3:7 TS6133 `expected` — delete the unused declaration (parameter: prefix `_`)',
 		'ts     packages/axc/rest/src/b.ts:1:6 TS6196 `Row` — delete the unused declaration (parameter: prefix `_`)',
 	]);
+});
+
+test('a package cycle is the typecheck failure', () => {
+	const text = [
+		'$ node scripts/check-script-policy.mjs && pnpm run typecheck',
+		'dependency script policy: ignore-scripts=true and allowBuilds does not enable dependency scripts',
+		'✔ one line per problem: file + rule/error id (1ms)',
+		'$ turbo run typecheck',
+		' WARNING  Circular package dependency detected: @axc/rest, @axc/application-services',
+		'  x Cyclic dependency detected:',
+		'  | 	@axc/application-services#build, @axc/rest#build',
+		'[ELIFECYCLE] Command failed with exit code 1.',
+	].join('\n');
+	const dir = mkdtempSync(path.join(tmpdir(), 'check-summary-'));
+	try {
+		const file = path.join(dir, 'check.log');
+		writeFileSync(file, text);
+		assert.deepEqual(summarize(text, root), [
+			'cycle  @axc/rest, @axc/application-services — turbo stopped before typecheck. Remove the dependency that closes the cycle. A package must not depend on one that already depends on it.',
+		]);
+		const body = report(file, root);
+		assert.match(body, /cycle {2}@axc\/rest, @axc\/application-services/);
+		assert.equal(body.includes('dependency script policy'), false);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('knip unused files are paths, and unused exports are not', () => {
+	const log = ['Unused files (2)', 'packages/axc/persistence/src/models/course.model.ts', 'leftover  packages/axc/domain/src/course.visa.ts', 'Unused exports (1)', 'helper  packages/axc/rest/src/a.ts:9:14'].join('\n');
+	assert.deepEqual(knipUnusedFiles(log), ['packages/axc/persistence/src/models/course.model.ts', 'packages/axc/domain/src/course.visa.ts']);
 });
 
 test('CLI runs when invoked through a symlinked path', () => {

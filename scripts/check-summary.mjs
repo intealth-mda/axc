@@ -96,12 +96,35 @@ export function summarize(log, root = process.cwd()) {
 			out.push(...rows.map((r) => `knip   ${m[1]}: ${r}${fix}`));
 			continue;
 		}
+		const cycle = line.match(/Circular package dependency detected:\s*(.+)/);
+		if (cycle) {
+			out.push(`cycle  ${cycle[1].trim()} — turbo stopped before typecheck. Remove the dependency that closes the cycle. A package must not depend on one that already depends on it.`);
+			continue;
+		}
 		if (/^AC coverage failed/.test(line)) {
 			for (let j = i + 1; j < lines.length && /^\s+\S/.test(lines[j]); j++) out.push(`ac     missing ${lines[j].trim()}`);
 		}
 	}
 	out.push(...acceptanceFailures(log, root));
 	return [...new Set(out)];
+}
+
+/** Files knip listed under `Unused files`, not unused exports. At most 20. */
+export function knipUnusedFiles(log) {
+	const files = [];
+	const lines = String(log).replace(ANSI, '').split(/\r?\n/);
+	for (let i = 0; i < lines.length; i++) {
+		const head = lines[i].replace(TASK, '').match(/^Unused files \((\d+)\)$/);
+		if (!head) continue;
+		const count = Math.min(Number(head[1]), 20);
+		for (let j = 1; j <= count && i + j < lines.length; j++) {
+			const row = lines[i + j].replace(TASK, '').trim();
+			if (!row || /^(?:Unused|Unlisted|Unresolved|Duplicate) /.test(row)) break;
+			const found = row.match(/((?:packages|apps)\/[A-Za-z0-9_./@+-]+\.[cm]?[jt]sx?)/);
+			if (found) files.push(found[1]);
+		}
+	}
+	return [...new Set(files)];
 }
 
 /** Typecheck noise from vendored packages and installed dependencies. The task does not edit those trees. */

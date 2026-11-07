@@ -17,7 +17,7 @@ const taskPrefix = /^(@?[\w./-]+):([\w:-]+): /;
 const lines = rawLines.map((l) => l.replace(taskPrefix, '[$1 $2] ').trimEnd());
 
 const fail =
-	/(ELIFECYCLE|ERR_PNPM|husky - .*failed|\bFAIL\b|\bFailed:|failed with exit code|exit code [1-9]|AssertionError|\berror\b|Error:|error TS\d+|✖|✗|×|\b\d+ failed\b|Unhealthy|Unable to |not ok|policy failed|coverage failed|Cannot find|Unexpected|is not assignable|Unused [\w ]+|Shutting down forcibly)/i;
+	/(ELIFECYCLE|ERR_PNPM|husky - .*failed|\bFAIL\b|\bFailed:|failed with exit code|exit code [1-9]|AssertionError|\berror\b|Error:|error TS\d+|✖|✗|×|\b\d+ failed\b|Unhealthy|Unable to |not ok|policy failed|coverage failed|Cannot find|Unexpected|is not assignable|Unused [\w ]+|Shutting down forcibly|Circular package dependency|Cyclic dependency)/i;
 const auditRow = /^│ (high|critical|Package|Vulnerable versions|Patched versions|More info)\b/;
 const listHead = /^Unused [\w ]+ \((\d+)\)/; // knip section: include its rows
 const noise =
@@ -50,7 +50,8 @@ lines.forEach((line, i) => {
 	const prefixed = rawLines[i]?.match(taskPrefix);
 	if (prefixed && /ELIFECYCLE|exit code [1-9]|Shutting down forcibly/i.test(line)) failedTasks.add(`${prefixed[1]}#${prefixed[2]}`);
 	const listLen = Number(line.match(listHead)?.[1] ?? 0);
-	const after = listLen > 0 ? Math.min(listLen, MAX_LIST) : 2;
+	const cycleBlock = /Circular package dependency|Cyclic dependency/.test(line);
+	const after = listLen > 0 ? Math.min(listLen, MAX_LIST) : cycleBlock ? 8 : 2;
 	for (let j = Math.max(0, i - 1); j <= Math.min(lines.length - 1, i + after); j++) {
 		if (!noise.test(lines[j] ?? '')) hits.add(j);
 	}

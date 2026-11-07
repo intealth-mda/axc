@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # axc-repo-map
 
-Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`. Do not open `node_modules`, `scripts/`, `dist`, or `/Volumes/files/src/cellixjs`. When a Stop report names an architecture test, read that file and the check it imports. See `packages/cellix/archunit-tests/src/checks/`. Do not copy those tests. Open another file only when the task spec or a Stop report names it.
+Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`. Do not open `node_modules`, `scripts/`, `dist`, or `/Volumes/files/src/cellixjs`. When a Stop report names an architecture test, read that file and the check it imports. See `packages/cellix/archunit-tests/src/checks/`. Do not copy those tests. Open another file only when the task spec or a Stop report names it.
 
 ## House shape
 
@@ -14,7 +14,7 @@ Domain files live under `packages/axc/domain/src/domain/contexts/<context>/<enti
 
 Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. The in-memory server is `createMemoryMongoServer()` from `@axc/service-mongoose`. Do not import `mongodb-memory-server`. If absent, persistence adds `@axc/domain` and `@axc/service-mongoose`; application services add `@axc/domain` and `@axc/persistence`. A `mongoose` import is `catalog:`.
 
-Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. The entity index exports a factory named after the folder. Do not keep stored state in an application-service array. Services and REST import no `mongoose`, `mongodb`, or `@axc/service-mongoose`. REST does not import `@axc/persistence`. REST parses the request, calls the service, and shapes the response. A unit test belongs in a package that already has a `test` script.
+Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. The entity index exports a factory named after the folder. Do not keep stored state in an application-service array. Services and REST import no `mongoose`, `mongodb`, or `@axc/service-mongoose`. REST does not import `@axc/persistence`. REST parses the request, calls the service, and shapes the response.
 
 `apps/api/src/index.ts` registers one `registerAzureFunctionHttpHandler` per route. `host.json` sets `routePrefix` empty, so the function route is the full path. Re-export from `src/index.ts` what another package imports (TS2305, TS2459, TS2724). Keep `src/index.ts` free of seed records and `.filter(`, `.sort(`, or `.slice(`.
 
@@ -30,7 +30,7 @@ Import Serenity statically, as `healthcheck.steps.ts` does. Name steps `src/step
 
 ## Dependencies
 
-Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. Do not add a `test` script or a `vitest` dependency to a package that does not already have them. Do not edit `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`,
+Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. A package that already depends on vitest may add a `test` script. Do not add vitest or `vitest.config.ts`. Do not edit `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`,
 
 ## Repair
 

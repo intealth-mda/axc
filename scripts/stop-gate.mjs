@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
-import { report } from './check-summary.mjs';
+import { knipUnusedFiles, report } from './check-summary.mjs';
 import { isOutputBranch, readableFile, rememberPaths, securityEnd, sessionKey, shapeGaps } from './read-allow.mjs';
 
 const MAX_BLOCKS = 6;
@@ -211,16 +211,51 @@ export function dependencyViolations(before = {}, after = {}) {
 	return bad;
 }
 
-/** Importer dependency resolutions (`importer bucket dep` → version). A new key is fine; a changed value is drift. */
+/** `8.24.1(supports-color@8.1.1)` → semver plus the peer annotation. A dropped annotation is not a version move. */
+function splitResolved(version) {
+	const raw = String(version)
+		.trim()
+		.replace(/^['"]|['"]$/g, '');
+	const match = raw.match(/^([^(]+)(?:\((.*)\))?$/);
+	return { semver: (match?.[1] ?? raw).trim(), peers: match?.[2] ?? '' };
+}
+
+/** Importer dependency resolutions (`importer bucket dep` → version). A new key is fine. A peer-annotation drop is not drift. A changed semver, or a changed peer version, is. */
 export function lockfileVersionDrifts(before, after) {
 	const prior = importerVersions(before);
 	const next = importerVersions(after);
 	const drifts = [];
 	for (const [key, version] of prior) {
 		const now = next.get(key);
-		if (now !== undefined && now !== version) drifts.push(`${key}: ${version} -> ${now}`);
+		if (now === undefined || now === version) continue;
+		const from = splitResolved(version);
+		const to = splitResolved(now);
+		const peersMoved = from.peers !== '' && to.peers !== '' && from.peers !== to.peers;
+		if (from.semver !== to.semver || peersMoved) drifts.push(`${key}: ${version} -> ${now}`);
 	}
 	return drifts;
+}
+
+/** True when a dependency spec was added, removed, or edited. A script-only package.json edit is not. */
+export function dependencySpecsChanged(before = {}, after = {}) {
+	for (const kind of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+		const prev = before[kind] ?? {};
+		const next = after[kind] ?? {};
+		const names = new Set([...Object.keys(prev), ...Object.keys(next)]);
+		for (const name of names) if (prev[name] !== next[name]) return true;
+	}
+	return false;
+}
+
+/** Added files knip called unused. Tests stay. Modifications of tracked files stay. */
+export function unusedAddedFiles(log, status) {
+	const added = new Set();
+	for (const line of String(status).split('\n')) {
+		if (line.length < 4) continue;
+		const file = line.slice(3).split(' -> ').pop()?.trim().replaceAll('"', '') ?? '';
+		if (line.startsWith('??') || line[0] === 'A') added.add(file);
+	}
+	return knipUnusedFiles(log).filter((file) => added.has(file) && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file) && (file.startsWith('packages/axc/') || file.startsWith('apps/')));
 }
 
 function importerVersions(yaml) {
@@ -283,8 +318,39 @@ function packageJsonViolations(root) {
 	return bad;
 }
 
+function dependencySpecsTouched(root) {
+	for (const file of changedPackageJsons()) {
+		let before = {};
+		const shown = run('git', ['show', `HEAD:${file}`]);
+		if (shown.status === 0 && shown.stdout.trim()) {
+			try {
+				before = JSON.parse(shown.stdout);
+			} catch {
+				return true;
+			}
+		}
+		try {
+			if (dependencySpecsChanged(before, JSON.parse(readFileSync(path.join(root, file), 'utf8')))) return true;
+		} catch {
+			return true;
+		}
+	}
+	return false;
+}
+
+function removeUnusedAdded(root, log) {
+	const removed = [];
+	for (const file of unusedAddedFiles(log, git('status', '--porcelain', '-uall'))) {
+		const abs = path.join(root, file);
+		if (!existsSync(abs)) continue;
+		rmSync(abs);
+		removed.push(file);
+	}
+	return removed;
+}
+
 /** install → add → commit (husky verify). Returns null on success, a block string, or `{ end }` for a pre-existing security finding. */
-export function autoCommit(root) {
+export function autoCommit(root, { retryUnused = false } = {}) {
 	const branch = git('rev-parse', '--abbrev-ref', 'HEAD').trim();
 	if (isOutputBranch(branch)) {
 		const gaps = shapeGaps(root);
@@ -294,7 +360,7 @@ export function autoCommit(root) {
 	const env = commitEnv();
 	const out = path.join(tmp(), `axc-stop-${path.basename(root)}.log`);
 	if (existsSync(path.join(root, 'pnpm-lock.yaml'))) {
-		const depsChanged = packageJsonChanged();
+		const depsChanged = dependencySpecsTouched(root);
 		if (depsChanged) {
 			const bad = packageJsonViolations(root);
 			if (bad.length) return block(`A dependency must be workspace:* or catalog:. Prefer a dependency the package already has.\n${bad.join('\n')}`);
@@ -346,6 +412,17 @@ export function autoCommit(root) {
 		const logText = readFileSync(out, 'utf8');
 		const end = securityEnd(logText, packageJsonChanged(), root);
 		if (end) return { end };
+		if (!retryUnused) {
+			const removed = removeUnusedAdded(root, logText);
+			if (removed.length) {
+				const again = autoCommit(root, { retryUnused: true });
+				if (typeof again !== 'string') return again;
+				return again.replace(
+					'Stop blocked — nothing committed. Fix, then stop again (no verify/commit calls):\n',
+					`Stop blocked — nothing committed. Fix, then stop again (no verify/commit calls):\nRemoved unused added files: ${removed.join(', ')}\n`,
+				);
+			}
+		}
 		return block(report(out, root));
 	}
 	rmSync(logFile, { force: true });

@@ -2,6 +2,7 @@
 // (Cellix, archunit, node_modules, scripts) are not. Dependency-free.
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { summarize } from './check-summary.mjs';
 
@@ -24,6 +25,15 @@ export function sessionKey(input = {}, env = process.env) {
 
 export function readableFile(gitDir, id) {
 	return path.join(gitDir, 'stop-gate', `${id}-readable.txt`);
+}
+
+/** A Stop verify log written by this hook. Other paths outside the repo stay closed. */
+export function stopLog(file) {
+	const base = path.basename(String(file));
+	if (!/^axc-(?:verify|stop)-.+\.log$/.test(base)) return false;
+	const tmp = (process.env.TMPDIR ?? tmpdir()).replace(/\/+$/, '');
+	const abs = path.resolve(String(file));
+	return abs.startsWith(`${tmp}/`);
 }
 
 export function readNamed(file) {
@@ -171,7 +181,12 @@ export function shapeGaps(root, changed = changedSource(root)) {
 		const entity = key.split('/')[1];
 		const base = `packages/axc/domain/src/domain/contexts/${key}/`;
 		for (const name of AGGREGATE_FILES(entity)) {
-			if (!names.has(name) && !existsSync(path.join(root, base + name))) gaps.push(base + name);
+			if (names.has(name) || existsSync(path.join(root, base + name))) continue;
+			gaps.push(
+				name.endsWith('.aggregate.test.ts')
+					? `${base}${name} — house shape requires this file beside the aggregate. Add the file. A package that already depends on vitest may add a test script. Do not add a vitest dependency or a vitest.config.ts.`
+					: base + name,
+			);
 		}
 	}
 

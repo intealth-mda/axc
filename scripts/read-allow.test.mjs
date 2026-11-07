@@ -26,7 +26,7 @@ test('shape check derives the aggregate from the folder the agent started', () =
 	assert.ok(gaps.some((gap) => gap.startsWith('layers not touched:')));
 	const partial = shapeGaps(root, ['packages/axc/domain/src/domain/contexts/catalog/course/course.ts']);
 	assert.ok(partial.includes('packages/axc/domain/src/domain/contexts/catalog/course/course.aggregate.ts'));
-	assert.ok(partial.includes('packages/axc/domain/src/domain/contexts/catalog/course/course.aggregate.test.ts'));
+	assert.ok(partial.some((gap) => gap.startsWith('packages/axc/domain/src/domain/contexts/catalog/course/course.aggregate.test.ts') && gap.includes('beside the aggregate')));
 });
 
 test('a complete generic aggregate is not a shape gap', () => {

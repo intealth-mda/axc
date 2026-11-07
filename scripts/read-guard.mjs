@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { allows, currentBranch, harnessBranch, readableFile, readNamed, sessionKey } from './read-allow.mjs';
+import { allows, currentBranch, harnessBranch, readableFile, readNamed, sessionKey, stopLog } from './read-allow.mjs';
 
 const READ_TOOLS = new Set(['read_file', 'read', 'grep', 'list_dir']);
 const SHELL_TOOLS = new Set(['run_terminal_command', 'bash', 'shell', 'execute']);
@@ -41,10 +41,12 @@ export function check(input, root, extra = []) {
 	if (tool === 'grep') {
 		const pattern = String(args.pattern ?? '');
 		if (pattern === '' || pattern === '.' || pattern === '.*') return deny('grep');
+		if (typeof args.path === 'string' && stopLog(args.path)) return undefined;
 		if (typeof args.path !== 'string' || !args.path || !allowed(args.path)) return deny(args.path || 'grep');
 		return undefined;
 	}
 	const target = args.target_file ?? args.file_path ?? args.target_directory ?? args.path ?? args.file;
+	if (typeof target === 'string' && stopLog(target)) return undefined;
 	if (typeof target !== 'string' || !target || !allowed(target)) return deny(target || 'read_file');
 	return undefined;
 }
