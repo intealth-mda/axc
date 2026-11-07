@@ -32,7 +32,7 @@ Import Serenity statically, as `healthcheck.steps.ts` does. Step text is global.
 
 ## Dependencies
 
-Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. Do not edit `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`, and do not copy architecture tests. Stop refreshes the lockfile.
+Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. A `mongoose` import is `catalog:`. Do not edit `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`, and do not copy architecture tests.
 
 ## Repair
 
