@@ -1,11 +1,11 @@
 # Verification and security policy
 
-Mandatory for implementation, completion verification, and remediation, even when an earlier gate stage fails. `pnpm run verify` remains the final gate; focused checks supplement it.
+Applies when audit or Snyk is explicitly requested. Task Set A/B harness runs use the verification command in [harness-run-workflow.md](harness-run-workflow.md) without these scans by default.
 
 ## Evidence
 
-- Use the gate's `pnpm run audit` result as the required pnpm audit evidence. The script uses `--audit-level=high`; record its scope and do not describe a passing result as an all-severity scan. Record open, policy-ignored, and unavailable findings separately. Run additional severity checks only when explicitly requested.
-- Inspect Snyk through `pnpm run snyk`, separately if the gate stopped before it. Reuse a completed scan within the same run when dependencies, policy, registry availability, and credentials are unchanged; record its source and freshness. An unavailable CLI or credential is an environment limitation, not a passing scan.
+- Use `pnpm run audit` when requested. The script uses `--audit-level=high`; record its scope and do not describe a passing result as an all-severity scan. Record open, policy-ignored, and unavailable findings separately. Run additional severity checks only when explicitly requested.
+- Inspect Snyk through `pnpm run snyk` when requested. Reuse a completed scan within the same run when dependencies, policy, registry availability, and credentials are unchanged; record its source and freshness. An unavailable CLI or credential is an environment limitation, not a passing scan.
 - For each finding, record ID, package, installed version, dependency path, affected range, published fixed version, actual registry availability, and comparison with the baseline. Keep raw output in a log and return only relevant diagnostics to the model.
 
 ## Remediation
