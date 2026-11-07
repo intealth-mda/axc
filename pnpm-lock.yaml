@@ -378,6 +378,9 @@ importers:
       '@axc/application-services':
         specifier: workspace:*
         version: link:../../packages/axc/application-services
+      '@axc/persistence':
+        specifier: workspace:*
+        version: link:../../packages/axc/persistence
       '@axc/rest':
         specifier: workspace:*
         version: link:../../packages/axc/rest
@@ -518,6 +521,13 @@ importers:
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4(patch_hash=dd7edc27d0a44a66a43fd31b75f133a0c481686d865ffbbcdb7bcf6379c6c5d4))(vite@8.3.3(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/application-services:
+    dependencies:
+      '@axc/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@axc/persistence':
+        specifier: workspace:*
+        version: link:../persistence
     devDependencies:
       '@cellix/config-typescript':
         specifier: workspace:*
@@ -531,6 +541,22 @@ importers:
       rimraf:
         specifier: 'catalog:'
         version: 6.0.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4(patch_hash=dd7edc27d0a44a66a43fd31b75f133a0c481686d865ffbbcdb7bcf6379c6c5d4))(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/axc/data-sources-mongoose-models:
+    dependencies:
+      mongoose:
+        specifier: 'catalog:'
+        version: 8.24.1(supports-color@8.1.1)
+    devDependencies:
+      '@cellix/config-typescript':
+        specifier: workspace:*
+        version: link:../../cellix/config-typescript
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -553,12 +579,18 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4(patch_hash=dd7edc27d0a44a66a43fd31b75f133a0c481686d865ffbbcdb7bcf6379c6c5d4))(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/persistence:
     dependencies:
-      '@cellix/domain-seedwork':
+      '@axc/data-sources-mongoose-models':
         specifier: workspace:*
-        version: link:../../cellix/domain-seedwork
+        version: link:../data-sources-mongoose-models
+      '@axc/domain':
+        specifier: workspace:*
+        version: link:../domain
     devDependencies:
       '@cellix/config-typescript':
         specifier: workspace:*
@@ -569,6 +601,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4(patch_hash=dd7edc27d0a44a66a43fd31b75f133a0c481686d865ffbbcdb7bcf6379c6c5d4))(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/rest:
     dependencies:
@@ -585,6 +620,9 @@ importers:
         specifier: 4.13.11
         version: 4.13.11
     devDependencies:
+      '@axc/persistence':
+        specifier: workspace:*
+        version: link:../persistence
       '@cellix/config-typescript':
         specifier: workspace:*
         version: link:../../cellix/config-typescript
@@ -594,6 +632,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@26.6.2)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4(patch_hash=dd7edc27d0a44a66a43fd31b75f133a0c481686d865ffbbcdb7bcf6379c6c5d4))(vite@8.3.3(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/service-mongoose:
     dependencies:

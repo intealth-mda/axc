@@ -1,0 +1,25 @@
+{
+	"name": "@axc/data-sources-mongoose-models",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsgo --build",
+		"typecheck": "tsgo --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"mongoose": "catalog:"
+	},
+	"devDependencies": {
+		"@cellix/config-typescript": "workspace:*",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	}
+}

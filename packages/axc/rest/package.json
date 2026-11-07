@@ -20,7 +20,8 @@
 		"build": "tsgo --build",
 		"typecheck": "tsgo --noEmit",
 		"watch": "tsgo --watch",
-		"clean": "rimraf dist tsconfig.tsbuildinfo"
+		"clean": "rimraf dist tsconfig.tsbuildinfo",
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"@axc/application-services": "workspace:*",
@@ -31,6 +32,8 @@
 	"devDependencies": {
 		"@cellix/config-typescript": "workspace:*",
 		"rimraf": "catalog:",
-		"typescript": "catalog:"
+		"typescript": "catalog:",
+		"@axc/persistence": "workspace:*",
+		"vitest": "catalog:"
 	}
 }
