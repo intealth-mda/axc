@@ -35,7 +35,9 @@ test('product source is readable and discovery trees are not', () => {
 	assert.equal(read('packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts'), undefined);
 	assert.equal(read('packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts'), undefined);
 	assert.match(read('packages/axc/domain/src/archunit-tests/domain-conventions.test.ts'), /Stop report names/);
-	assert.match(read('packages/cellix/archunit-tests/src/checks/domain-conventions.ts'), /Stop report names/);
+	assert.equal(read('packages/cellix/archunit-tests/src/checks/domain-conventions.ts'), undefined);
+	assert.equal(read('packages/cellix/archunit-tests/src/checks/application-services-conventions.ts'), undefined);
+	assert.match(read('packages/cellix/archunit-tests/src/checks/persistence-conventions.ts'), /Stop report names/);
 	assert.match(read('packages/cellix/archunit-tests/src/domain.ts'), /Stop report names/);
 	assert.match(read('packages/axc-verification/archunit-tests/src/checks/domain-conventions.ts'), /Stop report names/);
 	assert.match(read('packages/cellix/archunit-tests/src/graphql.ts'), /Stop report names/);
@@ -59,7 +61,7 @@ test('product source is readable and discovery trees are not', () => {
 });
 
 test('a Stop-named architecture check is readable', () => {
-	const file = 'packages/cellix/archunit-tests/src/checks/domain-conventions.ts';
+	const file = 'packages/cellix/archunit-tests/src/checks/persistence-conventions.ts';
 	const read = (extra) => check({ toolName: 'read_file', toolInput: { target_file: file } }, root, extra);
 	assert.match(read([]), /Stop report names/);
 	assert.equal(read([file]), undefined);

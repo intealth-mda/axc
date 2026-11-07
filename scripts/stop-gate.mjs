@@ -70,7 +70,12 @@ const CAP_NOTE = `Stop allowed — block cap (${MAX_BLOCKS}) reached; last failu
 /** What to do at Stop: 'allow' | 'commit' | { block } | { note } (allow with a one-line note). Pure, for tests. */
 export function plan(start, now, { verified = true, active = false } = {}) {
 	const retry = active && start.last === 'block'; // the agent is answering our block: re-verify whatever the fingerprint says
-	if (start.blocks >= MAX_BLOCKS) return retry ? { note: CAP_NOTE } : 'allow';
+	// One verify past the cap when the tree changed. capUsed makes that a single attempt.
+	if (start.blocks >= MAX_BLOCKS) {
+		const changed = start.lastBlocked !== `${now.head}:${now.fingerprint}`;
+		if (retry && now.dirty && changed && !start.capUsed) return 'commit';
+		return retry ? { note: CAP_NOTE } : 'allow';
+	}
 	if ((retry && now.dirty) || (start.needsPublish && now.dirty)) return 'commit';
 	if (start.needsPublish && !now.dirty) return 'publish';
 	if (start.lastBlocked === `${now.head}:${now.fingerprint}`) return 'allow';
@@ -638,7 +643,20 @@ function main() {
 		return;
 	}
 	rememberPaths(readableFile(gitDir, id), reason);
-	writeFileSync(file, JSON.stringify({ ...start, blocks: start.blocks + 1, last: 'block', lastReason: reason, needsPublish: reason.includes('committed,'), lastBlocked: `${now.head}:${now.fingerprint}` }));
+	// The same report after an edit did not fix the named cause. Counting it again spends the cap on one mistake.
+	const sameEdit = start.lastReason === reason && start.lastBlocked !== `${now.head}:${now.fingerprint}`;
+	writeFileSync(
+		file,
+		JSON.stringify({
+			...start,
+			blocks: sameEdit ? start.blocks : start.blocks + 1,
+			capUsed: start.blocks >= MAX_BLOCKS ? true : start.capUsed,
+			last: 'block',
+			lastReason: reason,
+			needsPublish: reason.includes('committed,'),
+			lastBlocked: `${now.head}:${now.fingerprint}`,
+		}),
+	);
 	process.stdout.write(JSON.stringify({ decision: 'block', reason }));
 }
 

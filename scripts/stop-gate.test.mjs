@@ -196,7 +196,9 @@ test('edits + red verify → block with the terse scenario report, nothing commi
 test('block cap: at most 6 per session', () => {
 	const results = ['b', 'c', 'd', 'e', 'f', 'g', 'h'].map((v) => {
 		write('a.md', `${v}\n`);
-		return stop({}, { FAKE_VERIFY_FAIL: failLog }) !== null;
+		const log = path.join(repo, `fail-${v}.log`);
+		writeFileSync(log, `failure ${v} is its own report\n`);
+		return stop({}, { FAKE_VERIFY_FAIL: log }) !== null;
 	});
 	assert.deepEqual(results, [true, true, true, true, true, true, false]);
 });
@@ -364,4 +366,40 @@ test('mergeFixLog: dedupes, keeps fileless lines, limits files to the staged one
 		),
 		['useAwait (drop async): src/a.ts', 'build (knip could not load its config before it)', 'biome check --write: src/b.ts'],
 	);
+});
+
+test('an identical failure after an edit does not take another block', () => {
+	write('a.md', 'b\n');
+	assert.match(stop({}, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
+	assert.equal(state().blocks, 1);
+	write('a.md', 'c\n');
+	assert.match(stop({}, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
+	assert.equal(state().blocks, 1);
+});
+
+test('at the cap a changed tree is verified once, then a later change is not', () => {
+	write('a.md', 'b\n');
+	for (let i = 0; i < 6; i++) assert.match(stop(i ? { stopHookActive: true } : {}, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
+	assert.equal(state().blocks, 6);
+	write('a.md', 'c\n');
+	assert.match(stop({ stopHookActive: true }, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
+	assert.equal(state().blocks, 6);
+	assert.equal(state().capUsed, true);
+	const before = head();
+	write('a.md', 'd\n');
+	const capped = stopOut({ stopHookActive: true }, { FAKE_VERIFY_FAIL: failLog });
+	assert.match(capped.systemMessage, /block cap \(6\) reached/);
+	assert.equal(head(), before);
+	const passed = { head: 'h', fingerprint: 'old', blocks: 6, last: 'block', lastBlocked: 'h:old' };
+	assert.equal(plan(passed, { head: 'h', fingerprint: 'new', dirty: true }, { active: true }), 'commit');
+	assert.match(plan({ ...passed, capUsed: true }, { head: 'h', fingerprint: 'newer', dirty: true }, { active: true }).note, /block cap/);
+});
+
+test('at the cap a changed tree that verifies is committed', () => {
+	write('a.md', 'b\n');
+	for (let i = 0; i < 6; i++) assert.match(stop(i ? { stopHookActive: true } : {}, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
+	write('a.md', 'fixed\n');
+	const before = head();
+	assert.equal(stop({ stopHookActive: true }), null);
+	assert.notEqual(head(), before);
 });

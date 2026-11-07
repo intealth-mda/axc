@@ -1,10 +1,14 @@
 // Stop-hook auto-fix (stop-gate runs it before the commit's verify). Only the agent's changed files inside the write
 // dirs; never write-boundary path_deny files; never test/spec/feature/step files (no fixer may touch assertions).
-//   1. useAwait: drop `async` where biome reports no `await` (skipped when the signature names `Promise<`).
-//   2. knip --fix (exports + types; repeated --fix-type: knip 5.88 ignores the comma form): drop unused `export`s;
+//   1. useAwait: drop `async` where biome reports no `await`. A signature that names `Promise<` keeps `async`
+//      unless every return is already a Promise (`Promise.resolve` / `Promise.reject`).
+//   2. parameter properties become fields and constructor assignments (`erasableSyntaxOnly`).
+//   3. TS4111 dot access becomes brackets, and a `useLiteralKeys` line gets a biome-ignore. The bracket form is what
+//      `noPropertyAccessFromIndexSignature` requires; biome's own fix would turn it back into a dot.
+//   4. knip --fix (exports + types; repeated --fix-type: knip 5.88 ignores the comma form): drop unused `export`s;
 //      any other file knip touches is restored. knip errors (e.g. an unbuilt worktree: vitest configs import workspace
 //      `dist/`) → `pnpm run build` once (turbo-cached; verify's build then hits the cache) and retry.
-//   3. biome check --write: safe fixes + format only (no --unsafe).
+//   5. biome check --write: safe fixes + format only (no --unsafe).
 // Dependency-free; every fixer is optional (missing node_modules/.bin → skipped) and fails open. Returns log lines.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -39,8 +43,73 @@ export function fixTargets(files, { dirs = [], deny = [] } = {}) {
 	return { biome: ok.filter((f) => BIOME.test(f)), code: ok.filter((f) => CODE.test(f)) };
 }
 
-/** Drop `async` at 1-based {line, col} spots (biome useAwait starts). Skips spots that are not `async`, async generators
- * and signatures naming `Promise<` (dropping async there breaks the declared type). Pure; returns { src, n }. */
+/** True when `expr` is already a Promise, so dropping `async` keeps a declared `Promise<…>` return. */
+function promiseExpr(expr) {
+	let s = expr.trim();
+	while (s.startsWith('(') && s.endsWith(')')) {
+		const inner = s.slice(1, -1).trim();
+		if (!inner) break;
+		s = inner;
+	}
+	return /^(?:Promise\s*\.\s*(?:resolve|reject|all|allSettled|race|any|try|withResolvers)\s*\(|new\s+Promise\s*[<(])/.test(s);
+}
+
+/** Return expressions in the function body. `open` is the `{` or the start of an arrow expression, within `src`. */
+function returnsArePromises(src, open, kind) {
+	if (kind === 'expr') {
+		const expr = src.slice(open).split(/[;\n]/, 1)[0] ?? '';
+		return expr.trim().length > 0 && promiseExpr(expr);
+	}
+	let depth = 0;
+	let stmt = '';
+	const exprs = [];
+	for (let i = open; i < src.length; i++) {
+		const c = src[i];
+		if (c === '{') {
+			depth++;
+			stmt = '';
+			continue;
+		}
+		if (c === '}') {
+			if (depth === 1 && /^\s*return\b/.test(stmt)) exprs.push(stmt.replace(/^\s*return\b/, '').trim());
+			depth--;
+			stmt = '';
+			if (depth === 0) break;
+			continue;
+		}
+		if (depth !== 1) continue;
+		if (c === ';') {
+			if (/^\s*return\b/.test(stmt)) exprs.push(stmt.replace(/^\s*return\b/, '').trim());
+			stmt = '';
+			continue;
+		}
+		stmt += c;
+	}
+	return exprs.length > 0 && exprs.every(promiseExpr);
+}
+
+/** `{` of a block body, or the expression after `=>`. Offsets are within `rest`, which starts at `async`. */
+function bodyAt(rest) {
+	let paren = 0;
+	let angle = 0;
+	for (let i = 0; i < rest.length; i++) {
+		const c = rest[i];
+		if (c === '(') paren++;
+		else if (c === ')') paren--;
+		else if (c === '<' && paren === 0) angle++;
+		else if (c === '>' && angle > 0) angle--;
+		else if (paren === 0 && angle === 0 && rest.startsWith('=>', i)) {
+			let k = i + 2;
+			while (rest[k] === ' ' || rest[k] === '\t' || rest[k] === '\n' || rest[k] === '\r') k++;
+			if (rest[k] === '{') return { kind: 'block', at: k, sigEnd: i };
+			return { kind: 'expr', at: k, sigEnd: i };
+		} else if (paren === 0 && angle === 0 && c === '{') return { kind: 'block', at: i, sigEnd: i };
+	}
+	return null;
+}
+
+/** Drop `async` at 1-based {line, col} spots (biome useAwait starts). Skips generators and a `Promise<` signature
+ * whose returns are not already Promises (dropping `async` there would return the bare value). Pure. */
 export function dropAsync(src, spots) {
 	const starts = [0];
 	for (let i = 0; i < src.length; i++) if (src[i] === '\n') starts.push(i + 1);
@@ -50,12 +119,149 @@ export function dropAsync(src, spots) {
 		const rest = src.slice(o);
 		const m = /^async\s+/.exec(rest);
 		if (!m || /^async\s*(function\s*)?\*/.test(rest)) continue;
-		const ends = [rest.indexOf('=>'), rest.search(/\)\s*\{/)].filter((i) => i >= 0);
-		if (!ends.length || /\bPromise\s*</.test(rest.slice(0, Math.min(...ends) + 2))) continue;
+		const body = bodyAt(rest);
+		if (!body) continue;
+		if (/\bPromise\s*</.test(rest.slice(0, body.sigEnd)) && !returnsArePromises(rest, body.at, body.kind)) continue;
 		src = src.slice(0, o) + rest.slice(m[0].length);
 		n++;
 	}
 	return { src, n };
+}
+
+function matchParen(src, open) {
+	let depth = 0;
+	for (let i = open; i < src.length; i++) {
+		if (src[i] === '(') depth++;
+		else if (src[i] === ')') {
+			depth--;
+			if (depth === 0) return i;
+		}
+	}
+	return -1;
+}
+
+function splitParams(paramSrc) {
+	const parts = [];
+	let depth = 0;
+	let cur = '';
+	for (const c of paramSrc) {
+		if ('<({['.includes(c)) depth++;
+		else if ('>)}]'.includes(c)) depth--;
+		if (c === ',' && depth === 0) {
+			parts.push(cur.trim());
+			cur = '';
+		} else cur += c;
+	}
+	if (cur.trim()) parts.push(cur.trim());
+	return parts;
+}
+
+function defaultAt(rest) {
+	let depth = 0;
+	for (let i = 0; i < rest.length; i++) {
+		if ('<({['.includes(rest[i])) depth++;
+		else if ('>)}]'.includes(rest[i])) depth--;
+		else if (rest[i] === '=' && depth === 0) return i;
+	}
+	return -1;
+}
+
+/** `constructor(private x: T)` → a field plus `this.x = x` (`erasableSyntaxOnly` rejects the parameter property). Pure. */
+export function expandParameterProperties(src) {
+	let n = 0;
+	let out = '';
+	let i = 0;
+	while (i < src.length) {
+		const found = /\bconstructor\s*\(/.exec(src.slice(i));
+		if (!found) {
+			out += src.slice(i);
+			break;
+		}
+		const start = i + found.index;
+		const paren = start + found[0].length - 1;
+		const end = matchParen(src, paren);
+		if (end < 0) {
+			out += src.slice(i);
+			break;
+		}
+		let brace = end + 1;
+		while (src[brace] === ' ' || src[brace] === '\t' || src[brace] === '\n' || src[brace] === '\r') brace++;
+		if (src[brace] !== '{') {
+			out += src.slice(i, brace);
+			i = brace;
+			continue;
+		}
+		const fields = [];
+		const plain = [];
+		const assigns = [];
+		for (const raw of splitParams(src.slice(paren + 1, end))) {
+			const prop = /^((?:(?:public|private|protected|readonly|override|declare|accessor)\s+)+)(\.\.\.)?([A-Za-z_$][\w$]*)([\s\S]*)$/.exec(raw);
+			if (!prop || prop[2]) {
+				plain.push(raw);
+				continue;
+			}
+			const mods = prop[1].replace(/\s+/g, ' ').trim();
+			const name = prop[3];
+			const rest = prop[4].trim();
+			const eq = defaultAt(rest);
+			const typed = (eq < 0 ? rest : rest.slice(0, eq).trimEnd()).trim();
+			const fieldType = typed.startsWith(':') || typed.startsWith('?') || typed === '' ? typed : ` ${typed}`;
+			fields.push(`${mods} ${name}${fieldType};`);
+			plain.push(rest === '' ? name : `${name}${typed.startsWith(':') || typed.startsWith('?') ? '' : ' '}${rest}`);
+			assigns.push(`this.${name} = ${name};`);
+		}
+		if (!fields.length) {
+			out += src.slice(i, brace + 1);
+			i = brace + 1;
+			continue;
+		}
+		const lineStart = src.lastIndexOf('\n', start) + 1;
+		const indent = /^\s*/.exec(src.slice(lineStart, start))?.[0] ?? '';
+		const lead = src.slice(lineStart + indent.length, start);
+		const inner = `${indent}\t`;
+		out += src.slice(i, lineStart);
+		out += fields.map((field) => `${indent}${field}`).join('\n');
+		out += `\n${indent}${lead}constructor(${plain.join(', ')}) {\n`;
+		out += assigns.map((line) => `${inner}${line}`).join('\n');
+		out += '\n';
+		i = brace + 1;
+		n += fields.length;
+	}
+	return { src: out, n };
+}
+
+/** `obj.q` → `obj['q']` at 1-based spots whose `col` is the property name. Skips a spot that is not a dot access. Pure. */
+export function bracketIndexAccess(src, spots) {
+	const starts = [0];
+	for (let i = 0; i < src.length; i++) if (src[i] === '\n') starts.push(i + 1);
+	let n = 0;
+	const ordered = [...spots].sort((a, b) => b.line - a.line || b.col - a.col);
+	for (const spot of ordered) {
+		const at = (starts[spot.line - 1] ?? Number.NaN) + spot.col - 1;
+		if (!Number.isInteger(at) || src.slice(at, at + spot.prop.length) !== spot.prop) continue;
+		if (src[at - 1] !== '.') continue;
+		src = `${src.slice(0, at - 1)}['${spot.prop}']${src.slice(at + spot.prop.length)}`;
+		n++;
+	}
+	return { src, n };
+}
+
+const LITERAL_KEY_IGNORE = '// biome-ignore lint/complexity/useLiteralKeys: index signature';
+
+/** Insert the house ignore above 1-based lines. A line that already carries the comment is left alone. Pure. */
+export function ignoreLiteralKeys(src, lines) {
+	const rows = src.split('\n');
+	let n = 0;
+	for (const line of [...new Set(lines)].sort((a, b) => b - a)) {
+		const idx = line - 1;
+		if (idx < 0 || idx >= rows.length) continue;
+		const prev = rows[idx - 1] ?? '';
+		if (prev.includes('lint/complexity/useLiteralKeys') || prev.includes('lint:useLiteralKeys')) continue;
+		const indent = /^\s*/.exec(rows[idx])?.[0] ?? '';
+		rows.splice(idx, 0, `${indent}${LITERAL_KEY_IGNORE}`);
+		n++;
+	}
+	return { src: rows.join('\n'), n };
 }
 
 const hasBuild = (root) => {
@@ -69,7 +275,7 @@ const hasBuild = (root) => {
 /** Run the fixers. `prefix` is a shell snippet run first (e.g. `nvm use`). Returns log lines, e.g. `knip: a.ts`. */
 export function autoFix(root, targets, { prefix = '', env = process.env } = {}) {
 	const bin = (n) => path.join(root, 'node_modules/.bin', n);
-	const sh = (cmd, args) => spawnSync('sh', ['-c', `${prefix}"$0" "$@"`, cmd, ...args], { cwd: root, env, encoding: 'utf8', maxBuffer: 64 << 20 });
+	const sh = (cmd, args, cwd = root) => spawnSync('sh', ['-c', `${prefix}"$0" "$@"`, cmd, ...args], { cwd, env, encoding: 'utf8', maxBuffer: 64 << 20 });
 	const read = (f) => {
 		try {
 			return readFileSync(path.join(root, f));
@@ -104,6 +310,69 @@ export function autoFix(root, targets, { prefix = '', env = process.env } = {}) 
 				}
 			}
 			if (fixed.length) log.push(`useAwait (drop async): ${fixed.join(', ')}`);
+		}
+		if (targets.code.length) {
+			const fixed = [];
+			for (const f of targets.code) {
+				const buf = read(f);
+				if (!buf) continue;
+				const { src, n } = expandParameterProperties(buf.toString('utf8'));
+				if (n) {
+					writeFileSync(path.join(root, f), src);
+					fixed.push(f);
+				}
+			}
+			if (fixed.length) log.push(`parameter properties: ${fixed.join(', ')}`);
+		}
+		if (targets.code.length && existsSync(bin('tsgo'))) {
+			const byDir = new Map();
+			for (const f of targets.code) {
+				const dir = /^(?:packages\/[^/]+\/[^/]+|apps\/[^/]+)\//.exec(f)?.[0].replace(/\/$/, '') ?? '';
+				byDir.set(dir, [...(byDir.get(dir) ?? []), f]);
+			}
+			const spots = new Map();
+			for (const [dir, files] of byDir) {
+				const r = sh(bin('tsgo'), ['--noEmit', '--pretty', 'false'], path.join(root, dir));
+				for (const m of `${r.stdout}\n${r.stderr}`.matchAll(/^(.+)\((\d+),(\d+)\): error TS4111: Property '([^']+)'/gm)) {
+					const file = path.relative(root, path.resolve(root, dir, m[1]));
+					if (!files.includes(file)) continue;
+					spots.set(file, [...(spots.get(file) ?? []), { line: Number(m[2]), col: Number(m[3]), prop: m[4] }]);
+				}
+			}
+			const fixed = [];
+			for (const [f, list] of spots) {
+				const buf = read(f);
+				if (!buf) continue;
+				const bracketed = bracketIndexAccess(buf.toString('utf8'), list);
+				const ignored = ignoreLiteralKeys(
+					bracketed.src,
+					list.map((spot) => spot.line),
+				);
+				if (bracketed.n || ignored.n) {
+					writeFileSync(path.join(root, f), ignored.src);
+					fixed.push(f);
+				}
+			}
+			if (fixed.length) log.push(`index signature brackets: ${fixed.join(', ')}`);
+		}
+		if (targets.code.length && existsSync(bin('biome'))) {
+			const r = sh(bin('biome'), ['lint', '--only=complexity/useLiteralKeys', '--reporter=github', '--no-errors-on-unmatched', ...targets.code]);
+			const byFile = new Map();
+			for (const m of `${r.stdout}`.matchAll(/^::\w+ title=lint\/complexity\/useLiteralKeys,file=([^,]+),line=(\d+),/gm)) {
+				const f = path.relative(root, path.resolve(root, m[1]));
+				if (targets.code.includes(f)) byFile.set(f, [...(byFile.get(f) ?? []), Number(m[2])]);
+			}
+			const fixed = [];
+			for (const [f, lines] of byFile) {
+				const buf = read(f);
+				if (!buf) continue;
+				const { src, n } = ignoreLiteralKeys(buf.toString('utf8'), lines);
+				if (n) {
+					writeFileSync(path.join(root, f), src);
+					fixed.push(f);
+				}
+			}
+			if (fixed.length) log.push(`useLiteralKeys ignore: ${fixed.join(', ')}`);
 		}
 		if (targets.code.length && existsSync(bin('knip'))) {
 			const saved = new Map(

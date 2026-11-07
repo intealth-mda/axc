@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # axc-repo-map
 
-Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`. Do not open `node_modules`, `scripts/`, `dist`, or `/Volumes/files/src/cellixjs`. When a Stop report names an architecture test, read that file and the check it imports. Do not copy tests. Visa: `@cellix/domain-seedwork/visa`, `extends Visa<`. Open another file only when the task spec or a Stop report names it.
+Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`. Do not open `node_modules`, `scripts/`, `dist`, or `/Volumes/files/src/cellixjs`. Read `packages/cellix/archunit-tests/src/checks/domain-conventions.ts` and `packages/cellix/archunit-tests/src/checks/application-services-conventions.ts` once. No other check. Visa: `@cellix/domain-seedwork/visa`, `extends Visa<`. Open another file only when the task spec or a Stop report names it.
 
 ## House shape
 
@@ -20,7 +20,7 @@ Application services live under `packages/axc/application-services/src/contexts/
 
 ## Types and lint
 
-Omit an absent optional key. Narrow `arr[i]` (TS18048). An index signature uses brackets plus `// biome-ignore lint/complexity/useLiteralKeys: <reason>`. Use `import type`. An exported REST helper needs a return type (TS2883). Drop `async` with no `await`. Export only what another file imports. The Stop hook un-exports an unused export.
+Omit an absent optional key. Narrow `arr[i]` (TS18048). An index signature uses brackets plus `// biome-ignore lint/complexity/useLiteralKeys: <reason>`. Use `import type`. An exported REST helper needs a return type (TS2883). Drop `async` with no `await`. Export only what another file imports.
 
 ## Tests
 
@@ -34,4 +34,4 @@ Prefer a dependency already in that `package.json`. A new spec is only `workspac
 
 ## Repair
 
-On a Stop block, change only the files the report names, then stop. Full verify stays on the Stop hook.
+On a Stop block, change only the files the report names, then stop.

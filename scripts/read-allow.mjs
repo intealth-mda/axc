@@ -101,6 +101,8 @@ const ARCH_CHECKS = [
 	'packages/axc-verification/archunit-tests/src/utils/source-files.ts',
 ];
 
+const OPEN_CHECKS = ['packages/cellix/archunit-tests/src/checks/domain-conventions.ts', 'packages/cellix/archunit-tests/src/checks/application-services-conventions.ts'];
+
 function archPath(normalized) {
 	if (/^packages\/axc\/[^/]+\/src\/archunit-tests\//.test(normalized)) return true;
 	if (normalized.includes('/archunit-tests/') || normalized.endsWith('/archunit-tests')) return true;
@@ -122,7 +124,8 @@ function closed(normalized) {
 
 export function allows(relPath, named = []) {
 	const normalized = relPath.replace(/^\.\//, '');
-	// Architecture checks stay closed until a Stop report names that path.
+	// The map names these two checks. Every other architecture file stays closed until a Stop report names it.
+	if (OPEN_CHECKS.includes(normalized)) return true;
 	if (archPath(normalized)) return namedPath(normalized, named);
 	if (closed(normalized)) return false;
 	if (CELLIX_CONTRACTS.includes(normalized)) return true;

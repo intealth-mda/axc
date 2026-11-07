@@ -5,7 +5,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { autoFix, changedFiles, dropAsync, fixTargets } from './auto-fix.mjs';
+import { autoFix, bracketIndexAccess, changedFiles, dropAsync, expandParameterProperties, fixTargets, ignoreLiteralKeys } from './auto-fix.mjs';
 
 test('fixTargets: write dirs only; never tests, steps, features or path_deny files', () => {
 	const files = [
@@ -114,4 +114,44 @@ test('autoFix: no fixer bins → no-op, empty log', () => {
 	write('src/a.ts', 'export const a = async () => 1;\n');
 	assert.deepEqual(autoFix(repo, fixTargets(changedFiles(repo))), []);
 	assert.equal(read('src/a.ts'), 'export const a = async () => 1;\n');
+});
+
+test('dropAsync keeps a Promise signature that returns a value, and drops one that returns a Promise', () => {
+	const src = [
+		'export async function kept(): Promise<number> {',
+		'\treturn 1;',
+		'}',
+		'public async get(id: string): Promise<Course> {',
+		'\tif (id === "") return Promise.reject(new Error("x"));',
+		'\treturn Promise.resolve(id);',
+		'}',
+	].join('\n');
+	const { src: out, n } = dropAsync(src, [
+		{ line: 1, col: 8 },
+		{ line: 4, col: 8 },
+	]);
+	assert.equal(n, 1);
+	assert.match(out, /export async function kept\(\)/);
+	assert.match(out, /public get\(id: string\)/);
+	assert.doesNotMatch(out, /public async get/);
+});
+
+test('expandParameterProperties turns a parameter property into a field and an assignment', () => {
+	const src = 'export class Course {\n\tpublic constructor(private readonly courses: readonly CourseRecord[], label: string) {\n\t\tthis.label = label;\n\t}\n}\n';
+	const { src: out, n } = expandParameterProperties(src);
+	assert.equal(n, 1);
+	assert.match(out, /\tprivate readonly courses: readonly CourseRecord\[\];\n/);
+	assert.match(out, /\tpublic constructor\(courses: readonly CourseRecord\[\], label: string\) \{\n\t\tthis\.courses = courses;\n/);
+	assert.equal(expandParameterProperties('constructor(label: string) { this.label = label; }\n').n, 0);
+});
+
+test('bracketIndexAccess rewrites a TS4111 dot and ignoreLiteralKeys marks the line once', () => {
+	const src = 'const q = input.q;\n';
+	const { src: bracketed, n } = bracketIndexAccess(src, [{ line: 1, col: 17, prop: 'q' }]);
+	assert.equal(n, 1);
+	assert.equal(bracketed, "const q = input['q'];\n");
+	const once = ignoreLiteralKeys(bracketed, [1]);
+	assert.equal(once.n, 1);
+	assert.match(once.src, /biome-ignore lint\/complexity\/useLiteralKeys: index signature\nconst q/);
+	assert.equal(ignoreLiteralKeys(once.src, [2]).n, 0);
 });
