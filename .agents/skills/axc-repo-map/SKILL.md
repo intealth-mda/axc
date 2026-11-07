@@ -14,7 +14,7 @@ These paths are decided. Do not open `packages/axc-verification/archunit-tests`,
 
 Domain files live under `packages/axc/domain/src/domain/contexts/<context>/<entity>/`: `<entity>.aggregate.ts`, `<entity>.value-objects.ts`, `<entity>.repository.ts`, `index.ts`, `<entity>.aggregate.test.ts`. Domain imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/*`.
 
-Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. Persistence does not import application-services or rest.
+Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. Persistence does not import application-services or rest. The in-memory server is `createMemoryMongoServer()` from `@axc/service-mongoose`. Do not import `mongodb-memory-server`.
 
 Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. The entity index exports a factory named after the folder. Do not keep stored state in an application-service array. Services and REST import no `mongoose`, `mongodb`, or `@axc/service-mongoose`. REST does not import `@axc/persistence`. REST parses the request, calls the service, and shapes the response, with a unit test beside a new handler.
 

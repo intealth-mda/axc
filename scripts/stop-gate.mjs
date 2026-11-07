@@ -7,7 +7,7 @@
 //          Green (verify log ends with `verify ok`, tree clean) → silent allow. Red → block with a terse
 //          one-line-per-problem report; nothing committed. The fingerprint covers untracked file contents. A plain
 //          re-stop on the same tree state is allowed; a stopHookActive retry after a block always re-verifies.
-//          At most 3 blocks per session; then allow with a one-line note. A green commit is pushed;
+//          At most 6 blocks per session; then allow with a one-line note. A green commit is pushed;
 //          an output branch (`-a-out` / `-b-out`) gets a PR when `gh` is available. On an output branch, a changed
 //          tree that misses the generic Cellix shape blocks before verify, and the cited paths become readable. A pre-existing Snyk/audit
 //          failure (no package.json edit) ends the turn instead of asking for a repair. Auto-fix log lines survive a failed commit
@@ -23,7 +23,7 @@ import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
 import { report } from './check-summary.mjs';
 import { isOutputBranch, readableFile, rememberPaths, securityEnd, sessionKey, shapeGaps } from './read-allow.mjs';
 
-const MAX_BLOCKS = 3;
+const MAX_BLOCKS = 6;
 const NVM = 'export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 && nvm use >/dev/null 2>&1; ';
 const run = (cmd, args, env = process.env, input = undefined) => spawnSync(cmd, args, { encoding: 'utf8', env, input, maxBuffer: 64 << 20 });
 const git = (...args) => {

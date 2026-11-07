@@ -76,12 +76,12 @@ test('edits + red verify → block with the terse scenario report, nothing commi
 	assert.equal(stop({ stop_hook_active: true }), null);
 	assert.notEqual(head(), before);
 });
-test('block cap: at most 3 per session', () => {
-	const results = ['b', 'c', 'd', 'e'].map((v) => {
+test('block cap: at most 6 per session', () => {
+	const results = ['b', 'c', 'd', 'e', 'f', 'g', 'h'].map((v) => {
 		write('a.md', `${v}\n`);
 		return stop({}, { FAKE_VERIFY_FAIL: failLog }) !== null;
 	});
-	assert.deepEqual(results, [true, true, true, false]);
+	assert.deepEqual(results, [true, true, true, true, true, true, false]);
 });
 test('agent committed itself without a finished verify → block; with one → allow', () => {
 	write('a.md', 'b\n');
@@ -148,10 +148,13 @@ test('stopHookActive after a block re-verifies even with no change; after the ca
 	assert.match(stop({}, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
 	assert.match(stop({ stopHookActive: true }, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
 	assert.match(stop({ stop_hook_active: true }, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
-	assert.equal(state().blocks, 3);
+	assert.match(stop({ stopHookActive: true }, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
+	assert.match(stop({ stopHookActive: true }, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
+	assert.match(stop({ stopHookActive: true }, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
+	assert.equal(state().blocks, 6);
 	const capped = stopOut({ stopHookActive: true }, { FAKE_VERIFY_FAIL: failLog });
 	assert.deepEqual(Object.keys(capped), ['systemMessage']);
-	assert.match(capped.systemMessage, /^Stop allowed — block cap \(3\) reached/);
+	assert.match(capped.systemMessage, /^Stop allowed — block cap \(6\) reached/);
 	assert.equal(head(), before);
 	// pure: a retry re-verifies a dirty tree whatever the fingerprint; without the block it stays an allow
 	const s = { head: 'h', fingerprint: 'f', blocks: 1, last: 'block', lastBlocked: 'h:f' };
