@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # axc-repo-map
 
-Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. This map is the API. Do not open `packages/cellix`, `archunit-tests`, `node_modules`, `scripts/`, skill reference trees, lockfiles, or `dist` to recover it. Open another file only when the task spec or a compiler error names it.
+Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. This map is the API. Do not open `packages/cellix`, `archunit-tests`, `node_modules`, `scripts/`, skill reference trees, lockfiles, or `dist` to recover it. Open another file only when the task spec or a Stop report names it.
 
 ## House shape
 

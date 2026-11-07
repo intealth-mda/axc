@@ -6,7 +6,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { allows, currentBranch, harnessBranch, readableFile, readNamed, sessionKey } from './read-allow.mjs';
 
-const READ_TOOLS = new Set(['read_file', 'read', 'grep']);
+const READ_TOOLS = new Set(['read_file', 'read', 'grep', 'list_dir']);
 const SHELL_TOOLS = new Set(['run_terminal_command', 'bash', 'shell', 'execute']);
 
 const rel = (root, file) => path.relative(root, path.resolve(root, file)).split(path.sep).join('/');
@@ -18,7 +18,7 @@ function named(root, input) {
 }
 
 function deny(file) {
-	return `BLOCKED (read-budget): ${file}. That tree is closed. The API is in the repo map. Open a file only when the map, the health slice, the task spec, or a compiler error names it.`;
+	return `BLOCKED (read-budget): ${file}. That tree is closed. The API is in the repo map. Open a file only when the map, the health slice, the task spec, or a Stop report names its path.`;
 }
 
 function shellRead() {
@@ -37,7 +37,7 @@ export function check(input, root, extra = []) {
 		if (typeof args.path !== 'string' || !args.path || !allowed(args.path)) return deny(args.path || 'grep');
 		return undefined;
 	}
-	const target = args.target_file ?? args.file_path ?? args.path ?? args.file;
+	const target = args.target_file ?? args.file_path ?? args.target_directory ?? args.path ?? args.file;
 	if (typeof target !== 'string' || !target || !allowed(target)) return deny(target || 'read_file');
 	return undefined;
 }

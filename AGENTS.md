@@ -2,7 +2,7 @@
 
 **ONE orientation round.** Read `.agents/skills/axc-repo-map/SKILL.md` and the requirements file it names. Do not list the repository. Write the slice. Stop.
 
-CellixJS is the architecture. Port a missing package from `/Volumes/files/src/cellixjs` only. Never weaken verify, husky, or architecture tests, and never pass `--no-verify`.
+CellixJS is the architecture. Do not open `/Volumes/files/src/cellixjs` or `packages/cellix` for examples. Port a missing package only. Never weaken verify, husky, or architecture tests, and never pass `--no-verify`.
 
 ## Tools
 

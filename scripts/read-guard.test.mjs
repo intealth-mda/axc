@@ -30,8 +30,13 @@ test('product source is readable and discovery trees are not', () => {
 	assert.equal(read('packages/axc/domain/package.json'), undefined);
 	assert.equal(read('packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts'), undefined);
 	assert.match(read('packages/cellix/package.json'), /closed/);
-	assert.match(read('packages/cellix/package.json'), /repo map/);
-	assert.equal(read('packages/cellix/package.json').includes('Read packages/axc'), false);
+	assert.match(read('packages/cellix/package.json'), /Stop report/);
+	assert.equal(read('packages/cellix/package.json').includes('compiler error'), false);
+	const list = (target_directory) => check({ toolName: 'list_dir', toolInput: { target_directory } }, root);
+	assert.equal(list('packages/axc/domain'), undefined);
+	assert.match(list('packages/cellix'), /closed/);
+	assert.match(list('/Volumes/files/src/cellixjs'), /closed/);
+	assert.match(list(''), /closed/);
 	assert.match(read('packages/axc-verification/archunit-tests/src/x.ts'), /closed/);
 	assert.match(read('node_modules/@cellix/domain-seedwork/package.json'), /closed/);
 	assert.match(read('scripts/read-allow.mjs'), /closed/);
