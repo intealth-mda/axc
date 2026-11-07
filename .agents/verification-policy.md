@@ -1,6 +1,6 @@
 # Verification and security policy
 
-Applies when audit or Snyk is explicitly requested. Task Set A/B harness runs use the verification command in [harness-run-workflow.md](harness-run-workflow.md) without these scans by default.
+Applies only when the user explicitly requests audit or Snyk. The user owns these checks for Task Set A/B evaluations; the agent's implementation and evaluation workflows do not run or discuss them by default. An unavailable scan is not a pass.
 
 ## Evidence
 

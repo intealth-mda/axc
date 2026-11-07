@@ -50,12 +50,15 @@ For persisted Task A/B objects, confirm the separate models package has typed sc
 2. For each material rule, what plausible incorrect implementation does its test reject? Would omitting, weakening, inverting, or incorrectly ordering the rule cause at least one test to fail?
 3. Where multiple rules are exercised together, do focused cases or independently discriminating data prove each rule rather than allowing one result to mask another?
 4. Do predicate-based behaviors include counterexamples that satisfy the other relevant conditions, and do assertions identify the complete expected result or ordering?
+   For each optional list filter, does a separately executed request assert complete expected IDs or learner keys against counterexamples that differ on that filter? A combined request alone does not prove each filter.
    For every quantified acceptance criterion, how many distinct executed test inputs are present, and what exact expected result does each assert? For Task Set A's A-AC11, identify two separately executed course-search combinations. In the `q` + `modality` + `status` case, name a fixture that matches the other two predicates but fails `q`, another that fails `modality`, and another that fails `status`; assert the complete expected IDs. If deleting any predicate leaves the assertion true, the criterion is open.
 5. Do composed public-path tests prove the externally visible workflow?
+   For Task Set A/B, which scenarios ran through the actual API host and covered each new route? Identify fresh host execution separately from Hono-only tests and Turbo cache replay. A health-only scenario does not prove feature routing.
 6. For each specified failure, do tests assert both the status or result and the error code, as well as any required absence of state change or side effect?
 7. Do tests verify material response, state-transition, and audit fields directly rather than only counts or broad status checks?
 8. If an adapter differs from the Cellix reference technology, which observable semantics must match, and where are the relevant commit, rollback, isolation, serialization, or copying behaviors tested?
    Where do focused adapter/converter tests prove stored-record ↔ aggregate round trips, including nested audit or history data? Where do repository tests prove creation through the repository factory, retrieval, and save through conversion, and where does a composition test prove the initialized unit of work?
+   List distinct executed assertions for both copy directions, full round-trip fields, commit, rollback, and concurrent serialization where used. A test that mutates a getter's detached copy without checking the source does not prove isolation.
 9. For high-risk rules, would targeted mutation testing or fault injection materially strengthen the evidence, and if so, was it performed or explicitly justified as unnecessary?
 10. When contract documentation is required, does it cover every affected operation's input, success output, status or result, and specified errors?
 
@@ -87,5 +90,5 @@ Do not report completion until:
 - focused tests cover rules at their owning layer; composed HTTP tests do not substitute for domain transition tests, application-service invariant tests, or applicable custom-adapter commit, rollback, isolation/serialization, and defensive-copy tests;
 - no available Cellix capability has been unnecessarily recreated;
 - all deviations are documented;
-- `pnpm run verify` has passed, or an external security scan is accurately reported as unavailable after every non-external stage passes;
+- the Task Set A/B completion command in the run workflow has passed, with fresh focused tests and running-host feature acceptance; user-owned security checks are outside this completion decision unless explicitly requested;
 - Biome and Knip have no patch-introduced findings, including formatting, import-order, unused-export, and unused-type findings.
