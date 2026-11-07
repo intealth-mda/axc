@@ -1,7 +1,8 @@
 // Agent Stop gate (Grok Build / Claude / Codex / Cursor-compatible hook JSON; also a CLI for tools without a Stop hook).
 // The agent only writes code; this hook installs, verifies and commits. Dependency-free; fails open.
 //   start: record HEAD + tree fingerprint once per session (SessionStart; UserPromptSubmit fallback).
-//   stop:  nothing changed since start → allow (pure Q&A). Changes → `pnpm install --frozen-lockfile`, auto-fix
+//   stop:  nothing changed since start → allow (pure Q&A). Changes → `pnpm install` (frozen unless a
+//          package.json dependency changed, in which case the lockfile is refreshed and committed), auto-fix
 //          (scripts/auto-fix.mjs: useAwait, knip exports/types, biome safe fixes; never tests), then `git add` the
 //          write dirs + `git commit` with husky ON: its pre-commit runs the one full `pnpm run verify`.
 //          Green (verify log ends with `verify ok`, tree clean) → silent allow. Red → block with a terse
@@ -187,10 +188,52 @@ const readFixLog = (file) => {
 	}
 };
 
-const packageJsonChanged = () =>
+const packageJsonChanged = () => changedPackageJsons().length > 0;
+
+const changedPackageJsons = () =>
 	git('status', '--porcelain', '-uall')
 		.split('\n')
-		.some((line) => /(^|\/)package\.json$/.test(line.slice(3).trim()));
+		.map((line) => line.slice(3).trim())
+		.filter((file) => file && /(^|\/)package\.json$/.test(file) && !file.includes('node_modules/'));
+
+/** A new or changed dependency spec. `workspace:*` and `catalog:` stay inside the repo. */
+export function dependencyViolations(before = {}, after = {}) {
+	const bad = [];
+	const ok = /^(?:workspace:\*|catalog:(?:[\w.-]+)?)$/;
+	for (const kind of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+		const prev = before[kind] ?? {};
+		for (const [name, spec] of Object.entries(after[kind] ?? {})) {
+			if (prev[name] === spec) continue;
+			if (typeof spec !== 'string' || !ok.test(spec)) bad.push(`${kind} ${name}@${spec}`);
+		}
+	}
+	return bad;
+}
+
+function packageJsonViolations(root) {
+	const bad = [];
+	for (const file of changedPackageJsons()) {
+		let before = {};
+		const shown = run('git', ['show', `HEAD:${file}`]);
+		if (shown.status === 0 && shown.stdout.trim()) {
+			try {
+				before = JSON.parse(shown.stdout);
+			} catch {
+				bad.push(`${file} (HEAD is not JSON)`);
+				continue;
+			}
+		}
+		let after;
+		try {
+			after = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
+		} catch {
+			bad.push(`${file} (not JSON)`);
+			continue;
+		}
+		bad.push(...dependencyViolations(before, after).map((item) => `${file}: ${item}`));
+	}
+	return bad;
+}
 
 /** install → add → commit (husky verify). Returns null on success, a block string, or `{ end }` for a pre-existing security finding. */
 export function autoCommit(root) {
@@ -203,10 +246,16 @@ export function autoCommit(root) {
 	const env = commitEnv();
 	const out = path.join(tmp(), `axc-stop-${path.basename(root)}.log`);
 	if (existsSync(path.join(root, 'pnpm-lock.yaml'))) {
-		const i = run('sh', ['-c', `${NVM}pnpm install --frozen-lockfile`], { ...env, HUSKY: '0' }); // HUSKY=0: no hooksPath rewrite
+		const depsChanged = packageJsonChanged();
+		if (depsChanged) {
+			const bad = packageJsonViolations(root);
+			if (bad.length) return block(`A dependency must be workspace:* or catalog:. Prefer a dependency the package already has.\n${bad.join('\n')}`);
+		}
+		const install = depsChanged ? 'pnpm install' : 'pnpm install --frozen-lockfile';
+		const i = run('sh', ['-c', `${NVM}${install}`], { ...env, HUSKY: '0' }); // HUSKY=0: no hooksPath rewrite
 		if (i.status !== 0) {
 			writeFileSync(out, `${i.stdout}${i.stderr}`);
-			return block(`pnpm install --frozen-lockfile failed (a package.json dependency change rewrites the lockfile; revert it):\n${report(out, root)}`);
+			return block(`${install} failed:\n${report(out, root)}`);
 		}
 	}
 	const dirs = writeDirs(root);
@@ -218,6 +267,7 @@ export function autoCommit(root) {
 		writeFileSync(logFile, JSON.stringify([...prior, ...fixed.filter((l) => !prior.includes(l))])); // kept until a commit lands
 	}
 	git('add', '-A', '--', ...(dirs.length ? dirs : ['.']));
+	if (existsSync(path.join(root, 'pnpm-lock.yaml'))) git('add', '--', 'pnpm-lock.yaml');
 	const staged = git('diff', '--cached', '--name-status');
 	const fixes = mergeFixLog(prior, fixed, staged);
 	if (!staged.trim()) return block(`changes outside the write dirs (${dirs.join(', ')}); revert them:\n${git('status', '--porcelain').trim().split('\n').slice(0, 10).join('\n')}`);

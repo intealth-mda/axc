@@ -6,7 +6,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSy
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { commitEnv, commitMessage, mergeFixLog, plan } from './stop-gate.mjs';
+import { commitEnv, commitMessage, dependencyViolations, mergeFixLog, plan } from './stop-gate.mjs';
 
 const gate = path.join(import.meta.dirname, 'stop-gate.mjs');
 const failLog = path.join(import.meta.dirname, 'fixtures/acceptance-fail.log');
@@ -43,6 +43,12 @@ beforeEach(() => {
 	hook('start');
 });
 afterEach(() => rmSync(repo, { recursive: true, force: true }));
+
+test('dependency specs: workspace and catalog are allowed, a registry version is not', () => {
+	const before = { dependencies: { '@axc/domain': 'workspace:*' } };
+	assert.deepEqual(dependencyViolations(before, { dependencies: { '@axc/domain': 'workspace:*', '@axc/persistence': 'workspace:*' }, devDependencies: { vitest: 'catalog:' } }), []);
+	assert.deepEqual(dependencyViolations(before, { dependencies: { 'left-pad': '1.0.0' } }), ['dependencies left-pad@1.0.0']);
+});
 
 test('no edits (pure Q&A) → allow, no commit', () => {
 	const before = head();
