@@ -8,8 +8,8 @@
 //          one-line-per-problem report; nothing committed. The fingerprint covers untracked file contents. A plain
 //          re-stop on the same tree state is allowed; a stopHookActive retry after a block always re-verifies.
 //          At most 3 blocks per session; then allow with a one-line note. A green commit is pushed;
-//          an output branch (`-a-out` / `-b-out`) gets a PR when `gh` is available. On an output branch, a missing
-//          catalog shape blocks before verify, and the cited paths become readable. A pre-existing Snyk/audit
+//          an output branch (`-a-out` / `-b-out`) gets a PR when `gh` is available. On an output branch, a changed
+//          tree that misses the generic Cellix shape blocks before verify, and the cited paths become readable. A pre-existing Snyk/audit
 //          failure (no package.json edit) ends the turn instead of asking for a repair. Auto-fix log lines survive a failed commit
 //          (`<git dir>/stop-gate/auto-fix-log.json`, untracked): the next auto-commit body still lists them; cleared on commit.
 //   run:   the same for tools without a Stop hook: report + exit 1 on failure, one `verify ok` line on success.

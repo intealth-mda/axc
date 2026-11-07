@@ -14,38 +14,34 @@ Read in this turn, then nothing else until a compiler or test error names a file
 - `packages/axc/application-services/src/index.ts`
 - `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`
 
-Do not open `packages/cellix/**` unless you are porting a missing package. Do not open skill reference trees, lockfiles, `node_modules`, or `dist`.
+Do not open skill reference trees, lockfiles, or `dist`.
 
-## Layout
+## House shape
 
-`apps/api/src/index.ts` is the composition root. `host.json` sets `routePrefix` to empty, so the function route is the full path (`api/courses` is `GET /api/courses`). Register one `registerAzureFunctionHttpHandler` per route template.
+These paths are decided. Do not open `packages/axc-verification/archunit-tests`, `packages/cellix`, or `node_modules` to learn them. Build through domain, persistence, application-services, and rest.
 
-`packages/axc/domain` holds entities, value objects, and invariants. `packages/axc/persistence` holds repositories, data sources, and models. `packages/axc/service-mongoose` holds mongoose and in-memory Mongo. `packages/axc/application-services` orchestrates use cases under `src/contexts/{context}/{entity}/`. `packages/axc/rest` is Hono transport. `packages/axc-verification/acceptance-api` holds Cucumber features and steps. `packages/axc-verification/archunit-tests` is the architecture gate. Do not edit it to make a feature pass.
+Domain files live under `packages/axc/domain/src/domain/contexts/<context>/<entity>/`: `<entity>.aggregate.ts`, `<entity>.value-objects.ts`, `<entity>.repository.ts`, `index.ts`, `<entity>.aggregate.test.ts`. Domain imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/*`.
 
-Each package's public API is `src/index.ts`. Re-export every type or value another package imports, or the build fails with TS2305, TS2459, or TS2724.
+Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. Persistence does not import application-services or rest.
 
-## Layering
+Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. The entity index exports a factory named after the folder. Do not keep stored state in an application-service array. Services and REST import no `mongoose`, `mongodb`, or `@axc/service-mongoose`. REST does not import `@axc/persistence`. REST parses the request, calls the service, and shapes the response, with a unit test beside a new handler.
 
-Keep each `src/index.ts` a composition root. Do not put seed records or `.filter(`, `.sort(`, or `.slice(` there.
+`apps/api/src/index.ts` is the composition root. `host.json` sets `routePrefix` empty, so `api/courses` is `GET /api/courses`. Register one `registerAzureFunctionHttpHandler` per route. Each package's public API is `src/index.ts`. Re-export what another package imports, or the build fails with TS2305, TS2459, or TS2724. In-memory Mongo, through `@axc/persistence` and `@axc/service-mongoose`, stores catalog and enrollment state. Keep `src/index.ts` free of seed records and `.filter(`, `.sort(`, or `.slice(`.
 
-Stored catalog and enrollment state goes through `@axc/persistence` and `@axc/service-mongoose`. In-memory Mongo is the backing store. Do not keep that state in an application-service array.
+## Cheap checks
 
-Domain code imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/*` packages. Application services and REST import no `mongoose`, `mongodb`, or `@axc/service-mongoose`. REST does not import `@axc/persistence`.
+The Stop hook runs `pnpm run verify`. While editing, use one of: `pnpm exec biome check <path>`, `pnpm --filter @axc/<pkg> run test`, `cd packages/axc/<pkg> && ../../../node_modules/.bin/tsgo --noEmit`, `pnpm exec turbo run test:arch`. The Stop report names the failing lines. Do not read the verify log.
 
 ## Types and lint
 
-`exactOptionalPropertyTypes`: omit an absent key. Do not assign `undefined`. `noUncheckedIndexedAccess`: narrow `arr[i]` before use (TS18048). `verbatimModuleSyntax`: `import type` for type-only imports (`useImportType`). No enums (`erasableSyntaxOnly`).
-
-An exported REST helper needs an explicit return type, else TS2883. `useAwait`: an `async` function with no `await` drops `async` or gains a real await. Knip fails on unused exports and unused exported types. Export only what another file imports. Do not delete an unused export by hand during a block. The Stop hook's auto-fix un-exports it.
+`exactOptionalPropertyTypes`: omit an absent key. `noUncheckedIndexedAccess`: narrow `arr[i]` (TS18048). `verbatimModuleSyntax`: `import type` for types. No enums. An exported REST helper needs a return type (TS2883). An `async` function with no `await` drops `async`. Export only what another file imports. On a block, do not hand-delete an unused export; the Stop hook un-exports it.
 
 ## Tests
 
-One acceptance scenario per acceptance-criterion id, titled `<ID>-AC<n>`. A criterion no scenario can prove gets a `# ac-meta: <ID>-AC<n>` line in the feature.
+One acceptance scenario per criterion, titled `<ID>-AC<n>`. An unprovable criterion gets `# ac-meta: <ID>-AC<n>` in the feature. For each validation rule, one boundary test and one negative test at the cheapest layer. When a 400 lists several fields, assert the field set, not the order, unless the specification orders them.
 
-For each validation rule, add one boundary test and one negative test at the cheapest layer that can prove it. When a 400 lists several fields, assert the field set, not the order, unless the specification orders the fields.
-
-Import Serenity statically, as `healthcheck.steps.ts` does. Step text is global across every `.steps.ts`. A second definition of the same text is ambiguous. Name new steps `src/step-definitions/<feature>.steps.ts`. One host run shares stored state across scenarios, so each scenario needs its own data. Copy the local `resolved()` cast in `healthcheck.steps.ts` when asserting an async `Question`. `@serenity-js/assertions` has `isGreaterThan` and `isLessThan`, not the `OrEqualTo` names.
+Import Serenity statically, as `healthcheck.steps.ts` does. Step text is global. Name steps `src/step-definitions/<feature>.steps.ts`. Each scenario needs its own data. Copy the local `resolved()` cast when asserting an async `Question`. Use `isGreaterThan` and `isLessThan`, not the `OrEqualTo` names.
 
 ## Repair
 
-On a Stop block, change only the files the report names. Then stop. Do not launch the checks yourself.
+On a Stop block, change only the files the report names, then stop. Cheap checks are for a path you are editing. Full verify stays on the Stop hook.

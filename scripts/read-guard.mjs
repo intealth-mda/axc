@@ -37,8 +37,20 @@ function positionals(argv) {
 	return out;
 }
 
+/** Trees the agent was reading to discover rules the repo map already states. `node_modules/.bin` stays runnable. */
+export function closedRead(command) {
+	if (/packages\/cellix(?:\/|$)/.test(command)) return deny('packages/cellix');
+	if (/node_modules(?!\/\.bin\b)/.test(command)) return deny('node_modules');
+	if (/archunit-tests/.test(command)) return deny('archunit-tests');
+	if (/\/tmp(?:\/|\s|$)/.test(command)) return deny('/tmp');
+	if (/(?:^|[\s"'`=])(?:\.\/)?scripts\/(?!stop-gate\.mjs\b)/.test(command)) return deny('scripts/');
+	return undefined;
+}
+
 /** Deny a shell read outside the budget. Writes and other commands are left to the write guard. */
 export function shellRead(command, allowed) {
+	const closed = closedRead(command);
+	if (closed) return closed;
 	const parts = command.split(/\n|&&|\|\||;|\|/);
 	for (const part of parts) {
 		const argv = part

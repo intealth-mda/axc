@@ -1,6 +1,7 @@
 // Shared read budget and output-branch shape check. The repo map names the only files a task
 // agent may read until a Stop block names another path. Dependency-free.
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { summarize } from './check-summary.mjs';
 
@@ -14,13 +15,8 @@ export const MAP_FILES = [
 	'packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts',
 ];
 
-export const COURSE_FILES = [
-	'packages/axc/domain/src/domain/contexts/catalog/course/course.aggregate.ts',
-	'packages/axc/domain/src/domain/contexts/catalog/course/course.value-objects.ts',
-	'packages/axc/domain/src/domain/contexts/catalog/course/course.repository.ts',
-];
-
-const PERSISTENCE_PREFIXES = ['packages/axc/persistence/src/', 'packages/axc/service-mongoose/src/'];
+const LAYERS = ['domain', 'persistence', 'application-services', 'rest'];
+const AGGREGATE_FILES = (entity) => [`${entity}.aggregate.ts`, `${entity}.value-objects.ts`, `${entity}.repository.ts`, 'index.ts', `${entity}.aggregate.test.ts`];
 
 export function sessionKey(input = {}, env = process.env) {
 	return String(input.sessionId ?? input.session_id ?? input.conversation_id ?? env.GROK_SESSION_ID ?? 'default').replace(/[^\w.-]/g, '_');
@@ -71,50 +67,64 @@ export function isOutputBranch(name) {
 	return /-[ab]-out$/.test(name);
 }
 
-function walk(dir, acc) {
-	let entries = [];
-	try {
-		entries = readdirSync(dir, { withFileTypes: true });
-	} catch {
-		return;
-	}
-	for (const entry of entries) {
-		const full = path.join(dir, entry.name);
-		if (entry.isDirectory()) walk(full, acc);
-		else acc.push(full);
-	}
-}
-
 function hasSeedArray(text) {
 	return /\[[^[\]]*(?:\n[^[\]]*){15,}\]/.test(text);
 }
 
-/** Missing Cellix catalog files on an output branch. Empty when the shape is present. Paths only. */
-export function shapeGaps(root) {
-	const gaps = COURSE_FILES.filter((file) => !existsSync(path.join(root, file)));
-	const adapters = [];
-	for (const prefix of PERSISTENCE_PREFIXES) {
-		const files = [];
-		walk(path.join(root, prefix), files);
-		for (const file of files) {
-			const rel = path.relative(root, file).split(path.sep).join('/');
-			if (rel.endsWith('/index.ts') || rel.endsWith('.test.ts')) continue;
-			if (/course/i.test(path.basename(rel))) adapters.push(rel);
+function changedSource(root) {
+	const git = spawnSync('git', ['status', '--porcelain', '-uall'], { cwd: root, encoding: 'utf8' });
+	if (git.status !== 0) return [];
+	return git.stdout
+		.split('\n')
+		.map((line) => line.slice(3).split(' -> ').pop()?.trim().replaceAll('"', '') ?? '')
+		.filter((file) => file.startsWith('packages/axc/') && file.endsWith('.ts') && !file.endsWith('.d.ts'));
+}
+
+/** Generic Cellix shape of the files this session changed. Empty when nothing under packages/axc changed, or the tree already matches. */
+export function shapeGaps(root, changed = changedSource(root)) {
+	if (!changed.length) return [];
+	const gaps = [];
+	const touched = new Set(changed.map((file) => file.slice('packages/axc/'.length).split('/')[0]));
+	const missingLayers = LAYERS.filter((layer) => !touched.has(layer));
+	if (missingLayers.length) gaps.push(`layers not touched: ${missingLayers.join(', ')}`);
+
+	const domainOutside = changed.filter((file) => file.startsWith('packages/axc/domain/src/') && !file.startsWith('packages/axc/domain/src/domain/') && !file.endsWith('/index.ts') && !file.endsWith('.test.ts'));
+	if (domainOutside.length) gaps.push(`domain implementation files must live under packages/axc/domain/src/domain/: ${domainOutside.join(', ')}`);
+
+	const folders = new Map();
+	for (const file of changed) {
+		const match = /^packages\/axc\/domain\/src\/domain\/contexts\/([^/]+)\/([^/]+)\//.exec(file);
+		if (!match) continue;
+		const key = `${match[1]}/${match[2]}`;
+		const names = folders.get(key) ?? new Set();
+		names.add(path.basename(file));
+		folders.set(key, names);
+	}
+	if (changed.some((file) => file.startsWith('packages/axc/domain/src/')) && folders.size === 0) {
+		gaps.push('packages/axc/domain/src/domain/contexts/<context>/<entity>/<entity>.aggregate.ts');
+	}
+	for (const [key, names] of folders) {
+		const entity = key.split('/')[1];
+		const base = `packages/axc/domain/src/domain/contexts/${key}/`;
+		for (const name of AGGREGATE_FILES(entity)) {
+			if (!names.has(name) && !existsSync(path.join(root, base + name))) gaps.push(base + name);
 		}
 	}
-	if (!adapters.length) gaps.push(PERSISTENCE_PREFIXES[0]);
-	const sources = [];
-	walk(path.join(root, 'packages/axc/application-services/src'), sources);
-	for (const file of sources) {
-		const rel = path.relative(root, file).split(path.sep).join('/');
-		if (!rel.endsWith('.ts') || rel.endsWith('.test.ts')) continue;
+
+	const persistenceOutside = changed.filter((file) => file.startsWith('packages/axc/persistence/src/') && !file.includes('/datasources/') && !file.includes('/models/') && !file.endsWith('/index.ts') && !file.endsWith('.test.ts'));
+	if (persistenceOutside.length) gaps.push(`persistence implementation files must live under src/datasources or src/models: ${persistenceOutside.join(', ')}`);
+
+	const servicesOutside = changed.filter((file) => file.startsWith('packages/axc/application-services/src/') && !file.includes('/contexts/') && !file.endsWith('/index.ts') && !file.endsWith('.test.ts'));
+	if (servicesOutside.length) gaps.push(`application-service implementations must live under src/contexts: ${servicesOutside.join(', ')}`);
+
+	for (const file of changed.filter((item) => item.startsWith('packages/axc/application-services/src/') && !item.endsWith('.test.ts'))) {
 		let text = '';
 		try {
-			text = readFileSync(file, 'utf8');
+			text = readFileSync(path.join(root, file), 'utf8');
 		} catch {
 			continue;
 		}
-		if (hasSeedArray(text)) gaps.push(rel);
+		if (hasSeedArray(text)) gaps.push(file);
 	}
 	return gaps;
 }
