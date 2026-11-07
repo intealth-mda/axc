@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, test } from 'node:test';
-import { shapeGaps } from './read-allow.mjs';
+import { extractPaths, shapeGaps } from './read-allow.mjs';
 
 const roots = [];
 const temp = () => {
@@ -13,6 +13,11 @@ const temp = () => {
 };
 afterEach(() => {
 	for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+test('a Stop report can name a Cellix architecture check', () => {
+	const text = 'read packages/cellix/archunit-tests/src/checks/domain-conventions.ts and packages/cellix/domain-seedwork/src/index.ts';
+	assert.deepEqual(extractPaths(text), ['packages/cellix/archunit-tests/src/checks/domain-conventions.ts']);
 });
 
 test('shape check is quiet until packages/axc source changes', () => {

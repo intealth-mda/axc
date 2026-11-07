@@ -53,7 +53,7 @@ export function extractPaths(text) {
 	const re = /(?:^|[\s`'"(])((?:packages|apps|task-set-[\w.-]+\.md|\.agents)\/[A-Za-z0-9_./@+-]+)/g;
 	for (const match of text.matchAll(re)) {
 		const cited = match[1].replace(/[),.;]+$/, '').replace(/:\d+(?::\d+)?$/, '');
-		if (/^packages\/cellix(\/|$)/.test(cited)) continue;
+		if (/^packages\/cellix(\/|$)/.test(cited) && !cited.includes('/archunit-tests/')) continue;
 		out.add(cited);
 	}
 	return [...out];
@@ -101,13 +101,18 @@ const ARCH_CHECKS = [
 	'packages/axc-verification/archunit-tests/src/utils/source-files.ts',
 ];
 
-function archCheck(normalized) {
+function archPath(normalized) {
 	if (/^packages\/axc\/[^/]+\/src\/archunit-tests\//.test(normalized)) return true;
+	if (normalized.includes('/archunit-tests/') || normalized.endsWith('/archunit-tests')) return true;
 	return ARCH_CHECKS.includes(normalized);
 }
 
+function namedPath(normalized, named) {
+	return named.some((entry) => (entry.endsWith('/') ? normalized.startsWith(entry) : normalized === entry));
+}
+
 function closed(normalized) {
-	if (CELLIX_CONTRACTS.includes(normalized) || archCheck(normalized)) return false;
+	if (CELLIX_CONTRACTS.includes(normalized)) return false;
 	if (normalized === 'packages/cellix' || normalized.startsWith('packages/cellix/')) return true;
 	if (normalized === 'node_modules' || normalized.startsWith('node_modules/')) return true;
 	if (normalized === 'scripts' || normalized.startsWith('scripts/')) return true;
@@ -117,8 +122,10 @@ function closed(normalized) {
 
 export function allows(relPath, named = []) {
 	const normalized = relPath.replace(/^\.\//, '');
+	// Architecture checks stay closed until a Stop report names that path.
+	if (archPath(normalized)) return namedPath(normalized, named);
 	if (closed(normalized)) return false;
-	if (CELLIX_CONTRACTS.includes(normalized) || archCheck(normalized)) return true;
+	if (CELLIX_CONTRACTS.includes(normalized)) return true;
 	if (MAP_FILES.includes(normalized)) return true;
 	if (named.some((entry) => (entry.endsWith('/') ? normalized.startsWith(entry) : normalized === entry))) return true;
 	if (normalized.startsWith('packages/axc/') || normalized.startsWith('apps/')) return true;

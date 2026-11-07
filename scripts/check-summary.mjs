@@ -92,8 +92,19 @@ export function summarize(log, root = process.cwd()) {
 					.trim()
 					.replace(/\s{2,}/g, ' '),
 			);
-			const fix = /^Unused exported types$/.test(m[1]) ? ' — drop `export`; keep the type local' : /^Unused exports$/.test(m[1]) ? ' — drop `export`; keep it local' : '';
-			out.push(...rows.map((r) => `knip   ${m[1]}: ${r}${fix}`));
+			const fixFor = (row) => {
+				if (m[1] === 'Unused files') {
+					const found = row.match(/((?:packages|apps)\/[A-Za-z0-9_./@+-]+\.[cm]?[jt]sx?)/);
+					if (found && keepsShapeFile(found[1])) {
+						const barrel = found[1].endsWith('/index.ts');
+						return barrel
+							? ' — house shape requires this barrel. Knip reports it unused. Re-export it from the package entry. Do not delete it.'
+							: ' — house shape requires this file. Knip reports it unused. Import it from the aggregate. Do not delete it.';
+					}
+				}
+				return /^Unused exported types$/.test(m[1]) ? ' — drop `export`; keep the type local' : /^Unused exports$/.test(m[1]) ? ' — drop `export`; keep it local' : '';
+			};
+			out.push(...rows.map((r) => `knip   ${m[1]}: ${r}${fixFor(r)}`));
 			continue;
 		}
 		const cycle = line.match(/Circular package dependency detected:\s*(.+)/);
@@ -107,6 +118,14 @@ export function summarize(log, root = process.cwd()) {
 	}
 	out.push(...acceptanceFailures(log, root));
 	return [...new Set(out)];
+}
+
+/** House-shape files Knip must not delete. The aggregate test is excluded; the test filter already keeps it. */
+export function keepsShapeFile(file) {
+	const match = /^packages\/axc\/domain\/src\/domain\/contexts\/[^/]+\/([^/]+)\/([^/]+)$/.exec(file);
+	if (!match || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file)) return false;
+	const entity = match[1];
+	return [`${entity}.aggregate.ts`, `${entity}.value-objects.ts`, `${entity}.repository.ts`, 'index.ts'].includes(match[2]);
 }
 
 /** Files knip listed under `Unused files`, not unused exports. At most 20. */

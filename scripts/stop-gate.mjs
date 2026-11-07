@@ -24,7 +24,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
-import { knipUnusedFiles, OUTSIDE_TASK, report } from './check-summary.mjs';
+import { keepsShapeFile, knipUnusedFiles, OUTSIDE_TASK, report } from './check-summary.mjs';
 import { isOutputBranch, readableFile, rememberPaths, securityEnd, sessionKey, shapeGaps } from './read-allow.mjs';
 
 const MAX_BLOCKS = 6;
@@ -257,7 +257,7 @@ export function unusedAddedFiles(log, status) {
 		const file = line.slice(3).split(' -> ').pop()?.trim().replaceAll('"', '') ?? '';
 		if (line.startsWith('??') || line[0] === 'A') added.add(file);
 	}
-	return knipUnusedFiles(log).filter((file) => added.has(file) && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file) && (file.startsWith('packages/axc/') || file.startsWith('apps/')));
+	return knipUnusedFiles(log).filter((file) => added.has(file) && !keepsShapeFile(file) && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file) && (file.startsWith('packages/axc/') || file.startsWith('apps/')));
 }
 
 function importerVersions(yaml) {

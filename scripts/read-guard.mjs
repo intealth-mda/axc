@@ -20,7 +20,7 @@ function named(root, input) {
 function deny(file) {
 	const text = String(file);
 	if (text.includes('archunit-tests')) {
-		return `BLOCKED (read-budget): ${file}. Read the check under packages/cellix/archunit-tests/src/checks/ or packages/axc-verification/archunit-tests/src/checks/. Do not copy those tests.`;
+		return `BLOCKED (read-budget): ${file}. Open an architecture file only when a Stop report names its path. Do not copy those tests.`;
 	}
 	if (text.includes('packages/cellix') || text.includes('cellixjs')) {
 		return `BLOCKED (read-budget): ${file}. That file is not a framework contract. Read the domain-seedwork and mongo-repository files the repo map names.`;

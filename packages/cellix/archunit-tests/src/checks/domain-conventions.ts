@@ -203,9 +203,9 @@ export async function checkVisaConventions(config: DomainConventionsConfig): Pro
 		.withName('*.visa.ts')
 		.should()
 		.adhereTo((file) => {
-			const extendsVisa = /extends\s+PassportSeedwork\.Visa</.test(file.content);
+			const extendsVisa = /extends\s+(?:PassportSeedwork\.Visa|Visa)</.test(file.content);
 			if (!extendsVisa) {
-				allViolations.push(`[${file.path}] Visa interface does not extend PassportSeedwork.Visa`);
+				allViolations.push(`[${file.path}] Visa interface does not extend Visa. Import \`Visa\` from \`@cellix/domain-seedwork/visa\` and write \`extends Visa<\`, or extend \`PassportSeedwork.Visa\`.`);
 				return false;
 			}
 			return true;

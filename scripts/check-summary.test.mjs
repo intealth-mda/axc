@@ -125,6 +125,14 @@ test('a package cycle is the typecheck failure', () => {
 	}
 });
 
+test('a shape-required unused file is kept and named', () => {
+	const log = ['Unused files (2)', 'packages/axc/domain/src/domain/contexts/catalog/course/course.repository.ts', 'packages/axc/persistence/src/models/course.model.ts'].join('\n');
+	const lines = summarize(log, root);
+	assert.match(lines[0], /course\.repository\.ts — house shape requires this file\. Knip reports it unused\. Import it from the aggregate\. Do not delete it\./);
+	assert.match(lines[1], /course\.model\.ts$/);
+	assert.equal(lines[1].includes('house shape'), false);
+});
+
 test('knip unused files are paths, and unused exports are not', () => {
 	const log = ['Unused files (2)', 'packages/axc/persistence/src/models/course.model.ts', 'leftover  packages/axc/domain/src/course.visa.ts', 'Unused exports (1)', 'helper  packages/axc/rest/src/a.ts:9:14'].join('\n');
 	assert.deepEqual(knipUnusedFiles(log), ['packages/axc/persistence/src/models/course.model.ts', 'packages/axc/domain/src/course.visa.ts']);

@@ -79,6 +79,18 @@ test('knip unused added files can be removed; tests and tracked edits cannot', (
 	const status = ['?? packages/axc/persistence/src/models/course.model.ts', ' M packages/axc/rest/src/old.ts', '?? packages/axc/domain/src/domain/contexts/catalog/course/course.aggregate.test.ts'].join('\n');
 	const log = ['Unused files (3)', 'packages/axc/persistence/src/models/course.model.ts', 'packages/axc/rest/src/old.ts', 'packages/axc/domain/src/domain/contexts/catalog/course/course.aggregate.test.ts'].join('\n');
 	assert.deepEqual(unusedAddedFiles(log, status), ['packages/axc/persistence/src/models/course.model.ts']);
+	const shaped = [
+		'?? packages/axc/domain/src/domain/contexts/catalog/course/course.repository.ts',
+		'?? packages/axc/domain/src/domain/contexts/catalog/course/index.ts',
+		'?? packages/axc/domain/src/domain/contexts/catalog/course/course.uow.ts',
+	].join('\n');
+	const shapedLog = [
+		'Unused files (3)',
+		'packages/axc/domain/src/domain/contexts/catalog/course/course.repository.ts',
+		'packages/axc/domain/src/domain/contexts/catalog/course/index.ts',
+		'packages/axc/domain/src/domain/contexts/catalog/course/course.uow.ts',
+	].join('\n');
+	assert.deepEqual(unusedAddedFiles(shapedLog, shaped), ['packages/axc/domain/src/domain/contexts/catalog/course/course.uow.ts']);
 });
 
 test('an unused added file is deleted and the stop commits what remains', () => {
