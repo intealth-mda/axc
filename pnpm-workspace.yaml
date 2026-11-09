@@ -47,6 +47,13 @@ auditConfig:
   ignoreGhsas:
     # braces has no patched release (latest 3.0.3). GHSA-vfj7-8cjw-p6xm.
     - GHSA-vfj7-8cjw-p6xm
+    # deepmerge has no patched release (latest 4.3.1); docs build-time only via
+    # @svgr/plugin-svgo. GHSA-gcqx-w48m-w2h4.
+    - GHSA-gcqx-w48m-w2h4
+    # minimatch 11 removes makeRe, which archunit (latest 2.5.4, ^10) needs, so
+    # archunit stays on 10.x. Dev-only arch tests with repo-authored patterns;
+    # other paths are on 11. GHSA-g3hv-75wg-m249.
+    - GHSA-g3hv-75wg-m249
 
 overrides:
   happy-dom: 21.0.4
@@ -77,6 +84,10 @@ overrides:
   '@graphql-tools/utils@12': 12.1.0
   zod: 4.6.7
   'open@<11': 11.0.4
+  'uuid@<11.1.1': 11.1.1
+  'smol-toml@<1.8.1': 1.9.1
+  'glob@>=9 <14.0.2': 14.0.4
+  '@ts-morph/common>minimatch': 11.0.5
 
 patchedDependencies:
   '@azure/functions@4.11.0': patches/@azure__functions@4.11.0.patch
