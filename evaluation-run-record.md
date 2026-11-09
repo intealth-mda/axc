@@ -9,7 +9,7 @@ Evaluated session `01a1be0a-3db1-7ec1-bab0-069bb7b93dac`: Course Catalog Search 
 | Reviewer | Duy Nguyen |
 | Harness | Codex VS Code; codex_vscode 0.164.0-alpha.11.1; repository AGENTS.md, harness workflow, Cellix architecture skill |
 | Model | gpt-6.1-sol; medium reasoning effort (session export) |
-| License / Plan | Unavailable / unverified. Raw rate-limit metadata is not license or procurement evidence. |
+| License / Plan | ChatGPT Business (self_serve_business_prolite) |
 | Codebase | ECFMG/axc |
 | Task Set | A — TS-A-CATALOG-SEARCH |
 | Run Type | Harness Engineering Iteration 11 (iteration inferred from branch dn-oai-11 and preceding iteration-10 harness commits) |
