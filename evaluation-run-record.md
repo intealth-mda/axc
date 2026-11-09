@@ -8,7 +8,7 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Reviewer | Duy Nguyen |
 | Harness | Codex VS Code; codex_vscode 0.164.0-alpha.11.1 |
 | Model | gpt-6.1-sol |
-| License / Plan | Unavailable; authentication type and plan type null in supplied metadata |
+| License / Plan | ChatGPT Business (self_serve_business_prolite) |
 | Codebase | ECFMG/axc |
 | Task Set | B — TS-B-COURSE-ENROLLMENT-WORKFLOW; includes Task Set A search |
 | Run Type | Harness-engineered run; branch suffix 11, iteration designation not independently established |
