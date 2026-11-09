@@ -57,4 +57,14 @@ ignore:
         reason: Upgrade to 7.1.6 breaks @apps/docs build for docusaurus
         expires: 2027-01-31T22:36:52.000Z
         created: 2026-10-06T09:36:52.003Z
+  SNYK-JS-FLAT-22148819:
+    - '*':
+        reason: No upgrade or patch available (flat 5.0.2 is the latest 5.x; webpack-merge and the docusaurus toolchain pin it)
+        expires: 2026-12-09T00:00:00.000Z
+        created: 2026-11-09T15:00:00.000Z
+  SNYK-JS-OPEN-22112123:
+    - '*':
+        reason: Fix exists only on open 11 (ESM-only), which breaks the CommonJS require in @docusaurus/core; open runs only in docusaurus start, never in build or verify
+        expires: 2026-12-09T00:00:00.000Z
+        created: 2026-11-09T15:00:00.000Z
 patch: {}

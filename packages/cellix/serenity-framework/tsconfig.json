@@ -1,6 +1,7 @@
 {
 	"extends": "@cellix/config-typescript/node",
 	"compilerOptions": {
+		"skipLibCheck": true,
 		"erasableSyntaxOnly": false,
 		"lib": ["ES2023", "DOM", "DOM.Iterable"],
 		"rootDir": "src",
