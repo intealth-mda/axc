@@ -4,6 +4,8 @@
 //   stop:  nothing changed since start → allow (pure Q&A). Changes → `pnpm install --frozen-lockfile`, auto-fix
 //          (scripts/auto-fix.mjs: useAwait, knip exports/types, biome safe fixes; never tests), then `git add` the
 //          write dirs + `git commit` with husky ON: its pre-commit runs the one full `pnpm run verify`.
+//          Before the commit, scripts/cellix-shape.mjs blocks a NEW domain aggregate module that lacks its colocated
+//          test or its folder index.ts (nothing else is gated there).
 //          Green (verify log ends with `verify ok`, tree clean) → silent allow. Red → block with a terse
 //          one-line-per-problem report; nothing committed. The fingerprint covers untracked file contents. A plain
 //          re-stop on the same tree state is allowed; a stopHookActive retry after a block always re-verifies.
@@ -18,6 +20,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
+import { shapeProblems } from './cellix-shape.mjs';
 import { report } from './check-summary.mjs';
 import { capLog } from './log-cap.mjs';
 import { nodeProblem, requiredMajor } from './node-guard.mjs';
@@ -222,6 +225,15 @@ export function autoCommit(root) {
 		for (let d = path.dirname(f); d !== '.' && d !== '/'; d = path.dirname(d)) if (existsSync(path.join(root, d, 'package.json'))) return path.basename(d);
 		return f.split('/')[0];
 	};
+	const added = staged
+		.split('\n')
+		.filter((l) => /^A\t/.test(l))
+		.map((l) => l.split('\t').at(-1));
+	const shape = shapeProblems(added, { exists: (f) => existsSync(path.join(root, f)), read: (f) => (existsSync(path.join(root, f)) ? readFileSync(path.join(root, f), 'utf8') : null) });
+	if (shape.length) {
+		run('git', ['reset', '-q']);
+		return withFixes(block(`Cellix shape: new domain modules need their aggregate-folder companions (verify not run):\n${shape.join('\n')}`), fixes);
+	}
 	const [subject, msg] = commitMessage(staged, pkgOf);
 	const body = fixes.length ? `${msg}\n\nAuto-fix (Stop hook, before verify):\n${fixes.map((l) => `- ${l}`).join('\n')}` : msg;
 	// Per-invocation hooksPath (not a config write), so the husky pre-commit runs even where core.hooksPath is unset.

@@ -86,6 +86,24 @@ test('hard log cap: a failure whose report falls back to a raw tail of huge line
 	assert.match(reason, /… \[log cap: \d+ line\(s\) cut; full log: \S+axc-stop-\S+\.log\] …/);
 	assert.match(reason, /junk 29 z+… \[\+\d+ chars\]$/);
 });
+test('Cellix shape: a new domain aggregate module without test/index blocks before verify; trivial edits and complete shapes commit', () => {
+	const before = head();
+	write('notes.md', 'trivial\n');
+	assert.equal(stop(), null, 'a change with no new domain module is not gated');
+	assert.notEqual(head(), before);
+	const dir = path.join(repo, 'packages/axc/domain/src/domain/contexts/catalog/course');
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(path.join(dir, 'course.ts'), 'export class Course {}\n');
+	const mid = head();
+	const reason = stop();
+	assert.match(reason, /Cellix shape: new domain modules need[\s\S]*course\.ts — add its colocated unit test \S+course\.test\.ts[\s\S]*add \S+course\/index\.ts/);
+	assert.equal(head(), mid);
+	assert.equal(sh('diff', '--cached', '--name-only'), '', 'nothing left staged');
+	writeFileSync(path.join(dir, 'course.test.ts'), 'export {};\n');
+	writeFileSync(path.join(dir, 'index.ts'), "export * from './course.ts';\n");
+	assert.equal(stop({ stopHookActive: true }), null);
+	assert.notEqual(head(), mid);
+});
 test('block cap: at most 3 per session', () => {
 	const results = ['b', 'c', 'd', 'e'].map((v) => {
 		write('a.md', `${v}\n`);
