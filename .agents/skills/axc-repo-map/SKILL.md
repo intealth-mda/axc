@@ -36,7 +36,7 @@ Domain code imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/
 
 `exactOptionalPropertyTypes`: omit an absent key. Do not assign `undefined`. `noUncheckedIndexedAccess`: narrow `arr[i]` before use (TS18048). `verbatimModuleSyntax`: `import type` for type-only imports (`useImportType`). No enums (`erasableSyntaxOnly`).
 
-An exported REST helper needs an explicit return type, else TS2883. `useAwait`: an `async` function with no `await` drops `async` or gains a real await. Knip fails on unused exports and unused exported types. Export only what another file imports. Do not delete an unused export by hand during a block. The Stop hook's auto-fix un-exports it.
+An exported REST helper needs an explicit return type, else TS2883. `useAwait`: an `async` function with no `await` drops `async` or gains a real await. Knip fails on unused exports and unused exported types. Export only what another file imports. Leave unused exports; Stop drops them.
 
 ## Tests
 

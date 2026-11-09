@@ -5,7 +5,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { autoFix, changedFiles, dropAsync, fixTargets } from './auto-fix.mjs';
+import { autoFix, changedFiles, dropAsync, droppedExports, fixTargets } from './auto-fix.mjs';
 
 test('fixTargets: write dirs only; never tests, steps, features or path_deny files', () => {
 	const files = [
@@ -88,7 +88,7 @@ test('autoFix: useAwait spots from biome, knip limited to changed files, biome -
 	const t = fixTargets(changedFiles(repo));
 	assert.deepEqual(t.code, ['src/a.ts']);
 	const log = autoFix(repo, t);
-	assert.deepEqual(log, ['useAwait (drop async): src/a.ts', 'knip --fix exports,types: src/a.ts', 'biome check --write: src/a.ts']);
+	assert.deepEqual(log, ['useAwait (drop async): src/a.ts', 'knip --fix exports,types: src/a.ts [T]', 'biome check --write: src/a.ts']);
 	assert.equal(read('src/a.ts'), 'export const a = () => {\n\treturn 1;\n};\ninterface T { x: number }\n// fmt\n');
 	assert.equal(read('src/keep.ts'), 'export const keep = 1;\n', 'knip edit outside the changed files restored');
 	assert.match(read('node_modules/knip-args'), /--fix --fix-type exports --fix-type types /, 'repeated --fix-type (knip ignores the comma form)');
@@ -103,11 +103,18 @@ test('autoFix: knip load error (unbuilt worktree) → pnpm run build once, then 
 	fakeBin('pnpm', 'echo "$@" >> node_modules/pnpm-args; touch node_modules/built');
 	const env = { ...process.env, PATH: `${path.join(repo, 'node_modules/.bin')}${path.delimiter}${process.env.PATH}` };
 	const log = autoFix(repo, fixTargets(changedFiles(repo)), { env });
-	assert.deepEqual(log, ['build (knip could not load its config before it)', 'knip --fix exports,types: src/a.ts']);
+	assert.deepEqual(log, ['build (knip could not load its config before it)', 'knip --fix exports,types: src/a.ts [A]']);
 	assert.equal(read('node_modules/pnpm-args'), 'run build\n');
 	assert.match(read('src/a.ts'), /^interface A/);
 	assert.deepEqual(autoFix(repo, fixTargets(changedFiles(repo)), { env }), [], 'knip ok → no build');
 	assert.equal(read('node_modules/pnpm-args'), 'run build\n');
+});
+
+test('droppedExports: declarations and export lists, renames, type-only; re-exports and kept names ignored', () => {
+	const before = "export const a = 1;\nexport async function b() {}\nexport interface C {}\nexport type D = () => void;\nconst e = 1;\nconst f = 2;\nexport { e, f as g };\nexport type { H } from './h';\n";
+	const after = "const a = 1;\nexport async function b() {}\ninterface C {}\nexport type D = () => void;\nconst e = 1;\nconst f = 2;\nexport { e };\nexport type { H } from './h';\n";
+	assert.deepEqual(droppedExports(before, after), ['a', 'C', 'g']);
+	assert.deepEqual(droppedExports('export const x = 1;\n', 'export const x = 1;\n'), []);
 });
 
 test('autoFix: no fixer bins → no-op, empty log', () => {

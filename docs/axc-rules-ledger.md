@@ -10,3 +10,4 @@ Harness-only. Each `rule` cell is a literal substring of `file`.
 | `assert the field set` | `.agents/skills/axc-repo-map/SKILL.md` | ordered 400 details |
 | `resolved()` | `.agents/skills/axc-repo-map/SKILL.md` | TS2345 on async questions |
 | `Unit tests own parse` | `.agents/skills/axc-repo-map/SKILL.md` | validation edges pushed into acceptance scenarios |
+| `Leave unused exports` | `.agents/skills/axc-repo-map/SKILL.md` | hand-removed unused exports (one run: ~190K tokens for 5) |

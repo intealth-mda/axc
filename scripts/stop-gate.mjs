@@ -139,6 +139,8 @@ export function ensureHuskyHooks(root) {
 }
 
 const block = (lines) => `Stop blocked — nothing committed. Fix, then stop again (no verify/commit calls):\n${lines}`;
+/** Block report plus what auto-fix already changed, so the agent keeps those edits instead of redoing them. */
+const withFixes = (reason, fixes) => (fixes.length ? `${reason}\nAuto-fix already applied (keep; do not redo by hand):\n${fixes.map((l) => `- ${l}`).join('\n')}` : reason);
 
 /** Env for the auto-commit: husky ON (its pre-commit IS the verify), including Snyk. */
 export function commitEnv(base = process.env) {
@@ -150,7 +152,7 @@ export function commitEnv(base = process.env) {
 
 /**
  * Auto-fix lines from earlier failed stops + this one, deduped, each `fixer: files` line limited to the staged files
- * (a later edit may have reverted a fixed file). Pure.
+ * (a later edit may have reverted a fixed file). A file entry may carry its symbols: `a.ts [Foo bar]`. Pure.
  */
 export function mergeFixLog(prior, fixes, staged) {
 	const files = new Set(
@@ -165,7 +167,7 @@ export function mergeFixLog(prior, fixes, staged) {
 		const kept = m
 			? `${m[1]}: ${m[2]
 					.split(', ')
-					.filter((f) => files.has(f))
+					.filter((f) => files.has(f.split(' ')[0]))
 					.join(', ')}`
 			: line;
 		if (m && kept.endsWith(': ')) continue;
@@ -220,7 +222,7 @@ export function autoCommit(root) {
 	writeFileSync(out, `${c.stdout}${c.stderr}${fresh(verifyLog(root), t0) ? readFileSync(verifyLog(root), 'utf8') : ''}`);
 	if (c.status !== 0) {
 		run('git', ['reset', '-q']); // unstage only; the working tree stays as written
-		return block(report(out, root));
+		return withFixes(block(report(out, root)), fixes);
 	}
 	rmSync(logFile, { force: true });
 	if (!verifyFinished(root, t0)) return block('commit landed without a `verify ok` summary: husky verify did not run (core.hooksPath?).');

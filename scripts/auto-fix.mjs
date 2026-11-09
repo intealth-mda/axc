@@ -2,7 +2,7 @@
 // dirs; never write-boundary path_deny files; never test/spec/feature/step files (no fixer may touch assertions).
 //   1. useAwait: drop `async` where biome reports no `await` (skipped when the signature names `Promise<`).
 //   2. knip --fix (exports + types; repeated --fix-type: knip 5.88 ignores the comma form): drop unused `export`s;
-//      any other file knip touches is restored. knip errors (e.g. an unbuilt worktree: vitest configs import workspace
+//      any other file knip touches is restored. The log names each un-exported symbol: `a.ts [Foo bar]`. knip errors (e.g. an unbuilt worktree: vitest configs import workspace
 //      `dist/`) → `pnpm run build` once (turbo-cached; verify's build then hits the cache) and retry.
 //   3. biome check --write: safe fixes + format only (no --unsafe).
 // Dependency-free; every fixer is optional (missing node_modules/.bin → skipped) and fails open. Returns log lines.
@@ -16,6 +16,31 @@ const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k])
 const TEST = /(^|\/)(step-definitions|__tests__|features)\/|\.(test|spec)\.[cm]?[jt]sx?$|\.steps\.[cm]?[jt]sx?$|\.feature$/;
 const CODE = /\.[cm]?[jt]sx?$/;
 const BIOME = /\.([cm]?[jt]sx?|jsonc?|css)$/;
+
+const DECL = /^[ \t]*export[ \t]+(?:declare[ \t]+)?(?:default[ \t]+)?(?:abstract[ \t]+)?(?:async[ \t]+)?(?:function\*?|class|const|let|var|enum|interface|type|namespace)[ \t]+([A-Za-z_$][\w$]*)/gm;
+const LIST = /^[ \t]*export[ \t]+(?:type[ \t]+)?\{([^}]*)\}(?![ \t]*from)/gm;
+
+/** Names a module exports from its own declarations and `export { … }` lists (not re-exports). Pure. */
+export function exportedNames(src) {
+	const names = new Set([...src.matchAll(DECL)].map((m) => m[1]));
+	for (const m of src.matchAll(LIST))
+		for (const spec of m[1].split(',')) {
+			const name = spec
+				.trim()
+				.replace(/^type\s+/, '')
+				.split(/\s+as\s+/)
+				.at(-1)
+				?.trim();
+			if (name) names.add(name);
+		}
+	return names;
+}
+
+/** Symbols exported before and no longer exported after (what knip --fix un-exported). Pure. */
+export function droppedExports(before, after) {
+	const kept = exportedNames(after);
+	return [...exportedNames(before)].filter((n) => !kept.has(n));
+}
 
 /** Changed paths (tracked edits + untracked files, existing only) from `git status --porcelain -z -uall`. */
 export function changedFiles(root) {
@@ -112,6 +137,7 @@ export function autoFix(root, targets, { prefix = '', env = process.env } = {}) 
 					.map((f) => [f, read(f)]),
 			);
 			const knip = () => sh(bin('knip'), ['--fix', '--fix-type', 'exports', '--fix-type', 'types', '--no-exit-code', '--no-progress', '--no-config-hints']);
+			const before = new Map(targets.code.map((f) => [f, read(f)?.toString('utf8') ?? '']));
 			let built = false;
 			const t = touched(targets.code, () => {
 				if (knip().status === 0 || !hasBuild(root)) return;
@@ -124,7 +150,11 @@ export function autoFix(root, targets, { prefix = '', env = process.env } = {}) 
 				if (!saved.has(f)) spawnSync('git', ['checkout', '-q', '--', f], { cwd: root, env: gitEnv() });
 				else if (saved.get(f) && !saved.get(f).equals(read(f) ?? Buffer.alloc(0))) writeFileSync(path.join(root, f), saved.get(f));
 			}
-			if (t.length) log.push(`knip --fix exports,types: ${t.join(', ')}`);
+			const named = t.map((f) => {
+				const gone = droppedExports(before.get(f) ?? '', read(f)?.toString('utf8') ?? '');
+				return gone.length ? `${f} [${gone.join(' ')}]` : f;
+			});
+			if (t.length) log.push(`knip --fix exports,types: ${named.join(', ')}`);
 		}
 		if (targets.biome.length && existsSync(bin('biome'))) {
 			const t = touched(targets.biome, () => sh(bin('biome'), ['check', '--write', '--no-errors-on-unmatched', ...targets.biome]));

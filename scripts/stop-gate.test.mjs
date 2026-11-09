@@ -226,7 +226,7 @@ test('auto-fix log survives a failed commit: the later auto-commit body still li
 	chmodSync(biome, 0o755);
 	write('widget.ts', 'export const w = 1;\n');
 	const logFile = path.join(repo, '.git/stop-gate/auto-fix-log.json');
-	assert.match(stop({}, { FAKE_VERIFY_FAIL: failLog }) ?? '', /./, 'red verify blocks');
+	assert.match(stop({}, { FAKE_VERIFY_FAIL: failLog }) ?? '', /Auto-fix already applied \(keep; do not redo by hand\):\n- biome check --write: widget\.ts/, 'red verify blocks and names the auto-fix');
 	assert.deepEqual(JSON.parse(readFileSync(logFile, 'utf8')), ['biome check --write: widget.ts']);
 	assert.equal(stop({ stopHookActive: true }), null);
 	assert.match(sh('log', '-1', '--format=%b'), /Auto-fix \(Stop hook, before verify\):\n- biome check --write: widget\.ts/);
@@ -239,9 +239,9 @@ test('mergeFixLog: dedupes, keeps fileless lines, limits files to the staged one
 	assert.deepEqual(
 		mergeFixLog(
 			['useAwait (drop async): src/a.ts, src/gone.ts', 'build (knip could not load its config before it)'],
-			['useAwait (drop async): src/a.ts', 'knip --fix exports,types: src/gone.ts', 'biome check --write: src/b.ts'],
+			['useAwait (drop async): src/a.ts', 'knip --fix exports,types: src/gone.ts [X], src/b.ts [Y z]', 'biome check --write: src/b.ts'],
 			staged,
 		),
-		['useAwait (drop async): src/a.ts', 'build (knip could not load its config before it)', 'biome check --write: src/b.ts'],
+		['useAwait (drop async): src/a.ts', 'build (knip could not load its config before it)', 'knip --fix exports,types: src/b.ts [Y z]', 'biome check --write: src/b.ts'],
 	);
 });
