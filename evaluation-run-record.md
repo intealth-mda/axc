@@ -29,6 +29,4 @@ Evaluated session `01a1be0a-3db1-7ec1-bab0-069bb7b93dac`: Course Catalog Search 
 | Number of Human Interventions / Redirects | 0 substantive follow-up redirects visible after the task prompt. Four tool calls requested escalation; actual human approval interactions are not exposed and are not counted as zero. |
 | Reviewer Notes | (leave blank for now) |
 | Final Rubric Score | (leave blank for now) |
-| Recommendation | Continue — provisional automated score 85/100 in scoring details; obtain matched comparison, monetary usage, and operational approval evidence before a pilot decision |
-
-Evidence and scoring: [evaluation-run-record-scoring-details.md](evaluation-run-record-scoring-details.md). Usage covers only the scored implementation session, excluding this evaluation turn and its verification retry. The rubric is unchanged.
+| Recommendation | Candidate for round 2 |
