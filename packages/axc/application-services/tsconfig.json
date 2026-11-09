@@ -5,5 +5,16 @@
 		"rootDir": "src",
 		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["src/**/*.ts"],
+	"references": [
+		{
+			"path": "../domain"
+		},
+		{
+			"path": "../persistence"
+		},
+		{
+			"path": "../../cellix/domain-seedwork"
+		}
+	]
 }
