@@ -78,9 +78,7 @@ A query name cannot start with `create`, `update`, or `delete`. An update name c
 
 Do not glob, grep, or read the tree first. Edit the files the generator printed, and a file a failing check names. Other reads are closed. Do not edit `package.json`. Do not run `pnpm install`. Do not redirect a check into a file.
 
-- Pass an optional command field with a spread, and omit the property when the value is undefined.
-- Copy the `insertMany` line from the seed file. The cast is already on that line.
-- A Mongo filter is a typed object. Use dot access. `Record<string, unknown>` and bracket keys fail the check.
+A failing check names one rule. The card for that rule is `packages/axc-verification/harness/src/rule-cards.json`. That card is the edit. Do not reread this skill for the same rule.
 
 Run `pnpm run agent-check -- pnpm run check` while those behavior files change. The wrapper prints the first failure: the file, the rule, and the expected shape. A passing check on the scaffold is not the end. Do not add a script under `apps/docs`.
 
@@ -94,7 +92,7 @@ When the behavior, the seed rows, and the acceptance steps are in place, run `pn
 
 `infrastructure.ts` already starts `createMemoryMongoServer`, sets `MONGODB_URI`, and connects mongoose. `afterAll` already stops it. Do not start a second server, do not spawn a process, and do not edit `cucumber-lifecycle-hooks.ts`. Import `<camel>Seed` from `@axc/service-mongoose` and put the seed file's `insertMany` line between `mongoose.connect` and `mongoose.disconnect`. The generator re-exports that seed and adds the models dependency. Persistence does not import the seed. `apps/api/src/index.ts` connects when `MONGODB_URI` is set. Do not construct `MongoMemoryServer` there.
 
-Write `packages/axc-verification/acceptance-api/src/features/<name>.feature` and `packages/axc-verification/acceptance-api/src/step-definitions/<name>.steps.ts`. Add `apps/docs/docs/<name>.md` and put its id in the array in `apps/docs/sidebars.ts`. A create step posts `courseId` from an active row in `course.seed.ts`. `COURSE_NOT_FOUND` means the posted id is not that `_id`. Do not add a second feature file. Do not add a fetch in a step. If you add one to see a failure, remove it and run verify again.
+Write `packages/axc-verification/acceptance-api/src/features/<name>.feature` with the text from `negativeAcceptanceFeature` in `packages/axc-verification/harness/src/negative-acceptance.mjs`. That feature has one scenario each for status 200, 400, 404, and 409. Each Then phrase stays in that one file. Write `packages/axc-verification/acceptance-api/src/step-definitions/<name>.steps.ts`. Add `apps/docs/docs/<name>.md` and put its id in the array in `apps/docs/sidebars.ts`. A create step posts `courseId` from an active row in `course.seed.ts`. `COURSE_NOT_FOUND` means the posted id is not that `_id`. Do not add a second feature file. Do not add a fetch in a step. If you add one to see a failure, remove it and run verify again.
 
 `generate` narrows reads and writes to the files it printed, and adds every model `*.seed.ts` to both lists. Read and edit those seeds. Instruction files stay readable. Do not edit `.cellix/sessions` to widen that list. A failing check names the next file. The last line of a failed check is the edit. A failed verify ends with `Acceptance:` — the scenario, Expected, Received, response body, and step file. That line is the next edit. Rerun acceptance with `pnpm run agent-check -- pnpm --filter @axc-verification/acceptance-api test:acceptance`. Do not glob a whole tree. Open `REFERENCE.md` only when a check names a file role.
 
