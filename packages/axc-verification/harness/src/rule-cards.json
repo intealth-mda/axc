@@ -1,0 +1,13 @@
+{
+	"optional-spread": "Pass an optional command field with a spread, and omit the property when the value is undefined.",
+	"insert-many": "Copy the insertMany line from the seed file. The cast is already on that line. Do not copy the seed into a handler or a read repository.",
+	"get-new-item": "Append a collection entry with getNewItem(), then assign its fields. Do not call addItem with a plain object.",
+	"status-409": "Throw Object.assign(new Error('...'), { status: 409 }) for a duplicate. Do not replace that status with 400.",
+	"status-400": "A bad value throws status 400. Change minLength, maxLength, or pattern on the existing VOString. The class body stays empty.",
+	"status-404": "A missing id throws status 404. The route returns that status.",
+	"vo-string": "Change minLength, maxLength, or pattern on the existing VOString. The class body stays empty.",
+	"mongo-filter": "A Mongo filter is a typed object. Use dot access. Record<string, unknown> and bracket keys fail the check.",
+	"empty-function": "An action file exports one Command and one const. A local helper is an unexported arrow. The word function fails the check.",
+	"read-repo": "Leave the read method as EntityReference[]. Shape the HTTP body in the REST index. Do not copy the seed into the read repository.",
+	"session-deny": "A denial names a wrong path. Edit a file the session lists. Do not edit .cellix/sessions to widen that list."
+}
