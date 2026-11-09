@@ -26,7 +26,7 @@ Each package's public API is `src/index.ts`. Re-export every type or value anoth
 
 ## Layering
 
-Keep each `src/index.ts` a composition root. Do not put seed records or `.filter(`, `.sort(`, or `.slice(` there.
+Keep each `src/index.ts` a composition root: no seed records, `.filter(`, `.sort(`, or `.slice(`.
 
 Stored catalog and enrollment state goes through `@axc/persistence` and `@axc/service-mongoose`. In-memory Mongo is the backing store. Do not keep that state in an application-service array.
 
