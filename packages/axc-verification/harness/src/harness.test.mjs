@@ -5,9 +5,11 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { decideCommand, decideWrite, hookResponse } from './decide-command.mjs';
 import { appendDecision } from './decision-log.mjs';
+import { compactNote, readFailure, storeFailure } from './last-failure.mjs';
 import { negativeAcceptanceFeature, thenPhrases } from './negative-acceptance.mjs';
-import { cardForCheckOutput, cardForRule } from './rule-cards.mjs';
+import { cardForCheckOutput, cardForRule, cardLine } from './rule-cards.mjs';
 import { listGoldenTasks, scoreSet, scoreTrajectory } from './score-trajectory.mjs';
+import { stopFollowup } from './stop-followup.mjs';
 
 const passing = {
 	commands: [
@@ -97,4 +99,29 @@ test('decisions append as jsonl', () => {
 	assert.equal(lines.length, 2);
 	assert.equal(JSON.parse(lines[0]).ruleId, 'explore');
 	assert.equal(JSON.parse(lines[1]).permission, 'deny');
+});
+
+test('a failed check prints one card and nothing else', () => {
+	const line = cardLine('course.aggregate.ts getNewItem expected, found addItem');
+	assert.match(line, /getNewItem/);
+	assert.equal(line.includes('golden-tasks'), false);
+	assert.equal(cardLine('all good'), '');
+});
+
+test('stop follow-up asks for check, then verify once', () => {
+	assert.equal(stopFollowup({ status: 'completed', loopCount: 0 }), 'Run pnpm run agent-check -- pnpm run check.');
+	assert.equal(stopFollowup({ status: 'completed', loopCount: 0, readyForVerify: true }), 'Run pnpm run agent-check -- pnpm run verify once.');
+	assert.equal(stopFollowup({ status: 'completed', loopCount: 1, readyForVerify: true }), null);
+	assert.equal(stopFollowup({ status: 'completed', loopCount: 0, verifyFlag: 'pass' }), null);
+	assert.equal(stopFollowup({ status: 'aborted', loopCount: 0 }), null);
+});
+
+test('compact note keeps the files and the last failure', () => {
+	const file = join(mkdtempSync(join(tmpdir(), 'harness-')), 'last-failure.json');
+	storeFailure(file, { files: ['packages/axc/domain/src/course.aggregate.ts'], failure: 'getNewItem expected' });
+	const note = compactNote(readFailure(file));
+	assert.match(note, /course\.aggregate\.ts/);
+	assert.match(note, /getNewItem expected/);
+	assert.equal(note.includes('SKILL'), false);
+	assert.equal(note.includes('golden-tasks'), false);
 });

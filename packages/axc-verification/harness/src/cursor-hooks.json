@@ -1,0 +1,18 @@
+{
+	"beforeShellExecution": [
+		{
+			"command": "node packages/axc-verification/harness/src/command-hook.mjs",
+			"failClosed": true
+		}
+	],
+	"stop": [
+		{
+			"command": "node packages/axc-verification/harness/src/stop-hook.mjs"
+		}
+	],
+	"preCompact": [
+		{
+			"command": "node packages/axc-verification/harness/src/compact-hook.mjs"
+		}
+	]
+}

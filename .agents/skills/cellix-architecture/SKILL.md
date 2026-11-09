@@ -78,7 +78,7 @@ A query name cannot start with `create`, `update`, or `delete`. An update name c
 
 Do not glob, grep, or read the tree first. Edit the files the generator printed, and a file a failing check names. Other reads are closed. Do not edit `package.json`. Do not run `pnpm install`. Do not redirect a check into a file.
 
-A failing check names one rule. The card for that rule is `packages/axc-verification/harness/src/rule-cards.json`. That card is the edit. Do not reread this skill for the same rule.
+A failing check names one rule. The card for that rule is `packages/axc-verification/harness/src/rule-cards.json`. That card is the edit. Do not reread this skill for the same rule. Do not read `packages/axc-verification/harness/src/golden-tasks.json`.
 
 Run `pnpm run agent-check -- pnpm run check` while those behavior files change. The wrapper prints the first failure: the file, the rule, and the expected shape. A passing check on the scaffold is not the end. Do not add a script under `apps/docs`.
 

@@ -27,6 +27,11 @@ export function cardForCheckOutput(text) {
 	return null;
 }
 
+export function cardLine(checkOutput) {
+	const match = cardForCheckOutput(checkOutput ?? '');
+	return match ? match.card : '';
+}
+
 export function cardForDeny(ruleId) {
 	const fromCommand = {
 		explore: 'session-deny',
