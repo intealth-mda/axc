@@ -23,7 +23,7 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Cached Tokens | 5,412,864 included in input; cache-write input 0 |
 | Output Tokens | 38,235 (includes 4,018 reasoning output tokens) |
 | Total Tokens or Credits Used | 5,551,831 tokens = input + output; credits unavailable in local session log |
-| Estimated Cost | Unavailable; no pricing, billing or credit evidence supplied |
+| Estimated Cost | $1.13 |
 | Elapsed Time | 15m 40s; active 940,267 ms, wall 940,000 ms (supplied metadata). 2026-11-09 01:13:38.039–01:29:18.256 UTC; Nov 8, 8:13:38–8:29:18 PM EST. Excludes this evaluation. |
 | Number of Human Interventions / Redirects | 0 follow-up user redirects visible in export; approval interactions are not separately exposed as human-intervention counts |
 | Reviewer Notes | Task Set B and inherited Task Set A criteria are supported; full verification and fresh API-host acceptance passed. No meaningful security findings; guardrails were followed (5/5). Reviewer feedback: harness engineering clearly improved quality, cost, speed and repeatability (5/5); 5,551,831 tokens and 15m 40s represent very good efficiency (5/5). Developer workflow fit is 4/5 due to setup and verification retries. Operational/vendor readiness is 4/5: likely approvable, with enterprise license and organizational approval details still unverified. Dollar cost remains unavailable; security scans were not requested or run. Comparative improvement reflects reviewer feedback rather than an independently reviewed matched baseline. |
