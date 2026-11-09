@@ -1,0 +1,19 @@
+{
+	"extends": ["//"],
+	"tasks": {
+		"test:arch": {
+			"description": "Architecture tests read other packages and the docs site, so those sources are inputs: a cached pass must not hide a new violation",
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"$TURBO_ROOT$/packages/axc/**/*.ts",
+				"!$TURBO_ROOT$/packages/axc/*/dist/**",
+				"$TURBO_ROOT$/packages/axc/*/package.json",
+				"$TURBO_ROOT$/packages/axc/*/tsconfig*.json",
+				"$TURBO_ROOT$/packages/axc-verification/acceptance-api/src/**",
+				"$TURBO_ROOT$/apps/api/src/**",
+				"$TURBO_ROOT$/apps/docs/docs/**",
+				"$TURBO_ROOT$/apps/docs/sidebars.ts"
+			]
+		}
+	}
+}
