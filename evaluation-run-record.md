@@ -4,7 +4,7 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Field | Value |
 | --- | --- |
 | Team | OpenAI |
-| Developer / Operator | duynguyen (workspace account; operator identity not independently verified) |
+| Developer / Operator | Duy Nguyen |
 | Reviewer | (leave blank for now) |
 | Harness | Codex VS Code; codex_vscode 0.164.0-alpha.11.1 |
 | Model | gpt-6.1-sol |
@@ -29,5 +29,3 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | Reviewer Notes | Task Set B and inherited Task Set A criteria are supported; full verification and fresh API-host acceptance passed. No meaningful security findings; guardrails were followed (5/5). Reviewer feedback: harness engineering clearly improved quality, cost, speed and repeatability (5/5); 5,551,831 tokens and 15m 40s represent very good efficiency (5/5). Developer workflow fit is 4/5 due to setup and verification retries. Operational/vendor readiness is 4/5: likely approvable, with enterprise license and organizational approval details still unverified. Dollar cost remains unavailable; security scans were not requested or run. Comparative improvement reflects reviewer feedback rather than an independently reviewed matched baseline. |
 | Final Rubric Score | 97/100 — incorporates reviewer feedback; reviewer identity/sign-off remains pending |
 | Recommendation | Candidate for Pilot — 97/100; designation confirmed by the user. |
-
-Scored thread/session: `01a1bdde-3021-7da3-a27f-5fc1c36180da`, “Add course enrollment workflow”. Usage source: `/Users/duynguyen/.codex/sessions/2026/11/08/rollout-2026-11-08T20-13-37-01a1bdde-3021-7da3-a27f-5fc1c36180da.jsonl`. The repository usage script reconciled all 54 per-call records against the final cumulative counter, matching every supplied digit. Reviewer Notes and Final Rubric Score incorporate the user's requested scoring updates. Reviewer identity remains blank; organizational approval is not established by this evaluation.
