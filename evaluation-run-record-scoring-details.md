@@ -114,14 +114,4 @@ The supplied figures match the raw export's last cumulative event and the sum of
 | 2026-11-09 02:05 | 2,193,273 | 2,169,088 | 9,996 | 2,203,269 |
 | 2026-11-09 02:10 | 2,097,186 | 2,078,976 | 6,466 | 2,103,652 |
 
-These buckets are not task phases or causal attribution. The run's working record lacked cumulative phase checkpoints; phase deltas and retry-specific token costs remain unknown. Average per-call input was 86,511 tokens; first 23,809 and last 120,039. The export contains 58 top-level exec tool calls; nested tool calls are not equivalent to that count. No subagent calls appear. Four top-level calls requested escalation, including registry installation and local host/gate execution; no substantive user redirect followed the initial prompt. Whether each approval involved a person is unavailable.
-
-Supplied active time is 711,188 ms and wall time 711,000 ms; raw supplied endpoints span 711,045 ms. Preserve these slightly different measurement definitions rather than silently making them identical. Credits and dollar cost are unavailable. Raw rate-limit plan_type self_serve_business_prolite is not proof of the user's contractual plan, license, or production approval.
-
-No matched baseline with identical starting commit, dependency tree, cache policy and settings was provided. No speed, cost or quality improvement is attributed to the harness. This evaluation's tools, retries and tokens are excluded from the scored session figures.
-
-## Change review and recommendation
-
-The evaluation began with the implementation's existing tracked/untracked edits plus an untracked rubric and empty scoring-details file. It changes only the run record and scoring-details file; rubric, implementation, fixed requirements/prompts, README and vendored Cellix remain unchanged. Original dependency additions stay within the models exception and justified generated-lockfile rule. No staging, commits, pushes or hook bypasses occurred. Working and staged whitespace checks pass; the index is empty. A targeted Biome check on the two evaluation Markdown files exited 1 because no files were processed under the current configuration; this is not counted as a passing Markdown lint check. Separate newline, whitespace and code-fence checks passed.
-
-Continue with the implemented feature. Before a pilot designation, obtain actual license/vendor/admin/procurement evidence and a matched comparison with monetary usage. Fixture-only persistence is an explicit task limitation, not durable production storage. Human reviewer notes and final rubric approval remain open.
+These buckets are not task phases or causal attribution. The run's working record lacked cumulative phase checkpoints; phase deltas and retry-specific token costs remain unknown. Average per-call input was 86,511 tokens; first 23,809 and last 120,039. The export contains 58 top-level exec tool calls; nested tool calls are not equivalent to that count. No subagent calls appear. Four top-level calls requested escalation, including registry installation and local host/gate execution; no substantive user redirect followed the initial prompt.
