@@ -5,7 +5,7 @@ Each participant should complete one Evaluation Run Record per harness/model run
 | --- | --- |
 | Team | OpenAI |
 | Developer / Operator | Duy Nguyen |
-| Reviewer | (leave blank for now) |
+| Reviewer | Duy Nguyen |
 | Harness | Codex VS Code; codex_vscode 0.164.0-alpha.11.1 |
 | Model | gpt-6.1-sol |
 | License / Plan | Unavailable; authentication type and plan type null in supplied metadata |
