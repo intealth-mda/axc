@@ -19,6 +19,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
 import { report } from './check-summary.mjs';
+import { nodeProblem, requiredMajor } from './node-guard.mjs';
 
 const MAX_BLOCKS = 3;
 const NVM = 'export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 && nvm use >/dev/null 2>&1; ';
@@ -186,10 +187,15 @@ const readFixLog = (file) => {
 	}
 };
 
+/** The Node the commit's verify will use (after `nvm use`) has the `.nvmrc` major? null, else the error + fix. */
+const activeNodeProblem = (root, env = process.env) => nodeProblem(run('sh', ['-c', `${NVM}node -v`], env).stdout ?? '', requiredMajor(root));
+
 /** install → add → commit (husky verify). Returns null on success, else the terse failure report. */
 export function autoCommit(root) {
 	const t0 = Date.now();
 	const env = commitEnv();
+	const wrongNode = activeNodeProblem(root, env);
+	if (wrongNode) return block(`${wrongNode}\n(The agent cannot fix this: report it to the user and stop.)`);
 	const out = path.join(tmp(), `axc-stop-${path.basename(root)}.log`);
 	if (existsSync(path.join(root, 'pnpm-lock.yaml'))) {
 		const i = run('sh', ['-c', `${NVM}pnpm install --frozen-lockfile`], { ...env, HUSKY: '0' }); // HUSKY=0: no hooksPath rewrite
@@ -266,6 +272,8 @@ function main() {
 	const file = path.join(git('rev-parse', '--absolute-git-dir').trim(), 'stop-gate', `${id}.json`);
 	if (mode === 'start') {
 		if (existsSync(file)) return;
+		const wrongNode = activeNodeProblem(root);
+		if (wrongNode) process.stdout.write(JSON.stringify({ systemMessage: `Stop hook cannot verify or commit: ${wrongNode}` }));
 		mkdirSync(path.dirname(file), { recursive: true });
 		writeFileSync(file, JSON.stringify({ ...snapshot(), at: Date.now(), blocks: 0 }));
 		return;

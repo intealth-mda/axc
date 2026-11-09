@@ -234,6 +234,21 @@ test('auto-fix log survives a failed commit: the later auto-commit body still li
 	assert.equal(sh('status', '--porcelain'), '');
 });
 
+test('wrong Node major (.nvmrc): start warns, stop blocks with the fix and commits nothing; matching major commits', () => {
+	write('.nvmrc', '1\n');
+	sh('add', '-A');
+	sh('commit', '-qm', 'pin', '--no-verify');
+	rmSync(path.join(repo, '.git/stop-gate'), { recursive: true, force: true });
+	assert.match(JSON.parse(hook('start').stdout).systemMessage, /^Stop hook cannot verify or commit: Node v\d+\.\S+ is active; this repo needs Node 1 \(\.nvmrc\)\. Fix: `nvm install 1/);
+	const before = head();
+	write('widget.md', 'w\n');
+	assert.match(stop() ?? '', /Stop blocked — nothing committed[\s\S]*this repo needs Node 1 \(\.nvmrc\)[\s\S]*report it to the user/);
+	assert.equal(head(), before);
+	write('.nvmrc', `${process.versions.node}\n`);
+	assert.equal(stop({ stopHookActive: true }), null);
+	assert.notEqual(head(), before);
+});
+
 test('mergeFixLog: dedupes, keeps fileless lines, limits files to the staged ones', () => {
 	const staged = 'A\tsrc/a.ts\nM\tsrc/b.ts\n';
 	assert.deepEqual(

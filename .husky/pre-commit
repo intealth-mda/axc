@@ -4,6 +4,9 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
 	. "$NVM_DIR/nvm.sh" >/dev/null 2>&1 && nvm use >/dev/null 2>&1 || true
 fi
 
+# Wrong Node major (.nvmrc): fail loudly with the fix, before pnpm crashes cryptically.
+node scripts/node-guard.mjs || exit 1
+
 pnpm exec lint-staged --quiet
 
 # One gate. On failure, print a short excerpt and the full log path.
