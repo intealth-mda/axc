@@ -1,3 +1,9 @@
+import type { DataSources } from '@axc/persistence';
+import { Training, type TrainingApplicationService } from './contexts/training/index.ts';
+
+export { WorkflowError } from '@axc/domain';
+export type { EnrollmentChangeStatusCommand } from './contexts/training/enrollment-request/change-status.ts';
+export type { EnrollmentCreateCommand } from './contexts/training/enrollment-request/create.ts';
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
 
@@ -13,9 +19,11 @@ export interface HealthStatus {
 
 export interface ApiContext {
 	environment: HealthEnvironment;
+	dataSourcesFactory: () => DataSources;
 }
 
 export interface ApplicationServices {
+	Training: TrainingApplicationService;
 	health: {
 		getStatus(): HealthStatus;
 	};
@@ -36,8 +44,10 @@ export function resolveEnvironment(nodeEnv: string | undefined): HealthEnvironme
 }
 
 export function buildApplicationServicesFactory(context: ApiContext): ApplicationServicesFactory {
+	const dataSources = context.dataSourcesFactory();
 	const forRequest = (): Promise<ApplicationServices> =>
 		Promise.resolve({
+			Training: Training(dataSources),
 			health: {
 				getStatus(): HealthStatus {
 					return {
