@@ -1,3 +1,5 @@
+export * as Contexts from './domain/contexts/index.ts';
+
 import type { Repository } from '@cellix/domain-seedwork/repository';
 
 /** Repositories added in this package implement the Cellix repository contract. */
