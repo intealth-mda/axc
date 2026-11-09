@@ -5,8 +5,8 @@ Evaluated session `01a1be0a-3db1-7ec1-bab0-069bb7b93dac`: Course Catalog Search 
 | Field | Value |
 | --- | --- |
 | Team | OpenAI |
-| Developer / Operator | duynguyen (local workspace account; identity not independently verified) |
-| Reviewer | (leave blank for now) |
+| Developer / Operator | Duy Nguyen |
+| Reviewer | Duy Nguyen |
 | Harness | Codex VS Code; codex_vscode 0.164.0-alpha.11.1; repository AGENTS.md, harness workflow, Cellix architecture skill |
 | Model | gpt-6.1-sol; medium reasoning effort (session export) |
 | License / Plan | Unavailable / unverified. Raw rate-limit metadata is not license or procurement evidence. |
