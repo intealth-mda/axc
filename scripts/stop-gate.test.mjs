@@ -76,6 +76,16 @@ test('edits + red verify → block with the terse scenario report, nothing commi
 	assert.equal(stop({ stop_hook_active: true }), null);
 	assert.notEqual(head(), before);
 });
+test('hard log cap: a failure whose report falls back to a raw tail of huge lines still reaches the agent capped', () => {
+	const huge = path.join(repo, 'huge-fail.txt');
+	writeFileSync(huge, Array.from({ length: 30 }, (_, i) => `junk ${i} ${'z'.repeat(5000)}`).join('\n'));
+	write('a.md', 'b\n');
+	const reason = stop({}, { FAKE_VERIFY_FAIL: huge });
+	assert.match(reason, /^Stop blocked — nothing committed/);
+	assert.ok(reason.length <= 8000, `${reason.length}`);
+	assert.match(reason, /… \[log cap: \d+ line\(s\) cut; full log: \S+axc-stop-\S+\.log\] …/);
+	assert.match(reason, /junk 29 z+… \[\+\d+ chars\]$/);
+});
 test('block cap: at most 3 per session', () => {
 	const results = ['b', 'c', 'd', 'e'].map((v) => {
 		write('a.md', `${v}\n`);

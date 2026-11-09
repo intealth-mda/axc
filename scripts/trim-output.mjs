@@ -1,7 +1,9 @@
 // PostToolUse shell-output trimmer for Grok Build (updatedToolOutput). Dependency-free; fails open (no output = unchanged).
 // Long output only: drop pass/progress/blank lines, then keep head + tail + every error-looking line between.
+// Then the hard cap (scripts/log-cap.mjs): very long lines or a huge total are cut even when the line count is small.
 import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { capLog } from './log-cap.mjs';
 
 const MAX_LINES = 60;
 const HEAD = 10;
@@ -12,7 +14,10 @@ const NOISE = /^\s*$|^\s*(✓|✔|√|ok \d|PASS\b)|\b(passed|successful|cache (
 
 export function trim(text, fullLog) {
 	const lines = text.split('\n');
-	if (lines.length <= MAX_LINES) return undefined;
+	if (lines.length <= MAX_LINES) {
+		const capped = capLog(text, { log: fullLog });
+		return capped === text ? undefined : capped;
+	}
 	const kept = lines.filter((line, i) => i === 0 || ERROR.test(line) || !NOISE.test(line));
 	let out = kept;
 	if (kept.length > MAX_LINES) {
@@ -21,7 +26,7 @@ export function trim(text, fullLog) {
 		out = [...kept.slice(0, HEAD), `… ${middle.length - errors.length} lines omitted …`, ...errors, ...kept.slice(-TAIL)];
 	}
 	const note = `[trimmed ${lines.length} → ${out.length} lines${fullLog ? `; full output: ${fullLog}` : ''}]`;
-	return `${out.join('\n')}\n${note}`;
+	return `${capLog(out.join('\n'), { log: fullLog })}\n${note}`;
 }
 
 // realpath + file URL: a symlinked or space-containing path must still run main, not no-op.

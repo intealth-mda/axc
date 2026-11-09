@@ -11,6 +11,14 @@ const run = (input) => execFileSync(process.execPath, [path.join(import.meta.dir
 const bash = (text) => JSON.stringify({ toolName: 'run_terminal_command', toolResult: { type: 'Bash', exit_code: 1, output_for_prompt: text, output_file: '/tmp/x.log' } });
 const passes = Array.from({ length: 200 }, (_, i) => `  ✓ case ${i} passed`);
 
+test('hard cap: a few huge lines are cut even under the line limit; long output stays within the char cap', () => {
+	const huge = `exit: 1\n${'x'.repeat(200000)}\nError: boom`;
+	const out = trim(huge, '/tmp/x.log');
+	assert.ok(out.length <= 8000, `${out.length}`);
+	assert.match(out, /^exit: 1\nx+… \[\+199000 chars\]\nError: boom$/);
+	const wide = Array.from({ length: 300 }, (_, i) => `error ${i} ${'y'.repeat(900)}`).join('\n');
+	assert.ok(trim(wide, '/tmp/x.log').length <= 8200);
+});
 test('short output untouched', () => {
 	assert.equal(trim('exit: 0\nok\n'), undefined);
 	assert.equal(run(bash('exit: 0\n1\n2\n')), '');

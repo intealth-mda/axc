@@ -19,6 +19,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
 import { report } from './check-summary.mjs';
+import { capLog } from './log-cap.mjs';
 import { nodeProblem, requiredMajor } from './node-guard.mjs';
 
 const MAX_BLOCKS = 3;
@@ -51,6 +52,7 @@ export function snapshot() {
 
 const tmp = () => process.env.TMPDIR ?? tmpdir();
 const verifyLog = (root) => path.join(tmp(), `axc-verify-${path.basename(root)}.log`);
+const stopLog = (root) => path.join(tmp(), `axc-stop-${path.basename(root)}.log`);
 const fresh = (file, since) => existsSync(file) && statSync(file).mtimeMs >= since;
 
 /** True when the verify log was written since `since` and ends with husky's `verify ok` summary line. */
@@ -196,7 +198,7 @@ export function autoCommit(root) {
 	const env = commitEnv();
 	const wrongNode = activeNodeProblem(root, env);
 	if (wrongNode) return block(`${wrongNode}\n(The agent cannot fix this: report it to the user and stop.)`);
-	const out = path.join(tmp(), `axc-stop-${path.basename(root)}.log`);
+	const out = stopLog(root);
 	if (existsSync(path.join(root, 'pnpm-lock.yaml'))) {
 		const i = run('sh', ['-c', `${NVM}pnpm install --frozen-lockfile`], { ...env, HUSKY: '0' }); // HUSKY=0: no hooksPath rewrite
 		if (i.status !== 0) {
@@ -261,7 +263,7 @@ function main() {
 	if (mode === 'run') {
 		const reason = git('status', '--porcelain').trim() ? (autoCommit(root) ?? publish()) : null;
 		if (reason) {
-			console.log(reason);
+			console.log(capLog(reason, { log: stopLog(root) }));
 			process.exit(1);
 		}
 		console.log(`${existsSync(verifyLog(root)) ? (readFileSync(verifyLog(root), 'utf8').trimEnd().split('\n').at(-1) ?? 'ok') : 'nothing to commit'} · ${git('rev-parse', '--short', 'HEAD').trim()}`);
@@ -293,7 +295,7 @@ function main() {
 	}
 	const now = snapshot();
 	writeFileSync(file, JSON.stringify({ ...start, blocks: start.blocks + 1, last: 'block', needsPublish: reason.includes('committed,'), lastBlocked: `${now.head}:${now.fingerprint}` }));
-	process.stdout.write(JSON.stringify({ decision: 'block', reason }));
+	process.stdout.write(JSON.stringify({ decision: 'block', reason: capLog(reason, { log: stopLog(root) }) }));
 }
 
 // realpath + file URL: a symlinked (macOS /tmp, /var) or space-containing path must still run main, not no-op.
