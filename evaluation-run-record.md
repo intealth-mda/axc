@@ -28,5 +28,5 @@ Evaluated session `01a1be0a-3db1-7ec1-bab0-069bb7b93dac`: Course Catalog Search 
 | Elapsed Time | Active 711,188 ms (11m 51.188s); wall 711,000 ms (11m 51s), supplied metadata. 2026-11-08 21:01:45.192–21:13:36.237 America/New_York (UTC 2026-11-09 02:01:45.192–02:13:36.237); endpoint difference 711.045s. |
 | Number of Human Interventions / Redirects | 0 substantive follow-up redirects visible after the task prompt. Four tool calls requested escalation; actual human approval interactions are not exposed and are not counted as zero. |
 | Reviewer Notes | Automated assessment: all 11 functional requirements and 12 acceptance criteria satisfied; fresh feature, architecture, and running-host evidence supports passing validation. Cellix alignment and scoped guardrails met. Matched baseline, monetary cost, and license/vendor readiness remain unverified; fixture-backed storage is not production persistence. Human approval remains pending. |
-| Final Rubric Score | 85/100 — weighted total from [scoring details](evaluation-run-record-scoring-details.md); provisional automated assessment, pending human approval |
+| Final Rubric Score | 85/100 — weighted total from [scoring details](evaluation-run-record-scoring-details.md)|
 | Recommendation | Candidate for round 2. Gather matched baseline, monetary cost, and operational/vendor evidence before pilot consideration. |
