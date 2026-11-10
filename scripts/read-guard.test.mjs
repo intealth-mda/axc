@@ -54,6 +54,9 @@ test('product source is readable and discovery trees are not', () => {
 	assert.match(read('packages/axc-verification/archunit-tests/src/x.ts'), /Stop report names/);
 	assert.match(read('node_modules/@cellix/domain-seedwork/package.json'), /closed/);
 	assert.match(read('scripts/read-allow.mjs'), /closed/);
+	assert.equal(read('package.json'), undefined);
+	assert.equal(read('pnpm-workspace.yaml'), undefined);
+	assert.equal(check({ toolName: 'read_file', toolInput: { target_file: 'scripts/read-allow.mjs' } }, root, ['scripts/read-allow.mjs']), undefined);
 	const verifyLog = path.join(tmpdir(), 'axc-verify-axc-nrn-xai-4-a.log');
 	assert.equal(read(verifyLog), undefined);
 	assert.equal(check({ toolName: 'grep', toolInput: { pattern: 'error TS', path: path.join(tmpdir(), 'axc-stop-axc-nrn-xai-4-a.log') } }, root), undefined);
@@ -84,7 +87,6 @@ test('a deny names the path, a reason, and the repo map, and does not invite a r
 		'packages/cellix/domain-seedwork/src/domain-seedwork/aggregate-root.test.ts',
 		'packages/axc-verification/archunit-tests/src/x.ts',
 		'biome.json',
-		'pnpm-workspace.yaml',
 		'node_modules/x/package.json',
 		'scripts/read-allow.mjs',
 		'/Volumes/files/src/cellixjs/README.md',

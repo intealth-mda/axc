@@ -1,11 +1,14 @@
 {
 	"_comment": "Zero-token AXC write boundary. Tune here; enforced by write-boundary.py (Copilot preToolUse) and scripts/write-guard.mjs (.grok/hooks PreToolUse). Do not vendor .claude/.",
-	"allowed_write_globs": ["apps/api/**", "apps/docs/**", "packages/axc/**", "packages/axc-verification/**", "packages/cellix/**", ".agents-work/**"],
+	"allowed_write_globs": ["apps/api/**", "apps/docs/**", "packages/axc/**", "packages/axc-verification/**", "packages/cellix/**", ".agents-work/**", "package.json", "pnpm-workspace.yaml"],
 	"_comment_agents_work": ".agents-work/** is for Copilot multi-agent workflow markers only; SCORE default path does not load .github/agents/*.",
 	"_comment_no_new_dirs": "Cellix contexts need new folders under packages/axc. Leave this empty.",
 	"no_new_dirs": [],
 	"path_deny": [
-		["(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|poetry\\.lock|Cargo\\.lock|Gemfile\\.lock)$", "Lockfile. Prefer workspace deps; do not rewrite the lockfile."],
+		[
+			"(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|poetry\\.lock|Cargo\\.lock|Gemfile\\.lock)$",
+			"Lockfile. Stop refreshes and stages pnpm-lock.yaml when package.json or pnpm-workspace.yaml dependencies change. Do not edit it."
+		],
 		["(^|/)\\.env(\\.|$)", "Secrets file."],
 		["(^|/)\\.git/", "Git internals."],
 		["(^|/)(id_rsa|id_ed25519|\\.pem|\\.p12|\\.keystore)$", "Private key material."],

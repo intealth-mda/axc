@@ -20,6 +20,7 @@ import {
 	unusedAddedFiles,
 	withProjectReferences,
 	workspaceDependencyDirs,
+	workspacePinsChanged,
 } from './stop-gate.mjs';
 
 const gate = path.join(import.meta.dirname, 'stop-gate.mjs');
@@ -67,6 +68,53 @@ test('lockfile refresh may add a dependency and may not move an existing version
 	const peer = before.replace('4.1.12(@types/node@24.10.1)', '8.24.1(supports-color@8.1.1)');
 	assert.deepEqual(lockfileVersionDrifts(peer, peer.replace('(supports-color@8.1.1)', '')), []);
 	assert.deepEqual(lockfileVersionDrifts(peer, peer.replace('8.24.1', '8.24.2')), ['packages/axc/rest devDependencies vitest: 8.24.1(supports-color@8.1.1) -> 8.24.2(supports-color@8.1.1)']);
+});
+
+test('a catalog or override edit is a pin change; an audit ignore is not', () => {
+	const before = 'catalog:\n  mongoose: 8.24.1\noverrides:\n  glob: 13.0.7\nauditConfig:\n  ignoreGhsas:\n    - GHSA-vfj7-8cjw-p6xm\n';
+	assert.equal(workspacePinsChanged(before, before.replace('8.24.1', '8.24.8')), true);
+	assert.equal(workspacePinsChanged(before, before.replace('glob: 13.0.7', 'glob: 14.0.4')), true);
+	assert.equal(workspacePinsChanged(before, `${before}    - GHSA-w5hq-g745-h8pq\n`), false);
+});
+
+test('a catalog pin change refreshes and stages the lockfile with the workspace manifest', () => {
+	mkdirSync(path.join(repo, 'bin'), { recursive: true });
+	mkdirSync(path.join(repo, '.github/hooks'), { recursive: true });
+	write('.github/hooks/write-boundary.json', JSON.stringify({ allowed_write_globs: ['packages/axc/**', 'package.json', 'pnpm-workspace.yaml'], path_deny: [] }));
+	mkdirSync(path.join(repo, 'packages/axc'), { recursive: true });
+	write('packages/axc/keep.ts', 'export {}\n');
+	write('pnpm-workspace.yaml', 'catalog:\n  mongoose: 8.24.1\n');
+	write('pnpm-lock.yaml', 'lock old\n');
+	write('bin/pnpm', '#!/bin/sh\nprintf "lock new\\n" > pnpm-lock.yaml\n');
+	chmodSync(path.join(repo, 'bin/pnpm'), 0o755);
+	sh('add', '-A');
+	sh('commit', '-qm', 'pins', '--no-verify');
+	hook('start');
+	write('pnpm-workspace.yaml', 'catalog:\n  mongoose: 8.24.8\n');
+	assert.equal(stop({}, { PATH: `${path.join(repo, 'bin')}:${process.env.PATH}` }), null);
+	const committed = sh('show', '--name-only', '--pretty=format:', 'HEAD');
+	assert.match(committed, /pnpm-workspace\.yaml/);
+	assert.match(committed, /pnpm-lock\.yaml/);
+	assert.equal(readFileSync(path.join(repo, 'pnpm-lock.yaml'), 'utf8'), 'lock new\n');
+});
+
+test('a harness branch commits scripts; an output branch leaves them unstaged', () => {
+	mkdirSync(path.join(repo, '.github/hooks'), { recursive: true });
+	mkdirSync(path.join(repo, 'packages/axc'), { recursive: true });
+	mkdirSync(path.join(repo, 'scripts'), { recursive: true });
+	write('.github/hooks/write-boundary.json', JSON.stringify({ allowed_write_globs: ['packages/axc/**'], path_deny: [] }));
+	write('packages/axc/keep.ts', 'export {}\n');
+	write('scripts/note.mjs', 'export {}\n');
+	sh('add', '-A');
+	sh('commit', '-qm', 'base', '--no-verify');
+	write('scripts/note.mjs', 'export const n = 1;\n');
+	assert.equal(stop(), null);
+	assert.match(sh('show', '--name-only', '--pretty=format:', 'HEAD'), /scripts\/note\.mjs/);
+	sh('checkout', '-b', 'task-a-out');
+	write('scripts/note.mjs', 'export const n = 2;\n');
+	assert.match(stop(), /outside the write dirs/);
+	assert.match(sh('status', '--porcelain'), /scripts\/note\.mjs/);
+	assert.equal(sh('diff', '--cached', '--name-only'), '');
 });
 
 test('a script-only package.json edit does not count as a dependency change', () => {
@@ -166,6 +214,16 @@ test('no edits (pure Q&A) → allow, no commit', () => {
 	assert.equal(stop(), null);
 	assert.equal(head(), before);
 });
+test('a snapshot taken on an already dirty tree still commits, and so does Stop with no snapshot', () => {
+	const before = head();
+	write('widget.md', 'w\n');
+	hook('start', { sessionId: 'reloaded' });
+	assert.equal(stop({ sessionId: 'reloaded' }), null);
+	assert.notEqual(head(), before);
+	write('other.md', 'o\n');
+	assert.equal(stop({ sessionId: 'never-started' }), null);
+	assert.match(sh('log', '-1', '--name-only'), /other\.md/);
+});
 test('edits + green verify → auto-commit, silent, clean tree, generic message', () => {
 	const before = head();
 	write('widget.md', 'w\n');
@@ -185,9 +243,11 @@ test('edits + red verify → block with the terse scenario report, nothing commi
 	assert.equal(head(), before);
 	assert.equal(sh('diff', '--cached', '--name-only'), '');
 	assert.equal(readFileSync(path.join(repo, 'a.md'), 'utf8'), 'b\n');
-	// a stopHookActive retry after the block re-verifies (still red → block); a plain re-stop on that state → allow
+	// a stopHookActive retry after the block re-verifies (still red → block); a plain re-stop on that state → allow, and says why
 	assert.match(stop({ stopHookActive: true }, { FAKE_VERIFY_FAIL: failLog }), /^Stop blocked/);
-	assert.equal(stop({}, { FAKE_VERIFY_FAIL: failLog }), null);
+	const again = stopOut({}, { FAKE_VERIFY_FAIL: failLog });
+	assert.equal(again.reason, undefined);
+	assert.match(again.systemMessage, /unchanged since the last block/);
 	// fixed (tree changed) → commits
 	write('a.md', 'c\n');
 	assert.equal(stop({ stop_hook_active: true }), null);
@@ -221,7 +281,8 @@ test('run (no Stop hook): one ok line on success, report + exit 1 on failure', (
 });
 test('plan + commitMessage (pure)', () => {
 	const s = { head: 'h', fingerprint: 'f', blocks: 0 };
-	assert.equal(plan(s, { head: 'h', fingerprint: 'f', dirty: true }), 'allow');
+	assert.equal(plan(s, { head: 'h', fingerprint: 'f', dirty: false }), 'allow');
+	assert.equal(plan(s, { head: 'h', fingerprint: 'f', dirty: true }), 'commit');
 	assert.equal(plan(s, { head: 'h', fingerprint: 'g', dirty: true }), 'commit');
 	assert.equal(plan({ ...s, lastBlocked: 'h:g' }, { head: 'h', fingerprint: 'g', dirty: true }), 'allow');
 	assert.deepEqual(Object.keys(plan(s, { head: 'i', fingerprint: 'g', dirty: false }, { verified: false })), ['block']);

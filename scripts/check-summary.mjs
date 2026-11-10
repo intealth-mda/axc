@@ -147,7 +147,8 @@ export function knipUnusedFiles(log) {
 }
 
 /** The whole typecheck failure was under node_modules or packages/cellix. */
-export const OUTSIDE_TASK = 'Typecheck failed only under node_modules or packages/cellix. Do not open or edit those trees. Existing lockfile versions stay.';
+export const OUTSIDE_TASK =
+	'Typecheck failed only under node_modules or packages/cellix. Do not open or edit those trees. Change a dependency in package.json (workspace:* or catalog:) or in pnpm-workspace.yaml (catalog, overrides, patchedDependencies), then stop. Stop refreshes and stages the lockfile.';
 
 /** Typecheck noise from vendored packages and installed dependencies. The task does not edit those trees. */
 export function outsideTask(line) {

@@ -20,6 +20,15 @@ test('a Stop report can name a Cellix architecture check', () => {
 	assert.deepEqual(extractPaths(text), ['packages/cellix/archunit-tests/src/checks/domain-conventions.ts']);
 });
 
+test('dependency manifests are open; a Stop report opens the script it names', () => {
+	assert.equal(allows('package.json'), true);
+	assert.equal(allows('pnpm-workspace.yaml'), true);
+	assert.equal(allows('pnpm-lock.yaml'), false);
+	assert.equal(allows('scripts/stop-gate.mjs'), false);
+	assert.equal(allows('scripts/stop-gate.mjs', ['scripts/stop-gate.mjs']), true);
+	assert.deepEqual(extractPaths('edit package.json and pnpm-workspace.yaml, not scripts/stop-gate.mjs'), ['package.json', 'pnpm-workspace.yaml', 'scripts/stop-gate.mjs']);
+});
+
 test('shape check is quiet until packages/axc source changes', () => {
 	assert.deepEqual(shapeGaps(temp(), []), []);
 });

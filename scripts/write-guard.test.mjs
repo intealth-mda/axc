@@ -26,6 +26,8 @@ test('shell: quoted heredoc bodies are inert', () => {
 test('writes: boundary + path deny', () => {
 	assert.equal(edit('packages/axc/rest/src/x.ts'), undefined);
 	assert.equal(edit(path.join(root, 'apps/docs/docs/x.md'), 'write'), undefined);
+	assert.equal(edit('package.json'), undefined);
+	assert.equal(edit('pnpm-workspace.yaml'), undefined);
 	assert.match(edit('pnpm-lock.yaml'), /Lockfile/);
 	assert.match(edit('scripts/x.mjs'), /outside allowed/);
 	assert.match(edit('packages/axc/rest/dist/x.js', 'Edit'), /Generated/);

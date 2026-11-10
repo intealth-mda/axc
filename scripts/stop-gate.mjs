@@ -1,11 +1,14 @@
 // Agent Stop gate (Grok Build / Claude / Codex / Cursor-compatible hook JSON; also a CLI for tools without a Stop hook).
 // The agent only writes code; this hook installs, verifies and commits. Dependency-free; fails open.
 //   start: record HEAD + tree fingerprint once per session (SessionStart; UserPromptSubmit fallback).
-//   stop:  nothing changed since start → allow (pure Q&A). Changes → `pnpm install` (frozen unless a
-//          package.json dependency changed, in which case `pnpm install --offline` refreshes the lockfile;
-//          a refresh that moves an already-resolved version is restored and blocked), auto-fix
+//   stop:  a clean tree that matches the session snapshot → allow (pure Q&A). A dirty tree commits, including
+//          when a hook reload recorded the snapshot after the edits, and when Stop runs with no snapshot.
+//          `pnpm install` is frozen unless a package.json dependency or a pnpm-workspace.yaml pin changed.
+//          A spec-only change uses `pnpm install --offline` and restores the lockfile when an already-resolved
+//          version moves. A catalog, overrides, or patchedDependencies change uses `pnpm install` and keeps
+//          those moves. The lockfile is staged with package.json and pnpm-workspace.yaml. Then auto-fix
 //          (scripts/auto-fix.mjs: useAwait, knip exports/types, biome safe fixes; never tests), then `git add` the
-//          write dirs + `git commit` with husky ON: its pre-commit runs the one full `pnpm run verify`.
+//          write dirs (plus .github, .agents, scripts, docs, and AGENTS.md on a harness branch) + `git commit` with husky ON: its pre-commit runs the one full `pnpm run verify`.
 //          Green (verify log ends with `verify ok`, tree clean) → silent allow. Red → block with a terse
 //          one-line-per-problem report; nothing committed. The fingerprint covers untracked file contents. A plain
 //          re-stop on the same tree state is allowed; a stopHookActive retry after a block always re-verifies.
@@ -14,7 +17,8 @@
 //          At most 6 blocks per session; then allow with a one-line note. A green commit is pushed;
 //          an output branch (`-a-out` / `-b-out`) gets a PR when `gh` is available. On an output branch, a changed
 //          tree that misses the generic Cellix shape blocks before verify, and the cited paths become readable. A pre-existing Snyk/audit
-//          failure (no package.json edit) ends the turn instead of asking for a repair. Auto-fix log lines survive a failed commit
+//          failure with no manifest edit blocks and names package.json and pnpm-workspace.yaml. The same failure after
+//          a manifest edit ends the turn. Auto-fix log lines survive a failed commit
 //          (`<git dir>/stop-gate/auto-fix-log.json`, untracked): the next auto-commit body still lists them; cleared on commit.
 //   run:   the same for tools without a Stop hook: report + exit 1 on failure, one `verify ok` line on success.
 import { spawnSync } from 'node:child_process';
@@ -25,7 +29,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { autoFix, changedFiles, fixTargets } from './auto-fix.mjs';
 import { keepsShapeFile, knipUnusedFiles, OUTSIDE_TASK, report } from './check-summary.mjs';
-import { isOutputBranch, readableFile, rememberPaths, securityEnd, sessionKey, shapeGaps } from './read-allow.mjs';
+import { harnessBranch, isOutputBranch, readableFile, rememberPaths, securityEnd, sessionKey, shapeGaps } from './read-allow.mjs';
 
 const MAX_BLOCKS = 6;
 const NVM = 'export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 && nvm use >/dev/null 2>&1; ';
@@ -79,7 +83,9 @@ export function plan(start, now, { verified = true, active = false } = {}) {
 	if ((retry && now.dirty) || (start.needsPublish && now.dirty)) return 'commit';
 	if (start.needsPublish && !now.dirty) return 'publish';
 	if (start.lastBlocked === `${now.head}:${now.fingerprint}`) return 'allow';
-	if (now.head === start.head && now.fingerprint === start.fingerprint) return 'allow';
+	// A clean tree that matches the session snapshot is pure Q&A. A dirty tree still commits:
+	// a hook reload can record that snapshot after the edits, and Stop would otherwise return immediately.
+	if (!now.dirty && now.head === start.head && now.fingerprint === start.fingerprint) return 'allow';
 	if (now.dirty) return 'commit';
 	return verified ? 'allow' : { block: 'Committed, but no `verify ok` summary in the verify log: verify did not run or finish. Leave committing to the Stop hook.' };
 }
@@ -93,6 +99,8 @@ function denyRules(root) {
 	}
 }
 
+const HARNESS_PATHS = ['.github', '.agents', 'scripts', 'docs', 'AGENTS.md', 'Agents.md'];
+
 /** Writable dirs from the shared write boundary (`dir/**` globs, minus dot-dirs); empty → whole tree. */
 function writeDirs(root) {
 	try {
@@ -104,6 +112,15 @@ function writeDirs(root) {
 	} catch {
 		return [];
 	}
+}
+
+/** Paths `git add` stages. A harness branch also stages the hook and its tests. An output branch does not. */
+function stagePaths(root) {
+	const dirs = writeDirs(root);
+	if (!dirs.length) return ['.'];
+	if (!harnessBranch(git('rev-parse', '--abbrev-ref', 'HEAD').trim())) return dirs;
+	const extra = HARNESS_PATHS.filter((item) => existsSync(path.join(root, item)));
+	return [...dirs, ...extra];
 }
 
 /** Generic message from `git diff --cached --name-status` lines: subject names the features and areas touched. */
@@ -243,6 +260,24 @@ export function lockfileVersionDrifts(before, after) {
 	return drifts;
 }
 
+const PIN_SECTIONS = new Set(['catalog', 'overrides', 'patchedDependencies']);
+
+/** catalog, overrides, and patchedDependencies text. Other workspace keys stay out. */
+export function workspacePinBlock(yaml) {
+	const out = [];
+	let keep = false;
+	for (const line of String(yaml).split(/\r?\n/)) {
+		if (/^\S/.test(line)) keep = PIN_SECTIONS.has(line.replace(/:.*$/, '').trim());
+		if (keep) out.push(line);
+	}
+	return out.join('\n');
+}
+
+/** True when a catalog pin, override, or patched dependency changed. */
+export function workspacePinsChanged(before, after) {
+	return workspacePinBlock(before) !== workspacePinBlock(after);
+}
+
 /** True when a dependency spec was added, removed, or edited. A script-only package.json edit is not. */
 export function dependencySpecsChanged(before = {}, after = {}) {
 	for (const kind of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
@@ -323,6 +358,18 @@ function packageJsonViolations(root) {
 		bad.push(...dependencyViolations(before, after).map((item) => `${file}: ${item}`));
 	}
 	return bad;
+}
+
+function workspacePinsTouched(root) {
+	const file = 'pnpm-workspace.yaml';
+	if (!existsSync(path.join(root, file))) return false;
+	const shown = run('git', ['show', `HEAD:${file}`]);
+	const before = shown.status === 0 ? shown.stdout : '';
+	try {
+		return workspacePinsChanged(before, readFileSync(path.join(root, file), 'utf8'));
+	} catch {
+		return true;
+	}
 }
 
 function dependencySpecsTouched(root) {
@@ -496,23 +543,25 @@ export function autoCommit(root, { retryUnused = false } = {}) {
 	const t0 = Date.now();
 	const env = commitEnv();
 	const out = path.join(tmp(), `axc-stop-${path.basename(root)}.log`);
+	const pinsChanged = workspacePinsTouched(root);
 	if (existsSync(path.join(root, 'pnpm-lock.yaml'))) {
 		const depsChanged = dependencySpecsTouched(root);
+		const refresh = depsChanged || pinsChanged;
 		if (depsChanged) {
 			const bad = packageJsonViolations(root);
 			if (bad.length) return block(`A dependency must be workspace:* or catalog:. Prefer a dependency the package already has.\n${bad.join('\n')}`);
 		}
 		const lockPath = path.join(root, 'pnpm-lock.yaml');
-		const beforeLock = depsChanged ? readFileSync(lockPath, 'utf8') : '';
-		const install = depsChanged ? 'pnpm install --offline' : 'pnpm install --frozen-lockfile';
+		const beforeLock = refresh ? readFileSync(lockPath, 'utf8') : '';
+		const install = !refresh ? 'pnpm install --frozen-lockfile' : pinsChanged ? 'pnpm install' : 'pnpm install --offline';
 		const i = run('sh', ['-c', `${NVM}${install}`], { ...env, HUSKY: '0' }); // HUSKY=0: no hooksPath rewrite
 		if (i.status !== 0) {
-			if (depsChanged) writeFileSync(lockPath, beforeLock);
+			if (refresh) writeFileSync(lockPath, beforeLock);
 			writeFileSync(out, `${i.stdout}${i.stderr}`);
-			const store = depsChanged ? ' A new dependency must already be in the workspace store as workspace:* or catalog:.' : '';
+			const store = depsChanged && !pinsChanged ? ' A new dependency must already be in the workspace store as workspace:* or catalog:.' : '';
 			return block(`${install} failed.${store}\n${report(out, root)}`);
 		}
-		if (depsChanged) {
+		if (depsChanged && !pinsChanged) {
 			const drifts = lockfileVersionDrifts(beforeLock, readFileSync(lockPath, 'utf8'));
 			if (drifts.length) {
 				writeFileSync(lockPath, beforeLock);
@@ -529,7 +578,9 @@ export function autoCommit(root, { retryUnused = false } = {}) {
 		mkdirSync(path.dirname(logFile), { recursive: true });
 		writeFileSync(logFile, JSON.stringify([...prior, ...fixed.filter((l) => !prior.includes(l))])); // kept until a commit lands
 	}
-	git('add', '-A', '--', ...(dirs.length ? dirs : ['.']));
+	git('add', '-A', '--', ...stagePaths(root));
+	const manifests = ['package.json', 'pnpm-workspace.yaml'].filter((file) => existsSync(path.join(root, file)));
+	if (dirs.length && manifests.length) git('add', '--', ...manifests);
 	if (existsSync(path.join(root, 'pnpm-lock.yaml'))) git('add', '--', 'pnpm-lock.yaml');
 	const staged = git('diff', '--cached', '--name-status');
 	const fixes = mergeFixLog(prior, fixed, staged);
@@ -547,8 +598,9 @@ export function autoCommit(root, { retryUnused = false } = {}) {
 	if (c.status !== 0) {
 		run('git', ['reset', '-q']); // unstage only; the working tree stays as written
 		const logText = readFileSync(out, 'utf8');
-		const end = securityEnd(logText, packageJsonChanged(), root);
-		if (end) return { end };
+		const verdict = securityEnd(logText, packageJsonChanged() || pinsChanged, root);
+		if (verdict?.repair) return block(verdict.repair);
+		if (verdict?.end) return { end: verdict.end };
 		if (!retryUnused) {
 			const removed = removeUnusedAdded(root, logText);
 			if (removed.length) {
@@ -616,35 +668,47 @@ function main() {
 		writeFileSync(readableFile(gitDir, id), '');
 		return;
 	}
-	if (mode !== 'stop' || !existsSync(file)) return;
+	if (mode !== 'stop') return;
+	// A reload can run Stop without SessionStart. A missing snapshot must not drop a dirty tree.
+	if (!existsSync(file)) {
+		if (!git('status', '--porcelain').trim()) return;
+		mkdirSync(path.dirname(file), { recursive: true });
+		writeFileSync(file, JSON.stringify({ head: '', fingerprint: '', at: 0, blocks: 0 }));
+		writeFileSync(readableFile(gitDir, id), '');
+	}
 	const start = JSON.parse(readFileSync(file, 'utf8'));
 	const active = Boolean(input.stopHookActive ?? input.stop_hook_active);
-	const step = plan(start, snapshot(), { verified: verifyFinished(root, start.at), active });
+	const now = snapshot();
+	const step = plan(start, now, { verified: verifyFinished(root, start.at), active });
 	if (typeof step === 'object' && step.note) {
 		process.stdout.write(JSON.stringify({ systemMessage: step.note }));
 		return;
 	}
 	const produced = step === 'commit' ? autoCommit(root) : step === 'publish' ? publish() : typeof step === 'object' ? step.block : null;
+	const after = snapshot();
 	if (produced && typeof produced === 'object') {
-		const now = snapshot();
-		writeFileSync(file, JSON.stringify({ ...start, last: 'allow', lastBlocked: `${now.head}:${now.fingerprint}` }));
+		writeFileSync(file, JSON.stringify({ ...start, last: 'allow', lastBlocked: `${after.head}:${after.fingerprint}` }));
 		process.stdout.write(JSON.stringify({ systemMessage: produced.end }));
 		return;
 	}
 	const reason = produced ?? null;
 	if (!reason) {
+		if (start.last === 'block' && now.dirty && start.lastBlocked === `${now.head}:${now.fingerprint}`) {
+			writeFileSync(file, JSON.stringify({ ...start, last: 'allow', needsPublish: false }));
+			process.stdout.write(JSON.stringify({ systemMessage: 'Stop allowed — tree unchanged since the last block, so verify did not run again. Edit the named cause, then stop.' }));
+			return;
+		}
 		if (start.last === 'block' || start.needsPublish) writeFileSync(file, JSON.stringify({ ...start, last: 'allow', needsPublish: false }));
 		return;
 	}
-	const now = snapshot();
 	if (sameOutsideFailure(start.lastReason, reason)) {
-		writeFileSync(file, JSON.stringify({ ...start, last: 'allow', lastReason: reason, lastBlocked: `${now.head}:${now.fingerprint}` }));
+		writeFileSync(file, JSON.stringify({ ...start, last: 'allow', lastReason: reason, lastBlocked: `${after.head}:${after.fingerprint}` }));
 		process.stdout.write(JSON.stringify({ systemMessage: 'Stop allowed — the only typecheck failure is still under node_modules or packages/cellix, already reported. Left uncommitted.' }));
 		return;
 	}
 	rememberPaths(readableFile(gitDir, id), reason);
 	// The same report after an edit did not fix the named cause. Counting it again spends the cap on one mistake.
-	const sameEdit = start.lastReason === reason && start.lastBlocked !== `${now.head}:${now.fingerprint}`;
+	const sameEdit = start.lastReason === reason && start.lastBlocked !== `${after.head}:${after.fingerprint}`;
 	writeFileSync(
 		file,
 		JSON.stringify({
@@ -654,7 +718,7 @@ function main() {
 			last: 'block',
 			lastReason: reason,
 			needsPublish: reason.includes('committed,'),
-			lastBlocked: `${now.head}:${now.fingerprint}`,
+			lastBlocked: `${after.head}:${after.fingerprint}`,
 		}),
 	);
 	process.stdout.write(JSON.stringify({ decision: 'block', reason }));

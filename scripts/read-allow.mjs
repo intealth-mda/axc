@@ -50,7 +50,7 @@ export function readNamed(file) {
 /** Repo-relative paths cited in a Stop report. Line/column suffixes are stripped. Cellix paths are not remembered. */
 export function extractPaths(text) {
 	const out = new Set();
-	const re = /(?:^|[\s`'"(])((?:packages|apps|task-set-[\w.-]+\.md|\.agents)\/[A-Za-z0-9_./@+-]+)/g;
+	const re = /(?:^|[\s`'"(])((?:packages|apps|scripts|task-set-[\w.-]+\.md|\.agents)\/[A-Za-z0-9_./@+-]+|package\.json|pnpm-workspace\.yaml)/g;
 	for (const match of text.matchAll(re)) {
 		const cited = match[1].replace(/[),.;]+$/, '').replace(/:\d+(?::\d+)?$/, '');
 		if (/^packages\/cellix(\/|$)/.test(cited) && !cited.includes('/archunit-tests/')) continue;
@@ -126,8 +126,11 @@ export function allows(relPath, named = []) {
 	const normalized = relPath.replace(/^\.\//, '');
 	// The map names these two checks. Every other architecture file stays closed until a Stop report names it.
 	if (OPEN_CHECKS.includes(normalized)) return true;
+	// Dependency manifests. The lockfile stays closed; Stop refreshes and stages it.
+	if (normalized === 'package.json' || normalized === 'pnpm-workspace.yaml') return true;
 	if (archPath(normalized)) return namedPath(normalized, named);
-	if (closed(normalized)) return false;
+	// A Stop report opens the exact script it names. The rest of scripts/ stays closed.
+	if (closed(normalized)) return normalized.startsWith('scripts/') && namedPath(normalized, named);
 	if (CELLIX_CONTRACTS.includes(normalized)) return true;
 	if (MAP_FILES.includes(normalized)) return true;
 	if (named.some((entry) => (entry.endsWith('/') ? normalized.startsWith(entry) : normalized === entry))) return true;
@@ -218,9 +221,19 @@ export function shapeGaps(root, changed = changedSource(root)) {
 	return gaps;
 }
 
-/** A verify log whose only failure is a security gate, and the agent did not edit a package.json. */
-export function securityEnd(log, packageJsonChanged, root = process.cwd()) {
-	if (packageJsonChanged || !log || summarize(log, root).length) return null;
+/**
+ * A verify log whose only failure is a security gate.
+ * No manifest edit yet → `{ repair }` so Stop blocks and the agent can change one.
+ * A manifest edit that is still only a security failure → `{ end }` so the turn stops.
+ */
+export function securityEnd(log, manifestsChanged, root = process.cwd()) {
+	if (!log || summarize(log, root).length) return null;
 	if (!/vulnerable path|SNYK-|Tested \d+ projects|npm audit/i.test(log)) return null;
-	return 'Stop allowed — pre-existing security finding. Do not edit .snyk, package manifests, or packages/cellix.';
+	if (!manifestsChanged) {
+		return {
+			repair:
+				'The only failure is a security finding. Change package.json (workspace:* or catalog:) or pnpm-workspace.yaml (catalog, overrides, patchedDependencies), then stop. Stop runs pnpm install and stages pnpm-lock.yaml. Do not edit the lockfile, .snyk, node_modules, or packages/cellix.',
+		};
+	}
+	return { end: 'Stop allowed — security finding remains after a manifest edit. Left uncommitted. Do not edit the lockfile, .snyk, or packages/cellix.' };
 }
