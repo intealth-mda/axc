@@ -1,31 +1,45 @@
-### Evaluation Run Record 
-Each participant should complete one Evaluation Run Record per harness/model run. 
+### Evaluation Run Record
+Each participant should complete one Evaluation Run Record per harness/model run.
 
 | Field | Value |
 | --- | --- |
-| Team | OpenAI / Anthropic / Cursor / xAI / Antigravity |
-| Developer / Operator | |
+| Team | xAI |
+| Developer / Operator | Mohit Gupta |
 | Reviewer | (leave blank for now) |
-| Harness | |
-| Model | |
+| Harness | Grok Build + mog-xai-9 harness 9900afd (9900afd3ada46947dd22b3213bc4f2ca5ebb8e38), which sits on mog-xai-8 21d26b4 (21d26b4dc00a6c1e838357f426b180a268057cd4) |
+| Model | grok-4.7-build, reasoning effort medium |
 | License / Plan | |
-| Codebase | ECFMG/axc |
-| Task Set | A / B |
-| Run Type | Baseline / Harness Engineering Iteration N / Final |
-| Harness Engineering Used | |
-| Config / Diff Notes | |
-| Branch / Commit | |
-| Requirements Completed / Attempted | |
-| Acceptance Criteria Passed / Total | |
-| Tests Passed / Failed | |
-| Static Analysis / Security Findings | |
-| Input Tokens | |
-| Cached Tokens | |
-| Output Tokens | |
-| Total Tokens or Credits Used | |
-| Estimated Cost | |
-| Elapsed Time | |
-| Number of Human Interventions / Redirects | |
+| Codebase | intealth-mda/axc |
+| Task Set | A (TS-A-CATALOG-SEARCH); prompt sha1 5914b1cc2c83d4d287ee465c69fcca9bd65e868c, byte-identical to the mog-xai-8-a-out, mog-xai-7-a-out and a-out-21 prompt files |
+| Run Type | Harness Engineering Iteration (mog-xai-9, Cellix aggregate contract and seedwork import follow-up after mog-xai-8) |
+| Harness Engineering Used | mog-xai-9 changes on top of mog-xai-8 (repo map only, within its 4250-byte budget at 4248): every aggregate imports entity props, a `<C>Passport` from `contexts/<context>/<context>.passport.ts`, and a Visa (seedwork `Visa`, or `<context>.visa.ts` plus `<context>.domain-permissions.ts` when the task authorizes writes), matching the vendored Cellix aggregate check, which is unchanged; seedwork has only subpath exports, imported as `import * as DomainSeedwork from '@cellix/domain-seedwork/aggregate-root'` (type-only for `/repository` and `/unit-of-work`), never a local namespace; `<entity>.entity.ts` in the domain file list; LSP errors on new `@axc/*` imports before Stop are expected; the useAwait rule covers step and `Question.about` callbacks; the `mongo-repository.ts` and `visa.ts` contract reads were dropped from the read batch. New harness tests check the map's seedwork subpaths against the package exports and its aggregate shape against the check's regexes. Read guard, write guard, auto-fix and Stop hook unchanged: install, auto-fix, husky verify, auto-commit (block cap 6). Snyk runs on every verify. Launched with `--trust --no-memory --reasoning-effort medium --disallowed-tools "web_search,web_fetch,Agent,image_gen,image_edit,image_to_video,reference_to_video"`. Fresh worktree `/Volumes/files/src/axc-mog-xai-9-a-out` carved from harness tip 9900afd; Grok was not run in the harness worktree. |
+| Config / Diff Notes | Effort: medium (`reasoning_effort` medium; session current_model_id grok-4.7, primary usage grok-4.7-build). Contamination: clean (`--no-memory`; all tool paths inside the a-out worktree; no cellixjs clone, dist/, or node_modules reads; the agent did not edit this record). Tools: read_file 25 started / 24 completed (24 success, 0 file-not-found), grep 2 (both denied, neither completed), list_dir 0, write 20, search_replace 19 (no shell). Write-guard: 39 pre_tool_use, 0 denies. Read-guard denies: 3 events, all at 00:34:37 America/New_York in one call: `packages/cellix/domain-seedwork/src/domain-seedwork/visa.ts` (a guessed path; the real file is `src/passport-seedwork/visa.ts`, which the map no longer lists), then 2 greps (`createMemoryMongoServer`/`DataSources`, and `registerAzureFunctionHttpHandler`/`host.json`). No retries after that call. Compared with mog-xai-8-a-out: 3 denies versus 5, 0 not-founds in both, no package.json probe of the seedwork. **Gate integrity: OK, 0 blocks: the first Stop was a green Stop-hook auto-commit, then allow on a clean tree at exit.** Stop fired 2 times on the `stop` event (plus session_start and user_prompt_submit). Stop #1 (ended 00:49:14, 171 s): install, auto-fix, husky verify green (`verify ok · acceptance 10/10 · b5704dd`), auto-committed b5704dd. Auto-fix logged in the commit body: convention factory `@public` on the course application-services index, one build because knip could not load its config, knip --fix exports/types on `query-courses.ts` and `course.value-objects.ts`, biome check --write. The feature commit also includes `pnpm-lock.yaml` and two tsconfig reference lines added by the Stop hook. Stop #2 (00:50:29, 221 ms, at exit) allowed on the clean tree. No useAwait or noNamespace findings; no tsconfig reads. Cellix compliance on b5704dd: errors=1, all from one shape gap: `packages/axc/domain/src/domain/contexts/catalog/catalog.passport.ts` sits at context level, as the mog-xai-9 map directed (and as upstream Cellix places context passports), but the compliance report requires domain implementation files under `contexts/<context>/<entity>/`. REST entry, import boundary, application-service entry and seed arrays all 0; entities=catalog/course; layers=domain,persistence,application-services,rest; route_modules=1 (`packages/axc/rest/src/courses.routes.ts`); optional uow=0, visa=0, passport=1, domain_permissions=0 (the aggregate imports the seedwork `Visa` type with a local read-permissions type). Flow: 8 model calls, all before the first Stop (loops 0–7, 00:33:42–00:46:23): map; one batch of 19 reads (requirements, exemplars, edit targets, Cellix contracts and the two archunit checks); the 3 denied probes; one 9m34s reasoning call (00:34:37–00:44:11) that then wrote the whole slice in a single call (20 writes, 9 edits); one 1m26s call of 8 fixes; 3 re-reads; 2 edits; final message. Approximate context per call from the session log: ~15k tokens at call 2, ~28k at call 4, ~75k at call 5, ~86k at call 8. Meter source: Grok Build `/usage` (matches session usage.json exactly): input 409,937 (287,872 cached), output 58,919 (41,899 reasoning), total 468,856, 8 model calls, API time 12m27s, cost $0.2521. Session 01a1c3f2-994f-7c22-9678-8b06e83eef9c, process 00:33:39–00:50:29 America/New_York. No cherry-picks; the feature commit is the only SCORE commit on top of 9900afd (this record is a follow-up commit). |
+| Branch / Commit | mog-xai-9-a-out / feature b5704dd8c55b474a6812ca5b26982d30fb8bc16e (Stop-hook auto-commit, 0 blocks); start 9900afd3ada46947dd22b3213bc4f2ca5ebb8e38 |
+| Requirements Completed / Attempted | 11/11 (A1–A11); A10 tests and A11 docs present; existing tests pass in the husky verify on b5704dd |
+| Acceptance Criteria Passed / Total | 12/12: A-AC1–A-AC9 each have a titled scenario that passed at runtime in the husky verify for b5704dd (2026-11-10 00:46–00:49 America/New_York; catalog 9/9); A-AC10, A-AC11 and A-AC12 covered by `# ac-meta` in courses.feature (A-AC10 by green verify incl. healthcheck, A-AC11 by the domain and application-service unit tests plus the 9 course scenarios, A-AC12 by apps/docs/docs/courses.md); check-ac-coverage exit 0 (re-checked read-only); verify line `acceptance 10/10` (9 catalog + 1 healthcheck) |
+| Tests Passed / Failed | Husky verify on b5704dd: acceptance 10/10 (course catalog search 9/9, healthcheck 1/1), 0 failed; `@axc/domain` 2/2 (2 files), `@axc/application-services` 42/42 (4 files, incl. health); arch suites green. `packages/axc/rest/src/courses.routes.test.ts` was added but `@axc/rest` has no `test` script, so it did not run. The persistence package has no `test` script. |
+| Static Analysis / Security Findings | Husky verify on b5704dd (exit 0): script-policy PASS, ac-coverage PASS, check-test-scope PASS, node --test PASS, biome PASS, typecheck PASS, build PASS, knip PASS, e18e PASS, arch PASS, unit+acceptance PASS, audit PASS (`pnpm audit --audit-level=high`: 6 vulnerabilities, 1 low and 5 moderate, none at high or critical; re-run read-only, exit 0), snyk RAN (23 projects, no vulnerable paths found; after the green result the CLI also printed the monthly limit of 200 private tests for org mgupta83). Post-run Cellix compliance report: 1 error (context-level passport shape gap, above). Logs: /var/folders/8r/6l2t39bx3bz10w0kgs3tn7cm0000gn/T/axc-verify-axc-mog-xai-9-a-out.log, /var/folders/8r/6l2t39bx3bz10w0kgs3tn7cm0000gn/T/axc-stop-axc-mog-xai-9-a-out.log. |
+| Input Tokens | 409937 |
+| Cached Tokens | 287872 (inside Input) |
+| Output Tokens | 58919 (reasoning 41899) |
+| Total Tokens or Credits Used | 468856 |
+| Estimated Cost | $0.2521 |
+| Elapsed Time | API 12m27s (Grok Build `/usage`); session process 00:33:39–00:50:29 America/New_York (16m50s): model 12m27s, Stop #1 install+auto-fix+verify+commit 171s, idle after commit until `/usage` and exit, then Stop #2 221 ms |
+| Number of Human Interventions / Redirects | 0 |
 | Reviewer Notes | (leave blank for now) |
 | Final Rubric Score | (leave blank for now) |
-| Recommendation | Continue / Remediate / Stop / Candidate for Pilot |
+| Recommendation | Pass on function (11/11, 12/12, verify green, 0 Stop blocks). Cellix compliance regressed to 1 error versus 0 on mog-xai-8-a-out: the map's context-level `<context>.passport.ts` location conflicts with the compliance report's `contexts/<context>/<entity>/` rule; one of the two must be aligned before the next run. Official `/usage` halved again versus mog-xai-8-a-out (468,856 tokens / 8 calls / $0.2521 versus 934,713 / 14 / $0.3710), is below a-out-21 on tokens (483,574 / 8 / $0.2219, same call count, higher cost) and still above a-out-14 (350,587 / 10 / $0.1482). Remaining sinks: one 9m34s design call before the first write (mostly test, seed-data and validation planning, with ~30 paragraphs on how to use the seedwork `Visa` without its definition); 3 denied probes; ~14k characters of archunit check sources carried in every call; one fix call plus one re-read call after the single write batch; an unrun REST unit test. |
+
+### Grok Build `/usage` paste checklist (SCORE meter)
+
+Mohit-confirmed path: fresh Grok Build session → unmodified TS-A → run **`/usage`** once before close → fill the five fields above. Do **not** invent numbers. Do **not** use unofficial session logs as a substitute for `/usage`.
+
+| Paste from `/usage` | Into record field |
+| --- | --- |
+| Input | Input Tokens |
+| Cached (or cache-read) | Cached Tokens — if absent: `n/a` + reason only for that field |
+| Output | Output Tokens |
+| Total | Total Tokens or Credits Used |
+| Cost (or credits USD) | Estimated Cost |
+
+Also set Config / Diff Notes: meter source `Grok Build /usage` + session timestamp (America/New_York).
