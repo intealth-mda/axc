@@ -154,9 +154,11 @@ own unit test (rest is test-wired too).
   	await actor().attemptsTo(Send.a(PostRequest.to('/api/things').with({ name })));
   	lastId = (await actor().answer(LastResponse.body<Thing>())).id;
   });
-  When('the client sends GET {string}', (path: string) => actor().attemptsTo(Send.a(GetRequest.to(path.replace('{id}', lastId)))));
-  When('the client sends {word} {string} with:', (method: string, path: string, json: string) =>
-  	actor().attemptsTo(Send.a((method === 'PATCH' ? PatchRequest : PostRequest).to(path.replace('{id}', lastId)).with(JSON.parse(json)))));
+  When('the client looks up that thing', () => actor().attemptsTo(Send.a(GetRequest.to(`/api/things/${lastId}`))));
+  When('the client submits a thing:', (json: string) =>
+  	actor().attemptsTo(Send.a(PostRequest.to('/api/things').with(JSON.parse(json)))));
+  When('the client relabels that thing with:', (json: string) =>
+  	actor().attemptsTo(Send.a(PatchRequest.to(`/api/things/${lastId}/label`).with(JSON.parse(json)))));
   Then('the response status is {int}', (status: number) => actor().attemptsTo(Ensure.that(resolved(LastResponse.status()), equals(status))));
   Then('the error code is {string}', (code: string) => actor().attemptsTo(Ensure.that(body((b: ErrorBody) => b.error.code), equals(code))));
   Then('the error names field {string}', (field: string) =>
@@ -164,6 +166,8 @@ own unit test (rest is test-wired too).
   Then('the last item is {string} labelled {string}', (id: string, label: string) =>
   	actor().attemptsTo(Ensure.that(body((b: Thing) => `${b.items.at(-1)?.id}:${b.items.at(-1)?.label}`), equals(`${id}:${label}`))));
   ```
+  Step phrases name the business action, as `healthcheck.feature` does (`When the client requests
+  the healthcheck`): no HTTP verbs or paths in the feature file; the path lives in the step.
   Each assertion picks a primitive, a `string[]` or a joined string out of a typed body and
   compares it with `equals`/`contain`. Never compare `JSON.stringify` of an object (key order
   is not part of the contract), and never type a body as `Record<string, …>` (`b.id` is then
