@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { assess, formatReport, importSpecifiers } from './cellix-compliance-report.mjs';
+import { assess, formatReport, importSpecifiers, isContextAuthFile } from './cellix-compliance-report.mjs';
 
 const complete = () => {
 	const files = new Map([
@@ -37,6 +37,40 @@ describe('cellix-compliance-report', () => {
 		);
 		assert.equal(result.errors, 0);
 		assert.equal(result.has_feature, false);
+	});
+
+	it('accepts context-level passport, visa and domain-permissions files, as upstream Cellix places them', () => {
+		const files = complete();
+		const ctx = 'packages/axc/domain/src/domain/contexts/catalog/';
+		files.set(`${ctx}catalog.passport.ts`, 'export interface CatalogPassport {}\n');
+		files.set(`${ctx}catalog.visa.ts`, 'export interface CatalogVisa {}\n');
+		files.set(`${ctx}catalog.domain-permissions.ts`, 'export interface CatalogDomainPermissions {}\n');
+		const result = assess(files);
+		assert.equal(result.errors, 0);
+		assert.deepEqual(result.entities, ['catalog/course']);
+		assert.deepEqual(result.optional, { uow: 0, visa: 1, passport: 1, domain_permissions: 1 });
+	});
+
+	it('still accepts passport, visa and domain-permissions files inside the entity folder', () => {
+		const files = complete();
+		const dir = 'packages/axc/domain/src/domain/contexts/catalog/course/';
+		for (const kind of ['passport', 'visa', 'domain-permissions']) files.set(`${dir}course.${kind}.ts`, 'export {}\n');
+		const result = assess(files);
+		assert.equal(result.errors, 0);
+		assert.deepEqual(result.optional, { uow: 0, visa: 1, passport: 1, domain_permissions: 1 });
+	});
+
+	it('flags other context-level files, and auth files not named for their context', () => {
+		const files = complete();
+		const ctx = 'packages/axc/domain/src/domain/contexts/catalog/';
+		files.set(`${ctx}catalog.helpers.ts`, 'export {}\n');
+		files.set(`${ctx}course.passport.ts`, 'export {}\n');
+		const result = assess(files);
+		assert.equal(result.shape_gaps.length, 2);
+		assert.equal(result.errors, 2);
+		assert.equal(isContextAuthFile(`${ctx}catalog.passport.ts`), true);
+		assert.equal(isContextAuthFile('packages/axc/domain/src/domain/contexts/catalog.passport.ts'), false);
+		assert.equal(isContextAuthFile(`${ctx}course/catalog.passport.ts`), false);
 	});
 
 	it('counts a flat domain file as a shape gap', () => {

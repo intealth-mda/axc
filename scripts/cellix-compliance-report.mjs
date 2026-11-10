@@ -7,6 +7,11 @@ import { fileURLToPath } from 'node:url';
 
 const LAYERS = ['domain', 'persistence', 'application-services', 'rest'];
 const AGGREGATE_FILES = (entity) => [`${entity}.aggregate.ts`, `${entity}.value-objects.ts`, `${entity}.repository.ts`, 'index.ts', `${entity}.aggregate.test.ts`];
+/** Context-level passport, visa and domain-permissions files, as upstream Cellix (ocom) places them: contexts/<context>/<context>.<kind>.ts. */
+export const isContextAuthFile = (file) => {
+	const m = /^packages\/axc\/domain\/src\/domain\/contexts\/([^/]+)\/([^/]+)\.(passport|visa|domain-permissions)\.ts$/.exec(file);
+	return Boolean(m && m[1] === m[2]);
+};
 const INFRA = ['mongoose', 'mongodb', '@cellix/mongoose-seedwork', '@axc/service-mongoose'];
 const IMPORT_RULES = [
 	{
@@ -59,6 +64,7 @@ export function assess(files) {
 	const domainFiles = [...files.keys()].filter((file) => file.startsWith('packages/axc/domain/src/') && isTs(file) && !isIgnoredDomain(file));
 
 	for (const file of domainFiles) {
+		if (isContextAuthFile(file)) continue;
 		const match = /^packages\/axc\/domain\/src\/domain\/contexts\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(file);
 		if (match) {
 			const key = `${match[1]}/${match[2]}`;
@@ -74,7 +80,9 @@ export function assess(files) {
 			shapeGaps.push(`${file} — must live under ${base} as ${AGGREGATE_FILES(entity).join(', ')}`);
 			continue;
 		}
-		shapeGaps.push(`${file} — domain implementation must live under packages/axc/domain/src/domain/contexts/<context>/<entity>/`);
+		shapeGaps.push(
+			`${file} — domain implementation must live under packages/axc/domain/src/domain/contexts/<context>/<entity>/ (only <context>.passport.ts, <context>.visa.ts and <context>.domain-permissions.ts may sit in contexts/<context>/)`,
+		);
 	}
 
 	for (const [key, names] of entityFolders) {
