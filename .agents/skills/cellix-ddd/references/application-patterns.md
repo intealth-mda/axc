@@ -2,9 +2,9 @@
 
 Use this reference when implementing or correcting application architecture.
 
-`/Volumes/files/src/cellixjs` is the authoritative implementation reference.
+Vendored `packages/cellix/` seedwork is the authoritative contract reference.
 Trace the relevant pattern through the layers it requires rather than copying
-one isolated file or application-specific concept.
+one isolated file. Do not open `/Volumes/files/src/cellixjs`.
 
 ## Queries
 

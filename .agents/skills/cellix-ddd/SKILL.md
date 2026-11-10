@@ -10,8 +10,9 @@ disable-model-invocation: true
 
 Implement application behavior using established CellixJS DDD patterns.
 
-`/Volumes/files/src/cellixjs` is the architectural reference. Inspect the
-closest analogous Cellix implementation before introducing a new pattern.
+Vendored `packages/cellix/` seedwork is the architectural reference. Inspect
+the contract files the repo map names before introducing a new pattern. Do not
+open `/Volumes/files/src/cellixjs`.
 
 ## Domain Modeling
 

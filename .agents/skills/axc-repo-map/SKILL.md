@@ -6,17 +6,17 @@ disable-model-invocation: true
 
 # axc-repo-map
 
-Read the requirements file (`task-set-a-requirements.md` or `task-set-b-requirements.md`), then only `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`. Do not open `node_modules`, `scripts/`, `dist`, or `/Volumes/files/src/cellixjs`. Read `packages/cellix/archunit-tests/src/checks/domain-conventions.ts` and `packages/cellix/archunit-tests/src/checks/application-services-conventions.ts` once. No other check. Visa: `@cellix/domain-seedwork/visa`, `extends Visa<`. Open another file only when the task spec or a Stop report names it.
+Read `task-set-a-requirements.md` or `task-set-b-requirements.md`, then only `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`. Do not open `node_modules`, `scripts/`, `dist`, or `/Volumes/files/src/cellixjs`. Read `packages/cellix/archunit-tests/src/checks/domain-conventions.ts` and `application-services-conventions.ts` in that folder once. Open another file only when the spec or a Stop report names it.
 
 ## House shape
 
-Domain files live under `packages/axc/domain/src/domain/contexts/<context>/<entity>/`: `<entity>.aggregate.ts`, `<entity>.value-objects.ts`, `<entity>.repository.ts`, `index.ts`, `<entity>.aggregate.test.ts`. Domain imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/*`.
+Domain files live under `packages/axc/domain/src/domain/contexts/<context>/<entity>/`: `<entity>.aggregate.ts`, `<entity>.value-objects.ts`, `<entity>.repository.ts`, `index.ts`, `<entity>.aggregate.test.ts`. Add `<entity>.uow.ts` only when a command writes state. Add visa, passport, or domain-permissions only when the task authorizes writes. Domain imports no `hono`, `@azure/`, `mongoose`, `mongodb`, or other `@axc/*`.
 
-Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. The in-memory server is `createMemoryMongoServer()` from `@axc/service-mongoose`. Do not import `mongodb-memory-server`. If absent, persistence adds `@axc/domain` and `@axc/service-mongoose`; application services add `@axc/domain` and `@axc/persistence`. Keep `mongoose` on `@axc/service-mongoose`.
+Persistence files live under `packages/axc/persistence/src/datasources` or `src/models`. The entity index exports the factories. Use `createMemoryMongoServer()` from `@axc/service-mongoose`, not `mongodb-memory-server`. If absent, persistence adds `@axc/domain` and `@axc/service-mongoose`; application services add `@axc/domain` and `@axc/persistence`. Keep `mongoose` on `@axc/service-mongoose`.
 
-Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. The entity index exports a factory named after the folder. Do not keep stored state in an application-service array. Services and REST import no `mongoose`, `mongodb`, or `@axc/service-mongoose`. REST does not import `@axc/persistence`. REST parses the request, calls the service, and shapes the response.
+Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. The entity index exports a factory named after the folder. Do not store state in an application-service array. Services and REST import no `mongoose`, `mongodb`, or `@axc/service-mongoose`. REST does not import `@axc/persistence`.
 
-`apps/api/src/index.ts` registers one `registerAzureFunctionHttpHandler` per route. `host.json` sets `routePrefix` empty, so the function route is the full path. Re-export from `src/index.ts` what another package imports (TS2305, TS2459, TS2724). Keep `src/index.ts` free of seed records and `.filter(`, `.sort(`, or `.slice(`.
+Put routes in `packages/axc/rest/src/<feature>.routes.ts`, not `packages/axc/rest/src/index.ts`. `apps/api/src/index.ts` only registers one `registerAzureFunctionHttpHandler` per route. `host.json` sets `routePrefix` empty, so the function route is the full path. Re-export from `src/index.ts` what another package imports (TS2305, TS2459, TS2724). Keep `src/index.ts` free of seed records and `.filter(`, `.sort(`, or `.slice(`.
 
 ## Types and lint
 
@@ -30,7 +30,7 @@ Import Serenity statically, as `healthcheck.steps.ts` does. Name steps `src/step
 
 ## Dependencies
 
-Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. A package that already depends on vitest may add a `test` script. Do not add vitest or `vitest.config.ts`. Do not edit `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`,
+Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. A package with vitest may add a `test` script. Do not add vitest or `vitest.config.ts`. Do not edit `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`,
 
 ## Repair
 
