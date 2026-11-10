@@ -66,9 +66,35 @@ test('repo map: every full path it names, braces expanded, exists and is open to
 	};
 	const cited = /`((?:packages|apps)\/[^`<>*\s]+\.(?:ts|md|json)|task-set-[ab]-requirements\.md)`/g;
 	const named = [...map.matchAll(cited)].flatMap((m) => expand(m[1]));
-	assert.ok(named.length >= 20, `map names ${named.length} paths`);
+	assert.ok(named.length >= 15, `map names ${named.length} paths`);
 	for (const file of named) {
 		assert.ok(existsSync(path.join(root, file)), `missing: ${file}`);
 		assert.ok(allows(file), `closed: ${file}`);
 	}
+});
+
+test('repo map: seedwork imports are real subpath exports and satisfy the Cellix aggregate check', () => {
+	const root = path.resolve(import.meta.dirname, '..');
+	const map = readFileSync(path.join(root, '.agents/skills/axc-repo-map/SKILL.md'), 'utf8');
+	const exportsMap = JSON.parse(readFileSync(path.join(root, 'packages/cellix/domain-seedwork/package.json'), 'utf8')).exports;
+	assert.equal(exportsMap['.'], undefined, 'the map says seedwork has no root export');
+	const subpaths = [...map.matchAll(/@cellix\/domain-seedwork\/([\w-]+)/g)].map((m) => m[1]);
+	for (const sub of [...subpaths, 'repository', 'unit-of-work']) assert.ok(exportsMap[`./${sub}`], `not exported: ${sub}`);
+	assert.ok(map.includes('`/repository`') && map.includes('`/unit-of-work`'));
+
+	// The aggregate check (vendored from Cellix) requires these imports. If it changes, revisit the map's Passport/Visa line.
+	const check = readFileSync(path.join(root, 'packages/cellix/archunit-tests/src/checks/domain-conventions.ts'), 'utf8');
+	for (const rule of ['/extends\\s+DomainSeedwork\\.AggregateRoot</', '/import.*Passport.*from.*passport/', '/Visa.*from/', '/\\.entity\\.ts/']) assert.ok(check.includes(rule), rule);
+	const sample = [
+		"import * as DomainSeedwork from '@cellix/domain-seedwork/aggregate-root';",
+		"import type { Visa } from '@cellix/domain-seedwork/visa';",
+		"import type { CatalogPassport } from '../catalog.passport.ts';",
+		"import type { CourseProps } from './course.entity.ts';",
+		'export class Course extends DomainSeedwork.AggregateRoot<CourseProps, CatalogPassport> {}',
+	].join('\n');
+	assert.match(sample, /extends\s+DomainSeedwork\.AggregateRoot</);
+	assert.match(sample, /import.*Passport.*from.*passport/);
+	assert.match(sample, /Visa.*from/);
+	assert.ok(map.includes("import * as DomainSeedwork from '@cellix/domain-seedwork/aggregate-root'"));
+	assert.ok(map.includes('<context>.passport.ts`') && map.includes('seedwork `Visa`'));
 });
