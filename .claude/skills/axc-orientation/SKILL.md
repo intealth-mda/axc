@@ -115,7 +115,10 @@ own unit test (rest is test-wired too).
 - **Write order** (when the task adds a capability; a fix or refactor touches only the layers
   it needs). Batch 1 is domain and persistence. Batch 2 is application-services, rest,
   acceptance and docs. Write each batch's tests in the same batch, then run the precheck
-  once (Tests below).
+  once (Tests below). Plan only the batch you are about to write: before batch 1, settle
+  what domain and persistence hold (fields, value objects, invariants, transitions, errors,
+  repository methods), across every capability, and write it. Design batch 2 in the next
+  turn, against the batch-1 code then in context.
 
 ## Tests
 

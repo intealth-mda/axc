@@ -61,6 +61,9 @@ check("drift: typed-domain and unit-of-work rules", "(unknown|any)" in cellix an
 check("drift: map's InMemoryUnitOfWork is exported", "InMemoryUnitOfWork" in read("packages/axc/persistence/src/index.ts"))
 check("drift: coverage bar", "n >= len(crit)" in cov and "at least as many scenarios as criteria" in skill)
 check("drift: healthcheck.feature excluded", '"healthcheck.feature"' in cov and "not `healthcheck.feature`" in skill)
+check("drift: CLAUDE.md plan-per-batch line points at the map's write order",
+      "one batch at a time (the map's write order)" in read("CLAUDE.md")
+      and "**Write order**" in skill and "Plan only the batch you are about to write" in skill)
 
 exports = json.loads(read("packages/cellix/domain-seedwork/package.json"))["exports"]
 listed = re.findall(r"`@cellix/domain-seedwork/([\w-]+)`", skill)

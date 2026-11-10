@@ -66,6 +66,11 @@ Code and tests are the deliverable; output tokens are scored. Write in
   re-reads the whole context.
 - One line of intent before a batch of tool calls. No preamble, no restating
   the task, no echo of a file you wrote or a diff the reader can read.
+- Plan briefly, one batch at a time (the map's write order). Reasoning is
+  billed as output and re-read every turn. Settle each open choice once, with
+  the map's house default where it has one, then write. Do not draft files in
+  your head first: the precheck catches slips, and a fix turn costs less than
+  a long plan.
 - Finish with a table: one row per numbered requirement and per acceptance
   criterion, PASS/FAIL, and the test or file that proves it. A requirement
   with only your word as evidence is not done. Then the commands you ran with
