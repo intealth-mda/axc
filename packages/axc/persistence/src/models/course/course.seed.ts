@@ -1,0 +1,156 @@
+import type { CourseModality, CourseStatus } from '@axc/domain';
+
+interface CourseSeedRecord {
+	readonly id: string;
+	readonly title: string;
+	readonly summary: string;
+	readonly modality: CourseModality;
+	readonly status: CourseStatus;
+	readonly tags: readonly string[];
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+/** Fixture catalog. Mixed modality, status, and tags for local and acceptance tests. */
+export const courseSeedRecords: readonly CourseSeedRecord[] = [
+	{
+		id: 'course-001',
+		title: 'AI Security Foundations',
+		summary: 'Introductory course on secure AI-assisted development.',
+		modality: 'online',
+		status: 'active',
+		tags: ['ai', 'security'],
+		createdAt: '2026-01-15T00:00:00.000Z',
+		updatedAt: '2026-06-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-002',
+		title: 'Physical Security Lab',
+		summary: 'Hands-on facility controls and badge procedures.',
+		modality: 'in-person',
+		status: 'active',
+		tags: ['security', 'facilities'],
+		createdAt: '2024-10-01T00:00:00.000Z',
+		updatedAt: '2023-09-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-003',
+		title: 'Hybrid Leadership Studio',
+		summary: 'Practice for managers who coach distributed teams.',
+		modality: 'hybrid',
+		status: 'draft',
+		tags: ['leadership'],
+		createdAt: '2024-03-01T00:00:00.000Z',
+		updatedAt: '2023-05-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-004',
+		title: 'Draft AI Workshop',
+		summary: 'Unpublished workshop outline for new facilitators.',
+		modality: 'online',
+		status: 'draft',
+		tags: ['AI'],
+		createdAt: '2024-05-01T00:00:00.000Z',
+		updatedAt: '2023-08-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-005',
+		title: 'Retired Networking Basics',
+		summary: 'Archived introduction to subnets and routing.',
+		modality: 'online',
+		status: 'retired',
+		tags: ['networking'],
+		createdAt: '2024-01-01T00:00:00.000Z',
+		updatedAt: '2023-07-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-006',
+		title: 'In-person Onboarding',
+		summary: 'First-week orientation for new hires.',
+		modality: 'in-person',
+		status: 'draft',
+		tags: ['hr'],
+		createdAt: '2024-04-01T00:00:00.000Z',
+		updatedAt: '2023-03-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-007',
+		title: 'Hybrid Compliance Clinic',
+		summary: 'Control mapping clinic for audit evidence.',
+		modality: 'hybrid',
+		status: 'active',
+		tags: ['compliance', 'ai'],
+		createdAt: '2024-11-01T00:00:00.000Z',
+		updatedAt: '2023-11-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-008',
+		title: 'Privacy Operations',
+		summary: 'How privacy controls relate to security reviews.',
+		modality: 'online',
+		status: 'active',
+		tags: ['privacy'],
+		createdAt: '2026-03-01T00:00:00.000Z',
+		updatedAt: '2026-07-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-009',
+		title: 'Legacy Access Control',
+		summary: 'Retired workshop on directory groups.',
+		modality: 'in-person',
+		status: 'retired',
+		tags: ['Security'],
+		createdAt: '2024-08-01T00:00:00.000Z',
+		updatedAt: '2023-10-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-010',
+		title: 'Classroom Facilitation',
+		summary: 'Techniques for live classroom delivery.',
+		modality: 'in-person',
+		status: 'active',
+		tags: ['teaching'],
+		createdAt: '2024-07-01T00:00:00.000Z',
+		updatedAt: '2023-02-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-011',
+		title: 'Hybrid Retired Archive',
+		summary: 'Withdrawn hybrid session kept for history.',
+		modality: 'hybrid',
+		status: 'retired',
+		tags: ['archive'],
+		createdAt: '2024-09-01T00:00:00.000Z',
+		updatedAt: '2023-06-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-012',
+		title: 'Online Draft Writing',
+		summary: 'Draft lessons for technical writing.',
+		modality: 'online',
+		status: 'draft',
+		tags: ['writing'],
+		createdAt: '2024-02-01T00:00:00.000Z',
+		updatedAt: '2023-04-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-013',
+		title: 'SECURITY Operations',
+		summary: 'Advanced operations for the security program.',
+		modality: 'hybrid',
+		status: 'active',
+		tags: ['development'],
+		createdAt: '2024-12-01T00:00:00.000Z',
+		updatedAt: '2023-12-01T00:00:00.000Z',
+	},
+	{
+		id: 'course-014',
+		title: 'Safety Drills',
+		summary: 'Floor evacuation practice for office staff.',
+		modality: 'in-person',
+		status: 'active',
+		tags: ['safety'],
+		createdAt: '2024-06-01T00:00:00.000Z',
+		updatedAt: '2023-01-01T00:00:00.000Z',
+	},
+];

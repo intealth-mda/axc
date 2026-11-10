@@ -19,6 +19,7 @@
 		"prebuild": "pnpm run lint",
 		"build": "tsgo --build",
 		"typecheck": "tsgo --noEmit",
+		"test": "vitest run --silent --reporter=dot src/domain",
 		"watch": "tsgo --watch",
 		"test:arch": "vitest run --config vitest.arch.config.ts",
 		"clean": "rimraf dist tsconfig.tsbuildinfo"
