@@ -1,12 +1,12 @@
 ---
 name: axc-repo-map
-description: AXC layout and conventions. Read once per application task.
+description: AXC layout and conventions.
 disable-model-invocation: true
 ---
 
-In one batch, read `task-set-a-requirements.md` or `task-set-b-requirements.md`; `packages/axc-verification/acceptance-api/src/` `step-definitions/healthcheck.steps.ts` and `features/healthcheck.feature`; `packages/axc/application-services/src/health.test.ts`; `apps/api/src/index.ts`; `packages/axc/{rest,application-services,domain,persistence}/src/index.ts`; `persistence` and `application-services` `package.json`; `apps/docs/sidebars.ts`; `apps/docs/docs/healthcheck.md`. Cellix contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/{aggregate-root,domain-entity,repository,value-object,unit-of-work}.ts`, `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts` and `packages/cellix/archunit-tests/src/checks/{domain,application-services}-conventions.ts`. Open nothing else unless the spec or a Stop report names it.
+In one batch, read `task-set-a-requirements.md` or `task-set-b-requirements.md`; `packages/axc-verification/acceptance-api/src/` `step-definitions/healthcheck.steps.ts` and `features/healthcheck.feature`; `packages/axc/application-services/src/health.test.ts`; `apps/api/src/index.ts`; `packages/axc/{rest,application-services,domain,persistence}/src/index.ts`; `persistence` and `application-services` `package.json`; `apps/docs/sidebars.ts`; `apps/docs/docs/healthcheck.md`; the Cellix contracts `packages/cellix/domain-seedwork/src/domain-seedwork/{aggregate-root,domain-entity,repository,value-object,unit-of-work}.ts`, `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts` and `packages/cellix/archunit-tests/src/checks/{domain,application-services}-conventions.ts`. Open nothing else unless the spec or a Stop report names it.
 
-Known, so do not open: each layer package has `vitest.config.ts` and `vitest.arch.config.ts`; `cucumber.yaml` loads `src/features/**/*.feature` and `src/step-definitions/**/*.steps.ts`. Docs: add `<feature>.md` and its `sidebars.ts` id. Before Stop, ignore LSP errors on new `@axc/*` imports; Stop links and builds them.
+Known, so do not open: layer packages have `tsconfig.json` (Stop adds references), `vitest.config.ts` and `vitest.arch.config.ts`; `cucumber.yaml` loads `src/features/**/*.feature` and `src/step-definitions/**/*.steps.ts`. Docs: add `<feature>.md` and its `sidebars.ts` id. Before Stop, ignore LSP errors from new imports, including missing inherited members: Stop installs and builds.
 
 ## House shape
 
@@ -16,9 +16,9 @@ Every aggregate imports its entity props, a `<C>Passport` from `contexts/<contex
 
 Persistence lives in `packages/axc/persistence/src/datasources` or `src/models`. A memory Mongo uses `createMemoryMongoServer()` from `@axc/service-mongoose`, never `mongodb-memory-server`; keep `mongoose` there. Persistence depends on `@axc/domain`; application services on `@axc/domain` and `@axc/persistence`.
 
-Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. Its `index.ts` exports `interface <E>ApplicationService` and `export const <E> = (dataSources: DataSources)`. Do not store state in an application-service array. Services and REST import no `mongoose`, `mongodb` or `@axc/service-mongoose`. REST does not import `@axc/persistence`.
+Application services live under `packages/axc/application-services/src/contexts/{context}/{entity}/`. Its `index.ts` exports `interface <E>ApplicationService` and `export const <E> = (dataSources: DataSources)`. Do not store state in an application-service array. Services and REST import no `mongoose`, `mongodb` or `@axc/service-mongoose`; REST no `@axc/persistence`.
 
-Routes go in `packages/axc/rest/src/<feature>.routes.ts`, not `src/index.ts`. `apps/api/src/index.ts` only registers one `registerAzureFunctionHttpHandler` per route. `host.json` `routePrefix` is empty: routes are full paths. Keep `src/index.ts` free of seed records and `.filter(`, `.sort(` or `.slice(`.
+Routes go in `packages/axc/rest/src/<feature>.routes.ts`, not `src/index.ts`. `apps/api/src/index.ts` registers one `registerAzureFunctionHttpHandler` per route. `host.json` `routePrefix` is empty: routes are full paths. Keep `src/index.ts` free of seed records and `.filter(`, `.sort(` or `.slice(`.
 
 ## Types, lint, tests
 
@@ -30,4 +30,4 @@ Copy `healthcheck.steps.ts`: static Serenity imports and the local `resolved()` 
 
 ## Dependencies and repair
 
-A new spec is only `workspace:*` or `catalog:`. Do not add vitest or touch `pnpm-lock.yaml`, `tsconfig` or vitest configs. Write the slice in one batch; do not re-read a file you wrote unless an edit failed. On a block, change only the files the report names, then stop.
+A new spec is only `workspace:*` or `catalog:`. Do not add vitest or touch `pnpm-lock.yaml` or configs. Make all writes in one response; do not re-read a file you wrote unless an edit failed. On a block, change only the files the report names, then stop.

@@ -16,4 +16,4 @@ Harness-only. Each `rule` cell is a literal substring of `file`.
 | `<context>.passport.ts` | `.agents/skills/axc-repo-map/SKILL.md` | Passport/Visa deliberation, optional visa files |
 | `ignore LSP errors` | `.agents/skills/axc-repo-map/SKILL.md` | tsconfig reads after writes |
 | `exactOptionalPropertyTypes` is on | `.agents/skills/axc-repo-map/SKILL.md` | TS2375/TS2379 Stop block |
-| `Write the slice in one batch` | `.agents/skills/axc-repo-map/SKILL.md` | split write calls and fix passes |
+| `Make all writes in one response` | `.agents/skills/axc-repo-map/SKILL.md` | split write calls and fix passes |
