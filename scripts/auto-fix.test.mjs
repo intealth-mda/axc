@@ -7,7 +7,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { autoFix, bracketIndexAccess, changedFiles, dropAsync, expandParameterProperties, fixTargets, ignoreLiteralKeys, tagConventionFactory } from './auto-fix.mjs';
 
-test('fixTargets: write dirs only; never tests, steps, features or path_deny files', () => {
+test('fixTargets: write dirs only; never path_deny files; test and step code only in tests (useAwait only), never features', () => {
 	const files = [
 		'packages/axc/rest/src/a.ts',
 		'packages/axc/rest/src/a.test.ts',
@@ -20,7 +20,7 @@ test('fixTargets: write dirs only; never tests, steps, features or path_deny fil
 		'pnpm-lock.yaml',
 	];
 	const t = fixTargets(files, { dirs: ['packages/axc', 'acc'], deny: [/(^|\/)\.env(\.|$)/, /(^|\/)pnpm-lock\.yaml$/] });
-	assert.deepEqual(t, { biome: ['packages/axc/rest/src/a.ts', 'packages/axc/rest/src/c.json'], code: ['packages/axc/rest/src/a.ts'] });
+	assert.deepEqual(t, { biome: ['packages/axc/rest/src/a.ts', 'packages/axc/rest/src/c.json'], code: ['packages/axc/rest/src/a.ts'], tests: ['packages/axc/rest/src/a.test.ts', 'acc/src/step-definitions/h.steps.ts'] });
 });
 
 test('dropAsync: arrow, function and method; skips Promise-typed signatures, generators and non-async spots', () => {
@@ -92,7 +92,49 @@ test('autoFix: useAwait spots from biome, knip limited to changed files, biome -
 	assert.equal(read('src/a.ts'), 'export const a = () => {\n\treturn 1;\n};\ninterface T { x: number }\n// fmt\n');
 	assert.equal(read('src/keep.ts'), 'export const keep = 1;\n', 'knip edit outside the changed files restored');
 	assert.match(read('node_modules/knip-args'), /--fix --fix-type exports --fix-type types /, 'repeated --fix-type (knip ignores the comma form)');
-	assert.equal(read('src/a.test.ts'), 'export const t = async () => 1;\n', 'test files never fixed');
+	assert.equal(read('src/a.test.ts'), 'export const t = async () => 1;\n', 'a test file with no useAwait report is untouched (no knip or biome --write)');
+});
+
+test('dropAsync keepThrow (test files): drops a pass-through helper, keeps a body that throws', () => {
+	const src = ['async function search(p: string) {', '\treturn courses.search(p);', '}', 'async function fail() {', "\tthrow new Error('x');", '}'].join('\n');
+	const { src: out, n } = dropAsync(
+		src,
+		[
+			{ line: 1, col: 1 },
+			{ line: 4, col: 1 },
+		],
+		{ keepThrow: true },
+	);
+	assert.equal(n, 1);
+	assert.match(out, /^function search\(p: string\) \{/);
+	assert.match(out, /\nasync function fail\(\) \{/);
+	assert.equal(dropAsync(src, [{ line: 4, col: 1 }]).n, 1, 'non-test code keeps the old behaviour');
+});
+
+test('autoFix: useAwait in a test file drops async; noUselessConstructor unsafe fix runs on non-test code only', () => {
+	// fake biome: useAwait lint reports src/a.test.ts:1:18; the noUselessConstructor --write --unsafe call records its args and strips the constructor
+	fakeBin(
+		'biome',
+		[
+			'if [ "$1" = lint ]; then',
+			'  case "$*" in',
+			'    *noUselessConstructor*) echo "$@" > node_modules/ctor-args; sed -i.bak "/constructor/,/^\t}/d" src/vo.ts && rm -f src/vo.ts.bak; exit 0;;',
+			'    *useAwait*) echo "::error title=lint/suspicious/useAwait,file=src/a.test.ts,line=1,endLine=1,col=18,endColumn=40::lacks await"; exit 1;;',
+			'  esac',
+			'fi',
+		].join('\n'),
+	);
+	write('src/vo.ts', 'export class V extends B {\n\tpublic constructor(p: P) {\n\t\tsuper(p);\n\t}\n\tget v() { return 1; }\n}\n');
+	write('src/a.test.ts', 'export const t = async () => search();\n');
+	const t = fixTargets(changedFiles(repo));
+	assert.deepEqual(t.tests, ['src/a.test.ts']);
+	const log = autoFix(repo, t);
+	assert.deepEqual(log, ['useAwait (drop async): src/a.test.ts', 'noUselessConstructor (remove): src/vo.ts']);
+	assert.equal(read('src/a.test.ts'), 'export const t = () => search();\n');
+	assert.equal(read('src/vo.ts'), 'export class V extends B {\n\tget v() { return 1; }\n}\n');
+	const args = read('node_modules/ctor-args');
+	assert.match(args, /--only=complexity\/noUselessConstructor --write --unsafe /);
+	assert.doesNotMatch(args, /a\.test\.ts/, 'the unsafe fix never touches test files');
 });
 
 test('autoFix: knip load error (unbuilt worktree) → pnpm run build once, then knip again', () => {

@@ -1,7 +1,11 @@
 // Stop-hook auto-fix (stop-gate runs it before the commit's verify). Only the agent's changed files inside the write
-// dirs; never write-boundary path_deny files; never test/spec/feature/step files (no fixer may touch assertions).
+// dirs; never write-boundary path_deny files. Test/spec/step files get only fixer 1, never one that edits assertions.
 //   1. useAwait: drop `async` where biome reports no `await`. A signature that names `Promise<` keeps `async`
-//      unless every return is already a Promise (`Promise.resolve` / `Promise.reject`).
+//      unless every return is already a Promise (`Promise.resolve` / `Promise.reject`). In test files a body with
+//      `throw` keeps `async` (a rejection a test may assert would become a synchronous throw).
+//   1b. noUselessConstructor: biome's unsafe fix (remove a constructor that only calls `super` with the same
+//      arguments), this rule only, non-test files. Cellix seedwork base constructors are public, so removal keeps
+//      `new X(...)`; typecheck in verify still runs after it.
 //   2. parameter properties become fields and constructor assignments (`erasableSyntaxOnly`).
 //   3. TS4111 dot access becomes brackets, and a `useLiteralKeys` line gets a biome-ignore. The bracket form is what
 //      `noPropertyAccessFromIndexSignature` requires; biome's own fix would turn it back into a dot.
@@ -10,7 +14,7 @@
 //      `dist/`) → `pnpm run build` once (turbo-cached; verify's build then hits the cache) and retry.
 //      First, the folder-named factory in an application-services entity index (the export
 //      application-services-conventions requires) gets a `/** @public */` tag, so knip keeps that one export.
-//   5. biome check --write: safe fixes + format only (no --unsafe).
+//   5. biome check --write: safe fixes + format only (no --unsafe; 1b is the one unsafe fix, for one rule).
 // Dependency-free; every fixer is optional (missing node_modules/.bin → skipped) and fails open. Returns log lines.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -41,8 +45,9 @@ export function changedFiles(root) {
 
 /** Which changed files each fixer may touch. Pure. */
 export function fixTargets(files, { dirs = [], deny = [] } = {}) {
-	const ok = files.filter((f) => (!dirs.length || dirs.some((d) => f.startsWith(`${d}/`))) && !deny.some((re) => re.test(f)) && !TEST.test(f));
-	return { biome: ok.filter((f) => BIOME.test(f)), code: ok.filter((f) => CODE.test(f)) };
+	const inside = files.filter((f) => (!dirs.length || dirs.some((d) => f.startsWith(`${d}/`))) && !deny.some((re) => re.test(f)));
+	const ok = inside.filter((f) => !TEST.test(f));
+	return { biome: ok.filter((f) => BIOME.test(f)), code: ok.filter((f) => CODE.test(f)), tests: inside.filter((f) => TEST.test(f) && CODE.test(f)) };
 }
 
 /** True when `expr` is already a Promise, so dropping `async` keeps a declared `Promise<…>` return. */
@@ -110,9 +115,21 @@ function bodyAt(rest) {
 	return null;
 }
 
+/** Body text from `at`: a balanced `{…}` block, or an arrow expression up to its line end. */
+function bodyText(rest, body) {
+	if (body.kind === 'expr') return rest.slice(body.at).split('\n', 1)[0] ?? '';
+	let depth = 0;
+	for (let i = body.at; i < rest.length; i++) {
+		if (rest[i] === '{') depth++;
+		else if (rest[i] === '}' && --depth === 0) return rest.slice(body.at, i + 1);
+	}
+	return rest.slice(body.at);
+}
+
 /** Drop `async` at 1-based {line, col} spots (biome useAwait starts). Skips generators and a `Promise<` signature
- * whose returns are not already Promises (dropping `async` there would return the bare value). Pure. */
-export function dropAsync(src, spots) {
+ * whose returns are not already Promises (dropping `async` there would return the bare value). `keepThrow` also
+ * skips a body that contains `throw` (used for test files). Pure. */
+export function dropAsync(src, spots, { keepThrow = false } = {}) {
 	const starts = [0];
 	for (let i = 0; i < src.length; i++) if (src[i] === '\n') starts.push(i + 1);
 	const offsets = spots.map(({ line, col }) => (starts[line - 1] ?? Number.NaN) + col - 1).filter((o) => Number.isInteger(o) && o >= 0);
@@ -124,6 +141,7 @@ export function dropAsync(src, spots) {
 		const body = bodyAt(rest);
 		if (!body) continue;
 		if (/\bPromise\s*</.test(rest.slice(0, body.sigEnd)) && !returnsArePromises(rest, body.at, body.kind)) continue;
+		if (keepThrow && /\bthrow\b/.test(bodyText(rest, body))) continue;
 		src = src.slice(0, o) + rest.slice(m[0].length);
 		n++;
 	}
@@ -314,22 +332,28 @@ export function autoFix(root, targets, { prefix = '', env = process.env } = {}) 
 	};
 	const log = [];
 	try {
-		if (targets.code.length && existsSync(bin('biome'))) {
-			const r = sh(bin('biome'), ['lint', '--only=suspicious/useAwait', '--reporter=github', '--no-errors-on-unmatched', ...targets.code]);
+		const tests = targets.tests ?? [];
+		const awaitFiles = [...targets.code, ...tests];
+		if (awaitFiles.length && existsSync(bin('biome'))) {
+			const r = sh(bin('biome'), ['lint', '--only=suspicious/useAwait', '--reporter=github', '--no-errors-on-unmatched', ...awaitFiles]);
 			const byFile = new Map();
 			for (const m of `${r.stdout}`.matchAll(/^::\w+ title=lint\/suspicious\/useAwait,file=([^,]+),line=(\d+),(?:[^:]*?,)?col=(\d+)/gm)) {
 				const f = path.relative(root, path.resolve(root, m[1]));
-				if (targets.code.includes(f)) byFile.set(f, [...(byFile.get(f) ?? []), { line: Number(m[2]), col: Number(m[3]) }]);
+				if (awaitFiles.includes(f)) byFile.set(f, [...(byFile.get(f) ?? []), { line: Number(m[2]), col: Number(m[3]) }]);
 			}
 			const fixed = [];
 			for (const [f, spots] of byFile) {
-				const { src, n } = dropAsync(read(f).toString('utf8'), spots);
+				const { src, n } = dropAsync(read(f).toString('utf8'), spots, { keepThrow: tests.includes(f) });
 				if (n) {
 					writeFileSync(path.join(root, f), src);
 					fixed.push(f);
 				}
 			}
 			if (fixed.length) log.push(`useAwait (drop async): ${fixed.join(', ')}`);
+		}
+		if (targets.code.length && existsSync(bin('biome'))) {
+			const t = touched(targets.code, () => sh(bin('biome'), ['lint', '--only=complexity/noUselessConstructor', '--write', '--unsafe', '--no-errors-on-unmatched', ...targets.code]));
+			if (t.length) log.push(`noUselessConstructor (remove): ${t.join(', ')}`);
 		}
 		if (targets.code.length) {
 			const fixed = [];
