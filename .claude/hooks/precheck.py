@@ -2,7 +2,7 @@
 """One self-check before the full gate. In order: biome --write on changed
 files, turbo typecheck + test for every changed package (the same package
 scripts verify runs, deps built as verify builds them), then the coverage,
-cellix and knip checks. turbo runs with --continue, so one pass lists the
+cellix, knip and mdx checks. turbo runs with --continue, so one pass lists the
 errors of every failing package. Prints only problems; last line is `precheck OK` or
 `precheck FAIL: <steps>`. Exit 0 / 1.
 Usage: python3 .claude/hooks/precheck.py"""
@@ -31,6 +31,36 @@ def package_of(root, path):
             return json.load(open(pj)).get("name")
         d = os.path.dirname(d)
     return None
+
+
+MDX_JSX = re.compile(r"(?<!\\)\{|<(?=\S)")
+FENCE = re.compile(r"^\s*(?:>\s*)*(`{3,}|~{3,})")
+
+
+def mdx_problems(root, files):
+    """Docs pages are MDX: an unescaped `{` or a `<` not followed by a space, outside
+    code, is parsed as JSX and the docs build fails (seen as `ReferenceError: id is not
+    defined`). Code spans, fenced blocks (also inside blockquotes) and front matter are
+    safe. Known gap: a code span split across two lines is flagged."""
+    probs = []
+    for f in files:
+        if not (f.startswith("apps/docs/docs/") and f.endswith((".md", ".mdx"))):
+            continue
+        fence, front = "", False
+        for n, line in enumerate(open(os.path.join(root, f), encoding="utf-8-sig", errors="replace"), 1):
+            if n == 1 and line.strip() == "---":
+                front = True
+                continue
+            if front:
+                front = line.strip() != "---"
+                continue
+            m = FENCE.match(line)
+            if m and (not fence or (m[1][0] == fence[0] and len(m[1]) >= len(fence))):
+                fence = "" if fence else m[1]
+                continue
+            if not fence and MDX_JSX.search(re.sub(r"(`+).*?\1", "", line)):
+                probs.append(f"{f}:{n}: {line.strip()[:100]}")
+    return probs
 
 
 def main():
@@ -72,6 +102,12 @@ def main():
             failed.append(name)
             print(f"-- {name} --")
             print(out.strip())
+
+    mdx = mdx_problems(root, files)
+    if mdx:
+        failed.append("mdx")
+        print("-- mdx: `{...}` or `<tag>` outside code breaks the docs build; use backticks or `:id` --")
+        print("\n".join(mdx[:20]))
 
     print("precheck OK" if not failed else "precheck FAIL: " + ", ".join(failed))
     return 1 if failed else 0

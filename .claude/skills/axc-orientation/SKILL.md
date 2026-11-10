@@ -134,12 +134,43 @@ own unit test (rest is test-wired too).
 - Acceptance: `packages/axc-verification/acceptance-api/src/features/*.feature` +
   `src/step-definitions/*.steps.ts`. `cucumber.yaml` already globs both — new files need no
   registration. Name the feature/step files after the capability under test (as `healthcheck.feature`
-  is), not the entity, and keep them consistent with the doc slug you register. Copy the shape of `healthcheck.steps.ts`,
-  including its local `resolved` helper (a cast; serenity types answers as `Promise<T>`):
-  `actorCalled('API client').attemptsTo(Send.a(GetRequest.to('/path?x=y')))`;
-  `Send.a(PostRequest.to('/path').with(body))` and `PatchRequest` the same way (all from `@serenity-js/rest`);
-  `Ensure.that(resolved(LastResponse.status()), equals(200))`;
-  `Ensure.that(resolved(Question.about('…', async a => (await a.answer(LastResponse.body<T>())).field)), equals(x))`.
+  is), not the entity, and keep them consistent with the doc slug you register. Steps follow
+  this shape (healthcheck.steps.ts plus a typed body reader; it typechecks as written and the
+  precheck's biome `--write` formats it — rename the placeholder `Thing`, paths and phrases):
+  ```ts
+  import { Given, Then, When } from '@cucumber/cucumber';
+  import { contain, Ensure, equals } from '@serenity-js/assertions';
+  import { type Answerable, actorCalled, Question } from '@serenity-js/core';
+  import { GetRequest, LastResponse, PatchRequest, PostRequest, Send } from '@serenity-js/rest';
+  // QuestionAdapter is typed as Question<Promise<T>>. The actor resolves it to T.
+  const resolved = <T>(answerable: Answerable<Promise<T>>): Answerable<T> => answerable as unknown as Answerable<T>;
+  interface Thing { id: string; name: string; items: { id: string; label: string }[] }
+  interface ErrorBody { error: { code: string; details: { field: string }[] } }
+  const actor = () => actorCalled('API client');
+  const body = <B, R>(pick: (b: B) => R) =>
+  	resolved(Question.about('the response body', async (a) => pick(await a.answer(LastResponse.body<B>()))));
+  let lastId = '';
+  Given('a thing named {string} exists', async (name: string) => {
+  	await actor().attemptsTo(Send.a(PostRequest.to('/api/things').with({ name })));
+  	lastId = (await actor().answer(LastResponse.body<Thing>())).id;
+  });
+  When('the client sends GET {string}', (path: string) => actor().attemptsTo(Send.a(GetRequest.to(path.replace('{id}', lastId)))));
+  When('the client sends {word} {string} with:', (method: string, path: string, json: string) =>
+  	actor().attemptsTo(Send.a((method === 'PATCH' ? PatchRequest : PostRequest).to(path.replace('{id}', lastId)).with(JSON.parse(json)))));
+  Then('the response status is {int}', (status: number) => actor().attemptsTo(Ensure.that(resolved(LastResponse.status()), equals(status))));
+  Then('the error code is {string}', (code: string) => actor().attemptsTo(Ensure.that(body((b: ErrorBody) => b.error.code), equals(code))));
+  Then('the error names field {string}', (field: string) =>
+  	actor().attemptsTo(Ensure.that(body((b: ErrorBody) => b.error.details.map((d) => d.field)), contain(field))));
+  Then('the last item is {string} labelled {string}', (id: string, label: string) =>
+  	actor().attemptsTo(Ensure.that(body((b: Thing) => `${b.items.at(-1)?.id}:${b.items.at(-1)?.label}`), equals(`${id}:${label}`))));
+  ```
+  Each assertion picks a primitive, a `string[]` or a joined string out of a typed body and
+  compares it with `equals`/`contain`. Never compare `JSON.stringify` of an object (key order
+  is not part of the contract), and never type a body as `Record<string, …>` (`b.id` is then
+  TS4111 and `b['id']` trips biome `useLiteralKeys`): declare the fields you read. A JSON
+  request body goes in a doc string (`… with:` then a `"""` block); a `{string}` cannot hold
+  its quotes. An invalid-JSON case sends the raw text:
+  `.with('{bad').using({ headers: { 'Content-Type': 'application/json' } })`.
   Every `Question` passed to `Ensure.that` needs `resolved(...)`, or tsgo reports TS2345.
   `@serenity-js/assertions` exports exactly: `and`, `contain`, `containAtLeastOneItemThat`,
   `containItemsWhereEachItem`, `endsWith`, `equals`, `includes`, `isAfter`, `isBefore`,
@@ -158,7 +189,7 @@ own unit test (rest is test-wired too).
   and error code).
 - Self-check: after all files are written, run `python3 .claude/hooks/precheck.py` once
   before the full gate. It runs biome `--write` on changed files, typecheck and unit tests of
-  every changed package (acceptance-api included), then the three checks below, and prints
+  every changed package (acceptance-api included), then the four checks below, and prints
   only problems, ending `precheck OK` or `precheck FAIL: <steps>`. Re-run it after fixes.
   Run biome `--write` before patching a file with sed or python: reformatting moves the text
   a later patch would match. The checks enforce these rules, so code to them:
@@ -172,12 +203,15 @@ own unit test (rest is test-wired too).
     no `unknown`/`any` in domain source (tests exempt); every application-services module
     that calls `.save(` also calls `withScopedTransaction`.
   - knip: every new file and export is reachable from its package's `src/index.ts` and used.
+  - mdx: changed `apps/docs` pages have no `{…}` or `<tag>` outside code (see Docs).
 - Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in CLAUDE.md.
 
 ## Docs
 
 `apps/docs/docs/` holds `intro.md` (`slug: /`) and `healthcheck.md` (request, response JSON,
 field table, curl example). A new page needs its id added to `docs: [...]` in `sidebars.ts`.
+Pages are MDX: `{id}` or `<tag>` in prose, headings or tables is parsed as JSX and fails the
+docs build. Put paths and placeholders in backticks (`` `GET /things/{id}` ``) or write `:id`.
 If a requirements file names a docs path outside the task's write boundary (a root `docs/`
 folder, say), the boundary wins: write the page under `apps/docs/docs/` and say so in the
 summary.

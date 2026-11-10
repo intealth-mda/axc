@@ -37,10 +37,9 @@ mostly acceptance. While iterating, use the cheapest check:
 | need | command |
 |---|---|
 | format + lint one path | `corepack pnpm exec biome check --write <path>` (biome wants TABS) |
-| typecheck one package | `cd packages/axc/<pkg> && ../../../node_modules/.bin/tsgo --noEmit` |
-| unit tests one package | `corepack pnpm --filter @axc/<pkg> run test` |
+| typecheck + unit tests, one package (builds the workspace packages it imports first; a bare `tsgo --noEmit` reads their missing or stale `dist` and reports TS2305) | `corepack pnpm exec turbo run typecheck test --output-logs=errors-only --filter=@axc/<pkg>` |
 | architecture rules only | `corepack pnpm exec turbo run test:arch --force` |
-| all files written: biome --write, typecheck + tests of changed packages, coverage/cellix/knip | `python3 .claude/hooks/precheck.py` |
+| all files written: biome --write, typecheck + tests of changed packages, coverage/cellix/knip/mdx | `python3 .claude/hooks/precheck.py` |
 | everything, before you claim done | `python3 .claude/hooks/gate_digest.py` |
 
 `gate_digest.py` runs verify once and prints the exit code (first and last

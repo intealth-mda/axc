@@ -3,7 +3,8 @@
 `--session`: silent when all pass, one warning line on drift, never blocks).
 1. gate_digest prints `gate EXIT=<n>` first and last and keeps a failing
    scenario's Expected/Received lines.
-2. precheck: exits 0 when nothing changed; maps a file to its nearest package.
+2. precheck: exits 0 when nothing changed; maps a file to its nearest package;
+   flags `{`/`<tag>` outside code in changed docs pages (MDX).
 3. Drift: each hook rule the axc-orientation map restates still matches the
    script or package it describes. Fix the map or the script when one fails.
 Run by hand: python3 .claude/hooks/test_harness.py"""
@@ -47,6 +48,15 @@ with tempfile.TemporaryDirectory() as tmp:
     os.makedirs(os.path.join(tmp, "packages/p/src/a"))
     json.dump({"name": "@x/p"}, open(os.path.join(tmp, "packages/p/package.json"), "w"))
     check("precheck: file maps to nearest package", precheck.package_of(tmp, "packages/p/src/a/b.ts") == "@x/p")
+with tempfile.TemporaryDirectory() as tmp:
+    os.makedirs(os.path.join(tmp, "apps/docs/docs"))
+    page = ["\ufeff---", "title: {t}", "---", "# X", "## `GET /x/{id}`", "````md", "```", "{ inner }", "```", "````",
+            "> ```", "> {quoted}", "> ```", "| `<id>` | a < b | \\{id\\} |",
+            "## GET /x/{id}", "see <Tag>", "a <5 b"]
+    open(os.path.join(tmp, "apps/docs/docs/x.md"), "w", encoding="utf-8").write("\n".join(page) + "\n")
+    open(os.path.join(tmp, "apps/docs/README.md"), "w").write("{x}\n")
+    got = precheck.mdx_problems(tmp, ["apps/docs/docs/x.md", "apps/docs/README.md", "packages/p/src/a.ts"])
+    check("precheck: mdx flags braces/tags outside code only", [g.split(":")[1] for g in got] == ["15", "16", "17"])
 check("precheck: turbo --continue (one pass lists every failing package)", '"--continue"' in read(".claude/hooks/precheck.py"))
 
 skill = read(".claude/skills/axc-orientation/SKILL.md")
@@ -65,6 +75,17 @@ check("drift: CLAUDE.md plan-per-batch line points at the map's write order",
       "one batch at a time (the map's write order)" in read("CLAUDE.md")
       and "**Write order**" in skill and "Plan only the batch you are about to write" in skill)
 
+claude_md = read("CLAUDE.md")
+check("drift: per-package typecheck row builds deps (turbo), no bare tsgo row",
+      "turbo run typecheck test --output-logs=errors-only --filter=@axc/<pkg>" in claude_md
+      and not any("tsgo" in l.rstrip().rstrip("|").split("|")[-1] for l in claude_md.splitlines() if l.startswith("|")))
+check("drift: mdx rule in map, precheck and CLAUDE.md", "mdx_problems(root, files)" in read(".claude/hooks/precheck.py")
+      and "- mdx: changed `apps/docs` pages" in skill and "Pages are MDX" in skill and "knip/mdx" in claude_md)
+sk = re.search(r"```ts\n(.*?)```", skill, re.S)
+listed_asserts = re.search(r"`@serenity-js/assertions` exports exactly: (.*?)\. There is", skill, re.S)
+imp = re.search(r"import \{ ([^}]*) \} from '@serenity-js/assertions'", sk[1]) if sk else None
+check("drift: steps shape imports only listed serenity assertions", bool(imp and listed_asserts) and
+      {n.strip() for n in imp[1].split(",")} <= set(re.findall(r"`(\w+)`", listed_asserts[1])) | {"Ensure"})
 exports = json.loads(read("packages/cellix/domain-seedwork/package.json"))["exports"]
 listed = re.findall(r"`@cellix/domain-seedwork/([\w-]+)`", skill)
 check("drift: map's seedwork subpaths exist, no root export",
