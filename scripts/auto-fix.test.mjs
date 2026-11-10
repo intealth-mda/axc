@@ -5,7 +5,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { autoFix, bracketIndexAccess, changedFiles, dropAsync, expandParameterProperties, fixTargets, ignoreLiteralKeys } from './auto-fix.mjs';
+import { autoFix, bracketIndexAccess, changedFiles, dropAsync, expandParameterProperties, fixTargets, ignoreLiteralKeys, tagConventionFactory } from './auto-fix.mjs';
 
 test('fixTargets: write dirs only; never tests, steps, features or path_deny files', () => {
 	const files = [
@@ -154,4 +154,20 @@ test('bracketIndexAccess rewrites a TS4111 dot and ignoreLiteralKeys marks the l
 	assert.equal(once.n, 1);
 	assert.match(once.src, /biome-ignore lint\/complexity\/useLiteralKeys: index signature\nconst q/);
 	assert.equal(ignoreLiteralKeys(once.src, [2]).n, 0);
+});
+
+test('tagConventionFactory: only the convention factory in an application-services entity index', () => {
+	const file = 'packages/axc/application-services/src/contexts/catalog/course/index.ts';
+	const src = "export interface CourseApplicationService {\n\tfind(): string;\n}\n\nexport const Course = (dataSources: DataSources): CourseApplicationService => ({ find: () => '' });\nexport const helper = (): number => 1;\n";
+	const { src: out, n } = tagConventionFactory(src, file);
+	assert.equal(n, 1);
+	assert.match(out, /\/\*\* @public [^\n]*\*\/\nexport const Course = \(/);
+	assert.equal(out.match(/@public/g).length, 1);
+	assert.doesNotMatch(out, /@public[^\n]*\nexport const helper/);
+	assert.equal(tagConventionFactory(out, file).n, 0, 'idempotent');
+	assert.equal(tagConventionFactory(src, 'packages/axc/application-services/src/contexts/catalog/index.ts').n, 0, 'context index');
+	assert.equal(tagConventionFactory(src, 'packages/axc/application-services/src/contexts/catalog/course/find.ts').n, 0, 'action file');
+	assert.equal(tagConventionFactory(src, 'packages/axc/persistence/src/contexts/catalog/course/index.ts').n, 0, 'other package');
+	assert.equal(tagConventionFactory(src.replace('export interface', 'interface'), file).n, 0, 'no ApplicationService interface');
+	assert.equal(tagConventionFactory(src.replace('export const Course', 'const Course'), file).n, 0, 'never re-adds export');
 });

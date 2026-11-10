@@ -8,6 +8,8 @@
 //   4. knip --fix (exports + types; repeated --fix-type: knip 5.88 ignores the comma form): drop unused `export`s;
 //      any other file knip touches is restored. knip errors (e.g. an unbuilt worktree: vitest configs import workspace
 //      `dist/`) → `pnpm run build` once (turbo-cached; verify's build then hits the cache) and retry.
+//      First, the folder-named factory in an application-services entity index (the export
+//      application-services-conventions requires) gets a `/** @public */` tag, so knip keeps that one export.
 //   5. biome check --write: safe fixes + format only (no --unsafe).
 // Dependency-free; every fixer is optional (missing node_modules/.bin → skipped) and fails open. Returns log lines.
 import { spawnSync } from 'node:child_process';
@@ -264,6 +266,24 @@ export function ignoreLiteralKeys(src, lines) {
 	return { src: rows.join('\n'), n };
 }
 
+/** Entity indexes the application-services factory-export convention checks: src/contexts/<context>/<entity>/index.ts. */
+export const CONVENTION_INDEX = /^packages\/axc\/application-services\/src\/contexts\/[^/]+\/[^/]+\/index\.ts$/;
+const PUBLIC_TAG = '/** @public Folder-named factory required by application-services-conventions. */';
+
+/** Tag the one convention factory (`export const <E> = (` beside `export interface <E>ApplicationService`) `@public`,
+ * so knip treats it as a public export. Other exports in the file stay reportable. Pure. */
+export function tagConventionFactory(src, file) {
+	if (!CONVENTION_INDEX.test(file)) return { src, n: 0 };
+	const name = /export\s+interface\s+(\w+)ApplicationService\b/.exec(src)?.[1];
+	if (!name) return { src, n: 0 };
+	const decl = new RegExp(`^([ \\t]*)export\\s+const\\s+${name}\\s*=\\s*\\(`, 'm').exec(src);
+	if (!decl) return { src, n: 0 };
+	const before = src.slice(0, decl.index).trimEnd();
+	const doc = before.endsWith('*/') ? before.slice(before.lastIndexOf('/**')) : '';
+	if (/@public\b/.test(doc)) return { src, n: 0 };
+	return { src: `${src.slice(0, decl.index)}${decl[1]}${PUBLIC_TAG}\n${src.slice(decl.index)}`, n: 1 };
+}
+
 const hasBuild = (root) => {
 	try {
 		return Boolean(JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).scripts?.build);
@@ -373,6 +393,19 @@ export function autoFix(root, targets, { prefix = '', env = process.env } = {}) 
 				}
 			}
 			if (fixed.length) log.push(`useLiteralKeys ignore: ${fixed.join(', ')}`);
+		}
+		if (targets.code.length) {
+			const fixed = [];
+			for (const f of targets.code) {
+				const buf = read(f);
+				if (!buf) continue;
+				const { src, n } = tagConventionFactory(buf.toString('utf8'), f);
+				if (n) {
+					writeFileSync(path.join(root, f), src);
+					fixed.push(f);
+				}
+			}
+			if (fixed.length) log.push(`convention factory @public: ${fixed.join(', ')}`);
 		}
 		if (targets.code.length && existsSync(bin('knip'))) {
 			const saved = new Map(

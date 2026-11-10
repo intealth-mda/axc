@@ -17,15 +17,33 @@ function named(root, input) {
 	return readNamed(readableFile(git.stdout.trim(), sessionKey(input)));
 }
 
+/** Closed prefix for a denied path: the tree the agent must not retry or probe. */
+export function closedPrefix(file) {
+	const text = String(file).replace(/^\.\//, '');
+	const arch = /^(.*?\/archunit-tests)(?:\/|$)/.exec(text);
+	if (arch) return `${arch[1]}/`;
+	const cellix = /^(.*?(?:packages\/cellix|cellixjs))(?:\/|$)/.exec(text);
+	if (cellix) return `${cellix[1]}/`;
+	const root = /^(node_modules|scripts|dist)(?:\/|$)/.exec(text);
+	if (root) return `${root[1]}/`;
+	const dir = path.posix.dirname(text);
+	return dir === '.' ? text : `${dir}/`;
+}
+
+// Path, reason, one pointer to the repo map. Terminal: no retry, no sibling probe, no alternate tree.
 function deny(file) {
 	const text = String(file);
+	const stop = `Do not retry ${closedPrefix(text)} and do not probe its siblings. The repo map lists every open path.`;
 	if (text.includes('archunit-tests')) {
-		return `BLOCKED (read-budget): ${file}. Open an architecture file only when a Stop report names its path. Do not copy those tests.`;
+		return `BLOCKED (read-budget): ${file}. Reason: architecture tests open only when a Stop report names the path. ${stop}`;
 	}
 	if (text.includes('packages/cellix') || text.includes('cellixjs')) {
-		return `BLOCKED (read-budget): ${file}. That file is not a framework contract. Read the domain-seedwork and mongo-repository files the repo map names.`;
+		return `BLOCKED (read-budget): ${file}. Reason: Cellix internals are closed. ${stop}`;
 	}
-	return `BLOCKED (read-budget): ${file}. That tree is closed. The API is in the repo map. Open a file only when the map, the health slice, the task spec, or a Stop report names its path.`;
+	if (text === 'grep' || text === 'read_file') {
+		return `BLOCKED (read-budget): ${file}. Reason: a search or read needs an open path. Do not retry it and do not probe other paths. The repo map lists every open path.`;
+	}
+	return `BLOCKED (read-budget): ${file}. Reason: that tree is closed to the read budget. ${stop}`;
 }
 
 function shellRead() {

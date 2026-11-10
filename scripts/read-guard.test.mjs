@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { check } from './read-guard.mjs';
+import { check, closedPrefix } from './read-guard.mjs';
 
 process.env.AXC_GUARD_BRANCH = 'nrn-xai-4-a-out';
 const root = path.resolve(import.meta.dirname, '..');
@@ -42,15 +42,15 @@ test('product source is readable and discovery trees are not', () => {
 	assert.match(read('packages/axc-verification/archunit-tests/src/checks/domain-conventions.ts'), /Stop report names/);
 	assert.match(read('packages/cellix/archunit-tests/src/graphql.ts'), /Stop report names/);
 	assert.match(read('packages/cellix/archunit-tests/src/checks/frontend-architecture.ts'), /Stop report names/);
-	assert.match(read('packages/cellix/package.json'), /framework contract/);
-	assert.match(read('packages/cellix/domain-seedwork/src/domain-seedwork/aggregate-root.test.ts'), /framework contract/);
+	assert.match(read('packages/cellix/package.json'), /Cellix internals are closed/);
+	assert.match(read('packages/cellix/domain-seedwork/src/domain-seedwork/aggregate-root.test.ts'), /Cellix internals are closed/);
 	assert.equal(read('packages/cellix/package.json').includes('compiler error'), false);
 	const list = (target_directory) => check({ toolName: 'list_dir', toolInput: { target_directory } }, root);
 	assert.equal(list('packages/axc/domain'), undefined);
-	assert.match(list('packages/cellix'), /framework contract/);
-	assert.match(list('packages/cellix/domain-seedwork/src/domain-seedwork'), /framework contract/);
-	assert.match(list('/Volumes/files/src/cellixjs'), /framework contract/);
-	assert.match(list(''), /closed/);
+	assert.match(list('packages/cellix'), /Cellix internals are closed/);
+	assert.match(list('packages/cellix/domain-seedwork/src/domain-seedwork'), /Cellix internals are closed/);
+	assert.match(list('/Volumes/files/src/cellixjs'), /Cellix internals are closed/);
+	assert.match(list(''), /needs an open path/);
 	assert.match(read('packages/axc-verification/archunit-tests/src/x.ts'), /Stop report names/);
 	assert.match(read('node_modules/@cellix/domain-seedwork/package.json'), /closed/);
 	assert.match(read('scripts/read-allow.mjs'), /closed/);
@@ -76,4 +76,29 @@ test('harness branch may run a shell', () => {
 	} finally {
 		process.env.AXC_GUARD_BRANCH = 'nrn-xai-4-a-out';
 	}
+});
+
+test('a deny names the path, a reason, and the repo map, and does not invite a retry', () => {
+	const read = (target_file) => check({ toolName: 'read_file', toolInput: { target_file } }, root);
+	for (const file of [
+		'packages/cellix/domain-seedwork/src/domain-seedwork/aggregate-root.test.ts',
+		'packages/axc-verification/archunit-tests/src/x.ts',
+		'biome.json',
+		'pnpm-workspace.yaml',
+		'node_modules/x/package.json',
+		'scripts/read-allow.mjs',
+		'/Volumes/files/src/cellixjs/README.md',
+	]) {
+		const reason = read(file);
+		assert.ok(reason.includes(file), file);
+		assert.match(reason, /Reason: /, file);
+		assert.match(reason, /Do not retry \S+ and do not probe its siblings/, file);
+		assert.match(reason, /repo map/, file);
+		assert.doesNotMatch(reason, /\binstead\b|\bRead the\b|\btry\b(?! )|framework contract/i, file);
+	}
+	const grep = check({ toolName: 'grep', toolInput: { pattern: '.' } }, root);
+	assert.match(grep, /Do not retry it/);
+	assert.equal(closedPrefix('packages/cellix/domain-seedwork/src/a.ts'), 'packages/cellix/');
+	assert.equal(closedPrefix('packages/axc-verification/archunit-tests/src/x.ts'), 'packages/axc-verification/archunit-tests/');
+	assert.equal(closedPrefix('biome.json'), 'biome.json');
 });
