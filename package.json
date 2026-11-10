@@ -10,6 +10,7 @@
 		"dev": "pnpm run proxy:ensure && turbo watch dev",
 		"proxy:ensure": "pnpm exec portless proxy start --https -p 1355 || true",
 		"test": "turbo run test test:acceptance",
+		"cellix:compliance": "node scripts/cellix-compliance-report.mjs",
 		"test:arch": "turbo run test:arch",
 		"test:acceptance": "turbo run test:acceptance --filter=@axc-verification/acceptance-api",
 		"typecheck": "turbo run typecheck",
