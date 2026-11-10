@@ -20,10 +20,12 @@
 		"build": "tsgo --build",
 		"typecheck": "tsgo --noEmit",
 		"watch": "tsgo --watch",
+		"test": "vitest run --silent --reporter=dot",
 		"test:arch": "vitest run --config vitest.arch.config.ts",
 		"clean": "rimraf dist tsconfig.tsbuildinfo"
 	},
 	"dependencies": {
+		"@axc/domain": "workspace:*",
 		"@cellix/domain-seedwork": "workspace:*"
 	},
 	"devDependencies": {
