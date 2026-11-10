@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, test } from 'node:test';
-import { extractPaths, shapeGaps } from './read-allow.mjs';
+import { allows, extractPaths, shapeGaps } from './read-allow.mjs';
 
 const roots = [];
 const temp = () => {
@@ -55,4 +55,20 @@ test('persistence and application-service files outside their folders are named'
 	]);
 	assert.ok(gaps.some((gap) => gap.includes('src/datasources or src/models')));
 	assert.ok(gaps.some((gap) => gap.includes('src/contexts')));
+});
+
+test('repo map: every full path it names, braces expanded, exists and is open to the read guard', () => {
+	const root = path.resolve(import.meta.dirname, '..');
+	const map = readFileSync(path.join(root, '.agents/skills/axc-repo-map/SKILL.md'), 'utf8');
+	const expand = (p) => {
+		const m = p.match(/\{([^}]+)\}/);
+		return m ? m[1].split(',').flatMap((part) => expand(p.replace(m[0], part))) : [p];
+	};
+	const cited = /`((?:packages|apps)\/[^`<>*\s]+\.(?:ts|md|json)|task-set-[ab]-requirements\.md)`/g;
+	const named = [...map.matchAll(cited)].flatMap((m) => expand(m[1]));
+	assert.ok(named.length >= 20, `map names ${named.length} paths`);
+	for (const file of named) {
+		assert.ok(existsSync(path.join(root, file)), `missing: ${file}`);
+		assert.ok(allows(file), `closed: ${file}`);
+	}
 });

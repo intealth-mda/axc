@@ -6,7 +6,9 @@ disable-model-invocation: true
 
 # axc-repo-map
 
-Read `task-set-a-requirements.md` or `task-set-b-requirements.md`, then only `packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts`, `packages/axc/application-services/src/health.test.ts`, `apps/api/src/index.ts`, `packages/axc/rest/src/index.ts`, and `packages/axc/application-services/src/index.ts`. Framework contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/` `aggregate-root.ts`, `domain-entity.ts`, `repository.ts`, `value-object.ts`, `unit-of-work.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`. Read `packages/cellix/archunit-tests/src/checks/domain-conventions.ts` and `application-services-conventions.ts` in that folder once. Open another file only when the spec or a Stop report names it. Implement from this map; never retry a denied path, probe its siblings, or read other Cellix or archunit files.
+In one batch, read `task-set-a-requirements.md` or `task-set-b-requirements.md`; `packages/axc-verification/acceptance-api/src/` `step-definitions/healthcheck.steps.ts` and `features/healthcheck.feature`; `packages/axc/application-services/src/health.test.ts`; `apps/api/src/index.ts`; `packages/axc/{rest,application-services,domain,persistence}/src/index.ts`; the `persistence` and `application-services` `package.json`; `apps/docs/sidebars.ts`; `apps/docs/docs/healthcheck.md`. Cellix contracts: `packages/cellix/domain-seedwork/src/domain-seedwork/{aggregate-root,domain-entity,repository,value-object,unit-of-work}.ts`, `packages/cellix/domain-seedwork/src/passport-seedwork/visa.ts`, `packages/cellix/mongoose-seedwork/src/mongoose-seedwork/mongo-repository.ts`, and `packages/cellix/archunit-tests/src/checks/{domain,application-services}-conventions.ts`. Open another file only when the spec or a Stop report names it.
+
+Known, so do not open: each layer package has `vitest.config.ts` and `vitest.arch.config.ts`; `cucumber.yaml` loads `src/features/**/*.feature` and `src/step-definitions/**/*.steps.ts`; world and Serenity are wired. Docs: one `apps/docs/docs/<feature>.md` plus its id in `sidebars.ts`.
 
 ## House shape
 
@@ -20,18 +22,18 @@ Put routes in `packages/axc/rest/src/<feature>.routes.ts`, not `src/index.ts`. `
 
 ## Types and lint
 
-Omit an absent optional key. Narrow `arr[i]` (TS18048). An index signature uses brackets plus `// biome-ignore lint/complexity/useLiteralKeys: <reason>`. Use `import type`. An exported REST helper needs a return type (TS2883).
+Omit an absent optional key. Narrow `arr[i]` (TS18048). An index signature uses brackets plus `// biome-ignore lint/complexity/useLiteralKeys: <reason>`. Use `import type`. An exported REST helper needs a return type (TS2883). An `async` function or test stub must `await`, else drop `async` and return `Promise.resolve(x)` or `Promise.reject(e)`.
 
 ## Tests
 
 One scenario per criterion, titled `<ID>-AC<n>`. An unprovable criterion gets `# ac-meta: <ID>-AC<n>` in the feature. One boundary test and one negative test per validation rule. When a 400 lists several fields, assert the field set, not the order.
 
-Import Serenity statically, as `healthcheck.steps.ts` does. Name steps `src/step-definitions/<feature>.steps.ts`. Copy the local `resolved()` cast.
+Copy `healthcheck.steps.ts`: static Serenity imports and the local `resolved()` cast. Name steps `src/step-definitions/<feature>.steps.ts`.
 
 ## Dependencies
 
-Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. A package with vitest may add a `test` script. Do not add vitest or touch `pnpm-lock.yaml`, `tsconfig`, or `vitest.config.ts`.
+Prefer a dependency already in that `package.json`. A new spec is only `workspace:*` or `catalog:`. A package with vitest may add a `test` script. Do not add vitest or touch `pnpm-lock.yaml`, `tsconfig` (Stop adds references), or vitest configs.
 
 ## Repair
 
-On a Stop block, change only the files the report names, then stop.
+Stop verifies: do not re-read a file you wrote unless an edit failed. On a block, change only the files the report names, then stop.

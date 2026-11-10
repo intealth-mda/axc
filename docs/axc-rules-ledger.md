@@ -9,3 +9,6 @@ Harness-only. Each `rule` cell is a literal substring of `file`.
 | `src/contexts/{context}/{entity}/` | `.agents/skills/axc-repo-map/SKILL.md` | anemic application service |
 | `assert the field set` | `.agents/skills/axc-repo-map/SKILL.md` | ordered 400 details |
 | `resolved()` | `.agents/skills/axc-repo-map/SKILL.md` | TS2345 on async questions |
+| `In one batch` | `.agents/skills/axc-repo-map/SKILL.md` | extra orientation rounds |
+| `Known, so do not open` | `.agents/skills/axc-repo-map/SKILL.md` | config and docs discovery reads |
+| `Promise.resolve(x)` | `.agents/skills/axc-repo-map/SKILL.md` | Biome useAwait Stop block |

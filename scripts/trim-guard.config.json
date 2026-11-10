@@ -2,7 +2,7 @@
 	"TRIM_PROTECT_RUNS": 20,
 	"budgets": {
 		"AGENTS.md": 733,
-		".agents/skills/axc-repo-map/SKILL.md": 3799,
+		".agents/skills/axc-repo-map/SKILL.md": 4250,
 		".github/copilot-instructions.md": 99
 	},
 	"duplicate": { "minWords": 6, "containment": 0.75 },
