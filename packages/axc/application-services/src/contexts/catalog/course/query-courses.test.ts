@@ -1,4 +1,4 @@
-import { Course, type CourseRepository, systemCatalogPassport } from '@axc/domain';
+import { Course, type CourseRepository, type EnrollmentRequest, type EnrollmentRequestRepository, type EnrollmentRequestUnitOfWork, systemCatalogPassport } from '@axc/domain';
 import type { DataSources } from '@axc/persistence';
 import { courseSeed } from '@axc/persistence';
 import { describe, expect, it } from 'vitest';
@@ -21,9 +21,35 @@ function fixtureDataSources(): DataSources {
 			return Promise.resolve(courses);
 		},
 	};
+	const enrollmentRequest: EnrollmentRequestRepository = {
+		get(id: string): Promise<EnrollmentRequest> {
+			return Promise.reject(new Error(`Missing ${id}`));
+		},
+		save(item: EnrollmentRequest): Promise<EnrollmentRequest> {
+			return Promise.resolve(item);
+		},
+		list(): Promise<readonly EnrollmentRequest[]> {
+			return Promise.resolve([]);
+		},
+	};
+	const enrollmentRequestUnitOfWork: EnrollmentRequestUnitOfWork = {
+		withTransaction(_passport, func): Promise<void> {
+			return func(enrollmentRequest);
+		},
+		withScopedTransaction(func): Promise<void> {
+			return func(enrollmentRequest);
+		},
+		withScopedTransactionById(id: string, func): Promise<EnrollmentRequest> {
+			return func(enrollmentRequest).then(() => enrollmentRequest.get(id));
+		},
+	};
 	return {
 		readonlyDataSource: {
 			course: repository,
+			enrollmentRequest,
+		},
+		domainDataSource: {
+			enrollmentRequest: enrollmentRequestUnitOfWork,
 		},
 	};
 }

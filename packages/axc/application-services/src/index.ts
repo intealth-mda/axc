@@ -1,8 +1,11 @@
 import { getDataSources } from '@axc/persistence';
 import { Course, type CourseApplicationService } from './contexts/catalog/course/index.ts';
+import { EnrollmentRequest, type EnrollmentRequestApplicationService } from './contexts/catalog/enrollment-request/index.ts';
 
 export type { CourseItem, CoursePage, CourseQueryFieldError, CourseSearchQuery } from './contexts/catalog/course/query-courses.ts';
 export { parseCourseSearchQuery } from './contexts/catalog/course/query-courses.ts';
+export { EnrollmentRequestError } from './contexts/catalog/enrollment-request/create.ts';
+export { type EnrollmentFieldError, type EnrollmentRequestListQuery, parseEnrollmentRequestListQuery } from './contexts/catalog/enrollment-request/query-enrollment-requests.ts';
 
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
@@ -26,6 +29,7 @@ export interface ApplicationServices {
 		getStatus(): HealthStatus;
 	};
 	course: CourseApplicationService;
+	enrollmentRequest: EnrollmentRequestApplicationService;
 }
 
 export interface ApplicationServicesFactory {
@@ -57,6 +61,7 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 				},
 			},
 			course: Course(getDataSources()),
+			enrollmentRequest: EnrollmentRequest(getDataSources()),
 		});
 
 	return { forRequest };

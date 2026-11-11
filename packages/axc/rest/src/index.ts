@@ -3,10 +3,12 @@ import type { HttpHandler, HttpRequest, InvocationContext } from '@azure/functio
 import { azureHonoHandler } from '@marplex/hono-azurefunc-adapter';
 import { Hono } from 'hono';
 import { registerCourseRoutes } from './courses.routes.ts';
+import { registerEnrollmentRequestRoutes } from './enrollment-requests.routes.ts';
 
 export function createRestApp(applicationServicesFactory: ApplicationServicesFactory): Hono {
 	const app = new Hono();
 	registerCourseRoutes(app, applicationServicesFactory);
+	registerEnrollmentRequestRoutes(app, applicationServicesFactory);
 
 	app.get('/health', async (c) => {
 		const authorization = c.req.header('Authorization');
