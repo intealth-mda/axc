@@ -39,8 +39,12 @@ mostly acceptance. While iterating, use the cheapest check:
 | format + lint one path | `corepack pnpm exec biome check --write <path>` (biome wants TABS) |
 | typecheck + unit tests, one package (builds the workspace packages it imports first; a bare `tsgo --noEmit` reads their missing or stale `dist` and reports TS2305) | `corepack pnpm exec turbo run typecheck test --output-logs=errors-only --filter=@axc/<pkg>` |
 | architecture rules only | `corepack pnpm exec turbo run test:arch --force` |
-| all files written: biome --write, typecheck + tests of changed packages, coverage/cellix/knip/mdx | `python3 .claude/hooks/precheck.py` |
+| all files written: biome --write, typecheck + tests of changed packages, coverage/cellix/knip/mdx/spec | `python3 .claude/hooks/precheck.py` |
 | everything, before you claim done | `python3 .claude/hooks/gate_digest.py` |
+
+End the call that writes the last files with this chain (allow it 10 minutes):
+`python3 .claude/hooks/precheck.py && python3 .claude/hooks/gate_digest.py`. The gate runs only
+on a clean precheck, in the same turn. After a fix, run the same chain.
 
 `gate_digest.py` runs verify once and prints the exit code (first and last
 line), each gate's result, test and scenario counts, and the failing gate's

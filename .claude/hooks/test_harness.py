@@ -4,7 +4,8 @@
 1. gate_digest prints `gate EXIT=<n>` first and last and keeps a failing
    scenario's Expected/Received lines.
 2. precheck: exits 0 when nothing changed; maps a file to its nearest package;
-   flags `{`/`<tag>` outside code in changed docs pages (MDX).
+   flags `{`/`<tag>` outside code in changed docs pages (MDX); the spec check
+   lists example-JSON keys missing from the changed source.
 3. Drift: each hook rule the axc-orientation map restates still matches the
    script or package it describes. Fix the map or the script when one fails.
 Run by hand: python3 .claude/hooks/test_harness.py"""
@@ -15,6 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(HOOKS))
 sys.path.insert(0, HOOKS)
 import gate_digest
 import precheck
+import spec_check
 
 fails = []
 SESSION = "--session" in sys.argv
@@ -58,6 +60,23 @@ with tempfile.TemporaryDirectory() as tmp:
     got = precheck.mdx_problems(tmp, ["apps/docs/docs/x.md", "apps/docs/README.md", "packages/p/src/a.ts"])
     check("precheck: mdx flags braces/tags outside code only", [g.split(":")[1] for g in got] == ["15", "16", "17"])
 check("precheck: turbo --continue (one pass lists every failing package)", '"--continue"' in read(".claude/hooks/precheck.py"))
+spec_a = "| X-AC1 | lists |\n```json\n{ \"items\": [], \"totalItems\": 1, \"error\": { \"field\": \"q\" } }\n```\n"
+spec_b = "| Y-AC1 | creates |\n```json\n{ \"items\": [], \"courseId\": \"c\" }\n```\n```http\nGET /x?a=1\n```\n"
+specs = {"task-set-x-requirements.md": spec_a, "task-set-y-requirements.md": spec_b}
+drift = {"packages/p/src/list.ts": "return { items, total, error: { field } };",
+         "packages/p/src/list.test.ts": "totalItems", "apps/docs/docs/x.md": "`totalItems`",
+         "packages/v/src/features/x.feature": "Scenario: X-AC1 lists"}
+check("spec: key used only in tests/docs is missing from source", spec_check.pick(specs, drift)
+      == ("task-set-x-requirements.md", ["totalItems"]))
+check("spec: clean source passes", spec_check.pick(specs, {**drift, "packages/p/src/list.ts": "{ items, totalItems, error: { field } }"})
+      == ("task-set-x-requirements.md", []))
+check("spec: task picked by criterion ids, not shared keys", spec_check.pick(specs, {
+      "packages/p/src/a.ts": "items totalItems field courseId", "packages/v/src/features/y.feature": "Y-AC1"})[0]
+      == "task-set-y-requirements.md")
+check("spec: no changes -> nothing to check", spec_check.pick(specs, {}) == (None, []))
+check("drift: every requirements file has example JSON keys the spec check reads",
+      bool(glob.glob(os.path.join(ROOT, spec_check.SPECS))) and all(
+          spec_check.keys_of(open(f).read()) for f in glob.glob(os.path.join(ROOT, spec_check.SPECS))))
 
 skill = read(".claude/skills/axc-orientation/SKILL.md")
 cellix = read(".claude/hooks/cellix_check.py")
@@ -81,6 +100,14 @@ check("drift: per-package typecheck row builds deps (turbo), no bare tsgo row",
       and not any("tsgo" in l.rstrip().rstrip("|").split("|")[-1] for l in claude_md.splitlines() if l.startswith("|")))
 check("drift: mdx rule in map, precheck and CLAUDE.md", "mdx_problems(root, files)" in read(".claude/hooks/precheck.py")
       and "- mdx: changed `apps/docs` pages" in skill and "Pages are MDX" in skill and "knip/mdx" in claude_md)
+check("drift: spec rule in map, precheck and CLAUDE.md", '"spec_check.py"' in read(".claude/hooks/precheck.py")
+      and "- spec: every key of the requirements file's example JSON" in skill and "knip/mdx/spec" in claude_md)
+hc_steps = re.findall(r"^(?:Given|When|Then)\(", read("packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts"), re.M)
+check("drift: map's 'healthcheck.steps.ts defines only its own three' is true",
+      len(hc_steps) == 3 and "healthcheck.steps.ts` defines only its own three" in skill)
+chain = "precheck.py && python3 .claude/hooks/gate_digest.py"
+check("drift: precheck->gate chain in map and CLAUDE.md", chain in skill.replace("\n  ", " ")
+      and chain in claude_md.replace("\n", " "))
 sk = re.search(r"```ts\n(.*?)```", skill, re.S)
 listed_asserts = re.search(r"`@serenity-js/assertions` exports exactly: (.*?)\. There is", skill, re.S)
 imp = re.search(r"import \{ ([^}]*) \} from '@serenity-js/assertions'", sk[1]) if sk else None

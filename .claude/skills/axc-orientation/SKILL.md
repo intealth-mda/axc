@@ -166,6 +166,9 @@ own unit test (rest is test-wired too).
   Then('the last item is {string} labelled {string}', (id: string, label: string) =>
   	actor().attemptsTo(Ensure.that(body((b: Thing) => `${b.items.at(-1)?.id}:${b.items.at(-1)?.label}`), equals(`${id}:${label}`))));
   ```
+  None of these example steps exists in the repo (`healthcheck.steps.ts` defines only its own three).
+  Step definitions are global across files, so write every step your feature uses into the
+  capability's steps file, each phrase exactly once.
   Step phrases name the business action, as `healthcheck.feature` does (`When the client requests
   the healthcheck`): no HTTP verbs or paths in the feature file; the path lives in the step.
   Each assertion picks a primitive, a `string[]` or a joined string out of a typed body and
@@ -191,10 +194,12 @@ own unit test (rest is test-wired too).
   cannot observe directly (existing tests pass, docs complete) still gets its scenario: assert
   what the suite can see (the healthcheck still answers, the doc page lists each endpoint
   and error code).
-- Self-check: after all files are written, run `python3 .claude/hooks/precheck.py` once
-  before the full gate. It runs biome `--write` on changed files, typecheck and unit tests of
-  every changed package (acceptance-api included), then the four checks below, and prints
-  only problems, ending `precheck OK` or `precheck FAIL: <steps>`. Re-run it after fixes.
+- Self-check: end the call that writes your last files with
+  `python3 .claude/hooks/precheck.py && python3 .claude/hooks/gate_digest.py`: the full gate
+  starts only on a clean precheck, so a clean first pass needs no extra turn. Use the same chain
+  after fixes. The precheck runs biome `--write` on changed files, typecheck and unit tests of
+  every changed package (acceptance-api included), then the five checks below, and prints
+  only problems, ending `precheck OK` or `precheck FAIL: <steps>`.
   Run biome `--write` before patching a file with sed or python: reformatting moves the text
   a later patch would match. The checks enforce these rules, so code to them:
   - coverage: every criterion id of the task's table is named in a capability `.feature`
@@ -207,6 +212,8 @@ own unit test (rest is test-wired too).
     no `unknown`/`any` in domain source (tests exempt); every application-services module
     that calls `.save(` also calls `withScopedTransaction`.
   - knip: every new file and export is reachable from its package's `src/index.ts` and used.
+  - spec: every key of the requirements file's example JSON (request, response, error bodies)
+    appears in the changed source, tests and docs excluded: use the spec's field names exactly.
   - mdx: changed `apps/docs` pages have no `{…}` or `<tag>` outside code (see Docs).
 - Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in CLAUDE.md.
 

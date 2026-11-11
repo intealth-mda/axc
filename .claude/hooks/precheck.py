@@ -2,7 +2,7 @@
 """One self-check before the full gate. In order: biome --write on changed
 files, turbo typecheck + test for every changed package (the same package
 scripts verify runs, deps built as verify builds them), then the coverage,
-cellix, knip and mdx checks. turbo runs with --continue, so one pass lists the
+cellix, knip, spec and mdx checks. turbo runs with --continue, so one pass lists the
 errors of every failing package. Prints only problems; last line is `precheck OK` or
 `precheck FAIL: <steps>`. Exit 0 / 1.
 Usage: python3 .claude/hooks/precheck.py"""
@@ -96,7 +96,8 @@ def main():
 
     for name, script, args, ok in (("coverage", "coverage_gate.py", ["--check"], coverage_ok),
                                    ("cellix", "cellix_check.py", [], lambda o: re.search(r"cellix check: (OK|no changed source)", o)),
-                                   ("knip", "knip_check.py", [], lambda o: "knip: clean" in o)):
+                                   ("knip", "knip_check.py", [], lambda o: "knip: clean" in o),
+                                   ("spec", "spec_check.py", [], lambda o: re.search(r"spec check: (OK|no spec)", o))):
         _, out = run([sys.executable, os.path.join(HERE, script), *args], root)
         if not ok(out):
             failed.append(name)
