@@ -12,7 +12,7 @@ Read from the repo as it stands. Still read a file before you change it.
 ```
 apps/api/                      composition root (Azure Functions host; routePrefix is "")
 apps/docs/docs/*.md            Docusaurus docs; sidebars.ts lists doc ids: docs: ['intro', 'healthcheck']
-packages/axc/domain            entities/value objects — pure (import ban in CLAUDE.md)
+packages/axc/domain            entities/value objects — pure (import ban in AGENTS.md)
 packages/axc/persistence       repository contracts, in-memory implementations
 packages/axc/service-mongoose  mongoose/mongodb implementations only
 packages/axc/application-services  use cases; ApplicationServices interface + factory
@@ -215,7 +215,7 @@ own unit test (rest is test-wired too).
   - spec: every key of the requirements file's example JSON (request, response, error bodies)
     appears in the changed source, tests and docs excluded: use the spec's field names exactly.
   - mdx: changed `apps/docs` pages have no `{…}` or `<tag>` outside code (see Docs).
-- Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in CLAUDE.md.
+- Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in AGENTS.md.
 
 ## Docs
 

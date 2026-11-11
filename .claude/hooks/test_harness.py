@@ -91,10 +91,12 @@ check("drift: map's InMemoryUnitOfWork is exported", "InMemoryUnitOfWork" in rea
 check("drift: coverage bar", "n >= len(crit)" in cov and "at least as many scenarios as criteria" in skill)
 check("drift: healthcheck.feature excluded", '"healthcheck.feature"' in cov and "not `healthcheck.feature`" in skill)
 check("drift: CLAUDE.md plan-per-batch line points at the map's write order",
-      "one batch at a time (the map's write order)" in read("CLAUDE.md")
+      "one batch at a time (the map's write order)" in read("AGENTS.md")
       and "**Write order**" in skill and "Plan only the batch you are about to write" in skill)
 
-claude_md = read("CLAUDE.md")
+claude_md = read("AGENTS.md")  # the rules live in AGENTS.md; CLAUDE.md imports it
+check("drift: CLAUDE.md is exactly the AGENTS.md import", read("CLAUDE.md").strip() == "@AGENTS.md")
+check("drift: Copilot pointer names AGENTS.md", "AGENTS.md" in read(".github/copilot-instructions.md"))
 check("drift: per-package typecheck row builds deps (turbo), no bare tsgo row",
       "turbo run typecheck test --output-logs=errors-only --filter=@axc/<pkg>" in claude_md
       and not any("tsgo" in l.rstrip().rstrip("|").split("|")[-1] for l in claude_md.splitlines() if l.startswith("|")))
