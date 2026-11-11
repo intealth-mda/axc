@@ -314,6 +314,13 @@ importers:
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-istanbul@4.1.12)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/axc/application-services:
+    dependencies:
+      '@axc/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@axc/persistence':
+        specifier: workspace:*
+        version: link:../persistence
     devDependencies:
       '@axc-verification/archunit-tests':
         specifier: workspace:*
@@ -373,9 +380,18 @@ importers:
 
   packages/axc/persistence:
     dependencies:
+      '@axc/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@axc/service-mongoose':
+        specifier: workspace:*
+        version: link:../service-mongoose
       '@cellix/domain-seedwork':
         specifier: workspace:*
         version: link:../../cellix/domain-seedwork
+      mongoose:
+        specifier: 'catalog:'
+        version: 8.24.7
     devDependencies:
       '@axc-verification/archunit-tests':
         specifier: workspace:*

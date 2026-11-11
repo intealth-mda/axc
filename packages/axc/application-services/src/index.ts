@@ -1,3 +1,9 @@
+import { getDataSources } from '@axc/persistence';
+import { Course, type CourseApplicationService } from './contexts/catalog/course/index.ts';
+
+export type { CourseItem, CoursePage, CourseQueryFieldError, CourseSearchQuery } from './contexts/catalog/course/query-courses.ts';
+export { parseCourseSearchQuery } from './contexts/catalog/course/query-courses.ts';
+
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
 
@@ -19,6 +25,7 @@ export interface ApplicationServices {
 	health: {
 		getStatus(): HealthStatus;
 	};
+	course: CourseApplicationService;
 }
 
 export interface ApplicationServicesFactory {
@@ -49,6 +56,7 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 					};
 				},
 			},
+			course: Course(getDataSources()),
 		});
 
 	return { forRequest };
