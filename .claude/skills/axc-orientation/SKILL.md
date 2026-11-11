@@ -198,7 +198,7 @@ own unit test (rest is test-wired too).
   `python3 .claude/hooks/precheck.py && python3 .claude/hooks/gate_digest.py`: the full gate
   starts only on a clean precheck, so a clean first pass needs no extra turn. Use the same chain
   after fixes. The precheck runs biome `--write` on changed files, typecheck and unit tests of
-  every changed package (acceptance-api included), then the five checks below, and prints
+  every changed package (acceptance-api included), then the six checks below, and prints
   only problems, ending `precheck OK` or `precheck FAIL: <steps>`.
   Run biome `--write` before patching a file with sed or python: reformatting moves the text
   a later patch would match. The checks enforce these rules, so code to them:
@@ -212,6 +212,8 @@ own unit test (rest is test-wired too).
     no `unknown`/`any` in domain source (tests exempt); every application-services module
     that calls `.save(` also calls `withScopedTransaction`.
   - knip: every new file and export is reachable from its package's `src/index.ts` and used.
+  - tests: tests that existed before the task stay intact: none deleted, none with fewer test
+    cases or assertions (adding tests, renaming a scenario, editing imports is fine).
   - spec: every key of the requirements file's example JSON (request, response, error bodies)
     appears in the changed source, tests and docs excluded: use the spec's field names exactly.
   - mdx: changed `apps/docs` pages have no `{…}` or `<tag>` outside code (see Docs).

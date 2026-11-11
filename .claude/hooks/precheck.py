@@ -2,7 +2,7 @@
 """One self-check before the full gate. In order: biome --write on changed
 files, turbo typecheck + test for every changed package (the same package
 scripts verify runs, deps built as verify builds them), then the coverage,
-cellix, knip, spec and mdx checks. turbo runs with --continue, so one pass lists the
+cellix, knip, spec, mdx and tests-intact checks. turbo runs with --continue, so one pass lists the
 errors of every failing package. Prints only problems; last line is `precheck OK` or
 `precheck FAIL: <steps>`. Exit 0 / 1.
 Usage: python3 .claude/hooks/precheck.py"""
@@ -63,6 +63,30 @@ def mdx_problems(root, files):
     return probs
 
 
+TEST_FILE = re.compile(r"\.(test|spec)\.ts$|\.feature$|\.steps\.ts$")
+# One count per test case or assertion: it()/test() (incl. .each), Scenario lines, expect(), Ensure.that().
+TEST_UNITS = re.compile(r"\b(?:it|test)(?:\.each\([^)]*\))?\(|^\s*Scenario(?: Outline)?:|\bexpect\(|\bEnsure\.that\(", re.M)
+
+
+def tests_weakened(root):
+    """Tests that existed before the task and were deleted, or now hold fewer test cases or
+    assertions. Adding tests, renaming a scenario or editing imports is fine."""
+    _, out = run(["git", "status", "--porcelain", "--", "packages", "apps"], root, 30)
+    probs = []
+    for line in out.splitlines():
+        code, path = line[:2], line[3:].split(" -> ")[0].strip().strip('"')
+        if "?" in code or not TEST_FILE.search(path) or path.startswith("packages/cellix/"):
+            continue
+        _, before = run(["git", "show", f"HEAD:{path}"], root, 30)
+        if "D" in code or not os.path.exists(os.path.join(root, path)):
+            probs.append(f"{path}: existing test file deleted")
+            continue
+        n0, n1 = len(TEST_UNITS.findall(before)), len(TEST_UNITS.findall(open(os.path.join(root, path), errors="replace").read()))
+        if n1 < n0:
+            probs.append(f"{path}: {n0} test cases/assertions before the task, {n1} now")
+    return probs
+
+
 def main():
     root = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     files = [f for f in changed(root) if os.path.exists(os.path.join(root, f))]
@@ -109,6 +133,12 @@ def main():
         failed.append("mdx")
         print("-- mdx: `{...}` or `<tag>` outside code breaks the docs build; use backticks or `:id` --")
         print("\n".join(mdx[:20]))
+
+    weak = tests_weakened(root)
+    if weak:
+        failed.append("tests")
+        print("-- tests: existing tests must stay intact; add new tests instead of removing or weakening these --")
+        print("\n".join(weak))
 
     print("precheck OK" if not failed else "precheck FAIL: " + ", ".join(failed))
     return 1 if failed else 0

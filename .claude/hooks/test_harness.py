@@ -123,6 +123,24 @@ check("guard: tee, >> and a harness file", _bt("cd .claude/hooks; echo x >> guar
 check("guard: /tmp, /dev/null and unresolvable targets are skipped",
       _bt("echo x > /tmp/y 2>/dev/null; cd $_ && cat > z.ts; cat > $(mktemp)") == [])
 check("guard: quoted > and a multi-line sed script are not writes", _bt("grep -n 'a > b' f.ts; sed -i '' '1i\\\nx > y' f.ts") == [])
+with tempfile.TemporaryDirectory() as tmp:
+    g = lambda *a: subprocess.run(["git", *a], cwd=tmp, capture_output=True, check=True)
+    g("init", "-q"); g("config", "user.email", "t@t"); g("config", "user.name", "t")
+    os.makedirs(os.path.join(tmp, "packages/p/src"))
+    w = lambda f, s: open(os.path.join(tmp, f), "w").write(s)
+    w("packages/p/src/a.test.ts", "import x from 'y';\nit('a', () => { expect(1).toBe(1); });\nit('b', () => { expect(2).toBe(2); });\n")
+    w("packages/p/src/gone.test.ts", "it('c', () => {});\n")
+    w("packages/p/src/x.feature", "Feature: X\n  Scenario: one\n")
+    g("add", "-A"); g("commit", "-qm", "base")
+    w("packages/p/src/a.test.ts", "import x from 'z';\nit('a', () => { expect(1).toBe(1); });\n")
+    os.remove(os.path.join(tmp, "packages/p/src/gone.test.ts"))
+    w("packages/p/src/x.feature", "Feature: X\n  Scenario: A-AC1 one\n  Scenario: two\n")
+    w("packages/p/src/new.test.ts", "it('n', () => {});\n")
+    weak = precheck.tests_weakened(tmp)
+    check("precheck: tests flags a weakened and a deleted test, not renames or additions",
+          sorted(p.split(":")[0] for p in weak) == ["packages/p/src/a.test.ts", "packages/p/src/gone.test.ts"])
+check("drift: tests rule in map, precheck and CLAUDE.md", "tests_weakened(root)" in read(".claude/hooks/precheck.py")
+      and "- tests: tests that existed before the task stay intact" in skill and "mdx/spec/tests" in claude_md)
 sk = re.search(r"```ts\n(.*?)```", skill, re.S)
 listed_asserts = re.search(r"`@serenity-js/assertions` exports exactly: (.*?)\. There is", skill, re.S)
 imp = re.search(r"import \{ ([^}]*) \} from '@serenity-js/assertions'", sk[1]) if sk else None
