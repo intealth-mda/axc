@@ -110,6 +110,19 @@ check("drift: map's 'healthcheck.steps.ts defines only its own three' is true",
 chain = "precheck.py && python3 .claude/hooks/gate_digest.py"
 check("drift: precheck->gate chain in map and CLAUDE.md", chain in skill.replace("\n  ", " ")
       and chain in claude_md.replace("\n", " "))
+import guard
+_r = os.path.realpath(ROOT)
+_bt = lambda c, cwd=None: guard.bash_write_targets(c, _r, cwd)
+check("guard: bash heredoc write to CLAUDE.md is seen", _bt("cat > CLAUDE.md <<'EOF'\nif (a > b) x;\nEOF") == ["CLAUDE.md"])
+check("guard: cd and VAR resolve bash write targets",
+      _bt("cd packages/axc && A=rest/src; cat > $A/x.ts <<'EOF'\nEOF") == ["packages/axc/rest/src/x.ts"])
+check("guard: shell cwd from the event is the starting directory",
+      _bt("cat > courses.ts <<'EOF'\nEOF", os.path.join(_r, "packages/axc/application-services/src")) == ["packages/axc/application-services/src/courses.ts"])
+check("guard: tee, >> and a harness file", _bt("cd .claude/hooks; echo x >> guard.py; echo y | tee -a ../../pnpm-lock.yaml")
+      == [".claude/hooks/guard.py", "pnpm-lock.yaml"])
+check("guard: /tmp, /dev/null and unresolvable targets are skipped",
+      _bt("echo x > /tmp/y 2>/dev/null; cd $_ && cat > z.ts; cat > $(mktemp)") == [])
+check("guard: quoted > and a multi-line sed script are not writes", _bt("grep -n 'a > b' f.ts; sed -i '' '1i\\\nx > y' f.ts") == [])
 sk = re.search(r"```ts\n(.*?)```", skill, re.S)
 listed_asserts = re.search(r"`@serenity-js/assertions` exports exactly: (.*?)\. There is", skill, re.S)
 imp = re.search(r"import \{ ([^}]*) \} from '@serenity-js/assertions'", sk[1]) if sk else None

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""PreToolUse guard: blocks destructive commands and protected-path writes.
+"""PreToolUse guard: blocks destructive commands and protected-path writes,
+including files a Bash command writes through `>`, `>>` or `tee`.
 
 Zero tokens, never ignored. This replaces every "please don't ever..."
 line you would otherwise pay for in CLAUDE.md on every single request.
@@ -53,6 +54,121 @@ def strip_heredocs(cmd):
         i += 1  # drop the terminator too
     return "\n".join(out)
 
+HEREDOC_START = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][\w-]*)\1")
+ASSIGN = re.compile(r"^([A-Za-z_]\w*)=(.*)$")
+WRITE_OPS = {">", ">>", ">|", "&>", "&>>"}
+
+
+def drop_heredoc_bodies(cmd):
+    """Every heredoc body removed, quoted delimiter or not: a body is file content, and
+    a `>` inside it (`if (a > b)`) is not a redirection of the outer command."""
+    out, stop = [], None
+    for line in cmd.split("\n"):
+        if stop is not None:
+            if line.strip() == stop:
+                stop = None
+            continue
+        out.append(line)
+        m = HEREDOC_START.search(line)
+        if m:
+            stop = m.group(2)
+    return "\n".join(out)
+
+
+def newlines_to_separators(cmd):
+    """Unquoted newlines end a command; quoted ones are part of an argument (a sed script)."""
+    out, q, i = [], None, 0
+    while i < len(cmd):
+        ch = cmd[i]
+        if ch == "\\" and q != "'" and i + 1 < len(cmd):
+            out.append(cmd[i:i + 2]); i += 2; continue
+        if q:
+            q = None if ch == q else q
+        elif ch in "'\"":
+            q = ch
+        elif ch == "\n":
+            ch = " ; "
+        out.append(ch); i += 1
+    return "".join(out)
+
+
+def bash_write_targets(cmd, root, cwd=None):
+    """Project-relative paths a Bash command writes through `>`, `>>` or `tee`, resolving
+    `cd` and plain `VAR=value` assignments made earlier in the same command, from the
+    shell's current directory `cwd` (the hook event's cwd; the Bash tool keeps it across
+    calls). Targets
+    outside the project (/tmp, /dev/null) and ones it cannot resolve (command
+    substitution, unknown variables) are skipped: the Stop-time boundary gate still
+    reviews every changed file, so this check only has to be right when it fires."""
+    import shlex
+    root = os.path.realpath(root)
+    cwd, stack, env, found = os.path.realpath(cwd or root), [], {}, []
+
+    def expand(word):
+        word = re.sub(r"\$\{(\w+)\}|\$(\w+)", lambda m: env.get(m.group(1) or m.group(2), "\0"), word)
+        return None if ("\0" in word or "`" in word or "$(" in word) else os.path.expanduser(word)
+
+    def resolve(word):
+        w = expand(word)
+        if w is None or (cwd is None and not os.path.isabs(w)):
+            return None
+        return os.path.normpath(os.path.join(cwd or "/", w))
+
+    try:
+        lex = shlex.shlex(newlines_to_separators(drop_heredoc_bodies(cmd)), posix=True, punctuation_chars=True)
+        lex.whitespace_split = True
+        toks = list(lex)
+    except ValueError:
+        return []  # unbalanced quotes: leave it to the Stop-time boundary gate
+    if True:
+        start = True
+        i = 0
+        while i < len(toks):
+            t = toks[i]
+            if t == "(":
+                stack.append(cwd); start = True
+            elif t == ")":
+                cwd = stack.pop() if stack else cwd; start = True
+            elif t in (";", "&&", "||", "|", "&", ";;"):
+                start = True
+            elif t in WRITE_OPS and i + 1 < len(toks):
+                p = resolve(toks[i + 1]); i += 1
+                if p:
+                    found.append(p)
+                start = False
+            elif start and t == "cd":
+                if i + 1 < len(toks) and toks[i + 1] not in (";", "&&", "||", "|"):
+                    cwd = resolve(toks[i + 1]); i += 1  # None: unknown directory
+                start = False
+            elif start and ASSIGN.match(t):
+                k, v = ASSIGN.match(t).groups()
+                v2 = expand(v)
+                if v2 is not None:
+                    env[k] = v2
+                else:
+                    env.pop(k, None)
+            elif start and t == "tee":
+                j = i + 1
+                while j < len(toks) and toks[j] not in (";", "&&", "||", "|", "&", ")"):
+                    if not toks[j].startswith("-"):
+                        p = resolve(toks[j])
+                        if p:
+                            found.append(p)
+                    j += 1
+                i = j - 1
+                start = False
+            else:
+                start = False
+            i += 1
+    rels = []
+    for p in found:
+        rp = os.path.realpath(p)
+        if rp == root or not rp.startswith(root + os.sep):
+            continue
+        rels.append(os.path.relpath(rp, root).replace(os.sep, "/"))
+    return rels
+
+
 def main():
     event = read_event()
     tool = event.get("tool_name", "")
@@ -80,6 +196,28 @@ def main():
                     ask(EVENT, f"Guard hook wants confirmation: {reason}")
             except re.error:
                 continue
+        # Files a Bash command writes (heredoc `cat > f`, `>>`, `tee`) meet the same write
+        # boundary and path rules as Write/Edit, before the command runs.
+        import fnmatch
+        from _common import project_dir
+        try:
+            targets = bash_write_targets(raw, project_dir(event), event.get("cwd"))
+        except Exception:
+            targets = []   # the Stop-time boundary gate still reviews every changed file
+        boundary = cfg.get("allowed_write_globs") or []
+        for rel in targets:
+            if boundary and not any(fnmatch.fnmatch(rel, g) for g in boundary):
+                vault_log("guard", f"BOUNDARY violation blocked (bash write): `{rel}`")
+                deny(EVENT, f"Outside the allowed write boundary for this evaluation: {rel} "
+                            f"(written by this Bash command). Writable globs: {', '.join(boundary[:6])}. "
+                            f"Boundary violations are scored: do the work inside the boundary.")
+            for pattern, reason in cfg.get("path_deny", []):
+                try:
+                    if re.search(pattern, rel, re.I):
+                        vault_log("guard", f"BLOCKED bash write to `{rel}` — {reason}")
+                        deny(EVENT, f"Blocked by guard hook: {reason} Path: {rel} (written by this Bash command)")
+                except re.error:
+                    continue
 
     elif tool in ("Edit", "Write", "NotebookEdit"):
         path = ti.get("file_path") or ti.get("notebook_path") or ""
