@@ -194,6 +194,10 @@ own unit test (rest is test-wired too).
   cannot observe directly (existing tests pass, docs complete) still gets its scenario: assert
   what the suite can see (the healthcheck still answers, the doc page lists each endpoint
   and error code).
+  Data rules outside the table bind too and get a scenario each: seed or fixture size and mix,
+  including those of a task set this one builds on (Task B reuses Task A's Course model and
+  search, so its seed keeps Task A's rule: at least 12 courses mixing modalities, statuses and
+  tags). Name the rule in the scenario (`Scenario: seed has 12+ courses of mixed modality, status and tags`).
 - Self-check: end the call that writes your last files with
   `python3 .claude/hooks/precheck.py && python3 .claude/hooks/gate_digest.py`: the full gate
   starts only on a clean precheck, so a clean first pass needs no extra turn. Use the same chain
