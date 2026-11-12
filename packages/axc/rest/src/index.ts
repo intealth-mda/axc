@@ -1,4 +1,4 @@
-import type { ApplicationServicesFactory } from '@axc/application-services';
+import { type ApplicationServicesFactory, ServiceError } from '@axc/application-services';
 import type { HttpHandler, HttpRequest, InvocationContext } from '@azure/functions';
 import { azureHonoHandler } from '@marplex/hono-azurefunc-adapter';
 import { Hono } from 'hono';
@@ -10,6 +10,16 @@ export function createRestApp(applicationServicesFactory: ApplicationServicesFac
 		const authorization = c.req.header('Authorization');
 		const applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);
 		return c.json(applicationServices.health.getStatus());
+	});
+
+	app.get('/api/courses', async (c) => {
+		const applicationServices = await applicationServicesFactory.forRequest();
+		return c.json(await applicationServices.courses.search(c.req.query()));
+	});
+
+	app.onError((err, c) => {
+		if (err instanceof ServiceError) return c.json({ error: { code: err.code, message: err.message, details: err.details } }, 400);
+		throw err;
 	});
 
 	return app;
