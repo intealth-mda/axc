@@ -40,6 +40,11 @@ def digest(lines, code):
         if l not in seen or l.startswith(("ok", "FAIL")):
             uniq.append(l)
         seen.add(l)
+    if code:
+        from _common import fix_hints
+        cards = fix_hints("\n".join(lines))
+        if cards:
+            uniq += ["     -- fix hints --"] + ["     " + c for c in cards]
     uniq.append(f"gate EXIT={code}")  # repeated last: a `| tail` of this output still shows it
     return "\n".join(uniq)
 

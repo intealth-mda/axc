@@ -184,7 +184,9 @@ own unit test (rest is test-wired too).
   `isCloseTo`, `isFalse`, `isGreaterThan`, `isLessThan`, `isPresent`, `isTrue`, `matches`,
   `not`, `or`, `property`, `startsWith`. There is no `…OrEqualTo`: use
   `not(isGreaterThan(x))`. `includes(x)` is for strings only; for an array answer use
-  `contain(x)` or `containAtLeastOneItemThat(equals(x))`.
+  `contain(x)` or `containAtLeastOneItemThat(equals(x))`. A string answer (a docs page's
+  text, a message) takes `includes(s)`: `contain(s)` on it is TS2345
+  (`Expectation<string[]>` vs `Expectation<string>`).
   The suite boots the real Functions host on :7071 (minutes) — it is the slowest gate.
   The task's requirements file is `task-set-<x>-requirements.md` at the repo root. Cover every
   row of its acceptance-criteria table (ids `<X>-AC<n>`) with its own scenario in the
@@ -249,15 +251,16 @@ properties), `verbatimModuleSyntax` (type-only imports need `import type`).
 (service-mongoose). Cross-layer imports (`@axc/domain`, `@axc/persistence`) are already
 declared where allowed.
 
-`@cellix/domain-seedwork` is imported by subpath (there is no root export):
+`@cellix/domain-seedwork` is imported by subpath (there is no root export). This table is its
+whole surface for axc work: do not open `packages/cellix` to confirm it.
 
 | import | what you get |
 | --- | --- |
-| `@cellix/domain-seedwork/aggregate-root` | `abstract class AggregateRoot<Props extends DomainEntityProps, Passport>`; constructor `(props, passport)`; `addDomainEvent(EventClass, payload)` |
-| `@cellix/domain-seedwork/domain-entity` | `interface DomainEntityProps { readonly id: string }`; entities expose `.id` and `.props` |
-| `@cellix/domain-seedwork/repository` | `interface Repository<T> { get(id: string): Promise<T>; save(item: T): Promise<T> }`; `class NotFoundError` |
-| `@cellix/domain-seedwork/value-object` | `abstract class ValueObject<Props>`; constructor `(props)`; `props` is protected |
-| `@cellix/domain-seedwork/unit-of-work` | `UnitOfWork` / `InitializedUnitOfWork` contracts; `@axc/persistence` exports `InMemoryUnitOfWork(repo)` implementing them (`withScopedTransaction(fn)`, `withScopedTransactionById(id, fn)`) |
+| `@cellix/domain-seedwork/domain-entity` | `interface DomainEntityProps { readonly id: string }`; `abstract class DomainEntity<Props>`: constructor `(props)`, `public readonly props: Props`, getter `id`; `class PermissionError extends Error` |
+| `@cellix/domain-seedwork/aggregate-root` | `abstract class AggregateRoot<Props extends DomainEntityProps, Passport> extends DomainEntity<Props>`: constructor `(props, passport)` (pass `undefined` with no passport), `protected readonly passport`, `isDeleted` (public get, protected set), `addDomainEvent(EventClass, payload)` where `EventClass` is `new (aggregateId: string) => T`, `getDomainEvents()`, `clearDomainEvents()` |
+| `@cellix/domain-seedwork/repository` | `interface Repository<T> { get(id: string): Promise<T>; save(item: T): Promise<T> }`; `class NotFoundError extends Error` |
+| `@cellix/domain-seedwork/value-object` | `abstract class ValueObject<Props>`: constructor `(props)`, `protected readonly props` (expose fields with getters; a getter that overrides a base member needs `override`); no `equals` |
+| `@cellix/domain-seedwork/unit-of-work` | `InitializedUnitOfWork<Passport, Props extends DomainEntityProps, Root extends AggregateRoot<Props, Passport>, Repo extends Repository<Root>>`: `withTransaction(passport, fn)`, `withScopedTransaction(fn: (repo) => Promise<void>): Promise<void>`, `withScopedTransactionById(id, fn): Promise<Root>` (gets the root, runs `fn`, saves and returns it). `@axc/persistence` exports `new InMemoryUnitOfWork<Root, Repo>(repo)` implementing it with `Passport = unknown` |
 
 ## Harness files
 

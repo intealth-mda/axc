@@ -125,3 +125,25 @@ def vault_log(category, text):
     except Exception:
         pass
     vault_write("Daily", name, line, append=True)
+
+
+# Rule cards: a one-line fix for a check failure the runs keep repeating. Keyed by the
+# error text precheck and gate_digest print; each card prints once.
+FIX_HINTS = [
+    (r"TS2345: Argument of type 'Expectation<", "Serenity: a string answer takes includes(s); contain(x) is for an array answer."),
+    (r"TS1294", "erasableSyntaxOnly: no enum, namespace or constructor parameter properties. Declare the field and assign it in the constructor body; use a string-literal union for an enum."),
+    (r"TS2305: Module '\"@axc/", "That name is not exported from the package root: export it from that package's src/index.ts (the only entry other layers and knip see)."),
+    (r"TS2305: Module '\"@cellix/", "Wrong seedwork import: use the subpath table in the axc-orientation map."),
+    (r"TS2339: Property '\w+' does not exist on type 'ApplicationServices'", "Add the member to the ApplicationServices interface and to the factory object in application-services src/index.ts."),
+    (r"TS4114", "noImplicitOverride: write override on a member that overrides a base-class member."),
+    (r"TS6133", "Unused declaration: delete it (prefix an unused parameter with _)."),
+    (r"TS7030", "noImplicitReturns: every code path returns; end the function with a return or a throw."),
+    (r"TS2375|TS2379", "exactOptionalPropertyTypes: omit an undefined optional key with ...(v === undefined ? {} : { k: v }), or type the property T | undefined."),
+    (r"Unused exported types?|Unused exports?", "knip: nothing imports that export. Drop export when only its own file uses it; otherwise import it where needed."),
+]
+
+
+def fix_hints(text):
+    """Cards whose pattern appears in text, in table order."""
+    import re
+    return [h for p, h in FIX_HINTS if re.search(p, text)]

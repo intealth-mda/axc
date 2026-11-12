@@ -160,6 +160,16 @@ if m and libs:
 else:
     check("drift: serenity assertion list present (run pnpm install first)", False)
 
+from _common import fix_hints
+check("cards: serenity TS2345 and knip get their fix, unknown text none",
+      len(fix_hints("x.ts(1,2): error TS2345: Argument of type 'Expectation<string[]>' is not\nUnused exported types (1)")) == 2
+      and fix_hints("error TS9999: other") == [])
+pre = subprocess.run([sys.executable, "-c", "import precheck,sys;sys.exit(precheck.main())"], cwd=HOOKS,
+                     capture_output=True, text=True)
+check("cards: precheck still ends with its verdict line", pre.stdout.strip().splitlines()[-1].startswith("precheck"))
+dig = gate_digest.digest(["$ chain", "$ tsc", "a.ts(1,1): error TS1294: This syntax is not allowed"], 1).splitlines()
+check("cards: digest adds the card and keeps EXIT last", any("erasableSyntaxOnly" in l for l in dig) and dig[-1] == "gate EXIT=1")
+
 if SESSION:
     if fails:
         print("harness drift: " + "; ".join(fails) + ". The map or a hook is stale; "

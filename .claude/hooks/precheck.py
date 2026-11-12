@@ -6,7 +6,7 @@ cellix, knip, spec, mdx and tests-intact checks. turbo runs with --continue, so 
 errors of every failing package. Prints only problems; last line is `precheck OK` or
 `precheck FAIL: <steps>`. Exit 0 / 1.
 Usage: python3 .claude/hooks/precheck.py"""
-import json, os, re, subprocess, sys
+import contextlib, io, json, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
@@ -87,7 +87,7 @@ def tests_weakened(root):
     return probs
 
 
-def main():
+def _main():
     root = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     files = [f for f in changed(root) if os.path.exists(os.path.join(root, f))]
     if not files:
@@ -142,6 +142,20 @@ def main():
 
     print("precheck OK" if not failed else "precheck FAIL: " + ", ".join(failed))
     return 1 if failed else 0
+
+
+def main():
+    """_main's report, with the rule cards for its failures above the last line."""
+    from _common import fix_hints
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = _main()
+    out = buf.getvalue().rstrip("\n").split("\n")
+    cards = fix_hints("\n".join(out)) if code else []
+    if cards:
+        out[-1:-1] = ["-- fix hints --"] + ["  " + c for c in cards]
+    print("\n".join(out))
+    return code
 
 
 if __name__ == "__main__":
