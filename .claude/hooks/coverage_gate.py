@@ -16,28 +16,44 @@ Blocks at most MAX_BLOCKS times per session, then lets the agent stop (and says
 so), so a stubborn mismatch can never deadlock a run. Fail-open on any error.
 Wire to: Stop.
 """
-import glob, json, os, re, sys
+import glob, json, os, re, subprocess, sys
 
 MAX_BLOCKS = 2
 
-def scan(root):
-    """criteria from the requirements table of ONE task (the one the features
-    address); which ids the features mention; scenario count (healthcheck excluded).
+FEATURES = "packages/axc-verification/acceptance-api/src/features"
 
-    The repo root holds a requirements file per task set. Summing them makes the
-    gate unsatisfiable for an agent working one task, so criteria are read per
-    file and the gate scores the file the work matches best: the one with the
-    most ids named in the features, falling back to the fewest missing."""
+def committed_ids(root):
+    """criterion ids the committed capability features already name. A table they fully
+    cover belongs to a task already done (the app the work starts from), not this one."""
+    try:
+        r = subprocess.run(["git", "grep", "-h", "-o", "-i", "-E", r"[A-Z]+-AC[0-9]+", "HEAD", "--",
+                            f"{FEATURES}/*.feature", f":!{FEATURES}/healthcheck.feature"],
+                           cwd=root, capture_output=True, text=True, timeout=10)
+        return {i.upper() for i in r.stdout.split()}
+    except Exception:
+        return set()
+
+def scan(root):
+    """criteria from the requirements table of ONE task (the one being worked); which ids
+    the features mention; scenario count (healthcheck excluded).
+
+    The repo root holds a requirements file per task (ids `<X>-AC<n>`, any task letter).
+    Summing them makes the gate unsatisfiable for an agent working one task, so criteria
+    are read per file. Tables the committed features already fully cover are skipped
+    (tasks done before this one); of the rest the gate scores the one with the most ids
+    named in the features, then the fewest criteria."""
     tables = []  # one {id: description} per requirements file
     for req in sorted(glob.glob(os.path.join(root, "task-set-*-requirements.md"))):
-        t = dict(re.findall(r"^\|\s*([AB]-AC\d+)\s*\|\s*(.*?)\s*\|\s*$",
+        t = dict(re.findall(r"^\|\s*([A-Z]+-AC\d+)\s*\|\s*(.*?)\s*\|\s*$",
                             open(req, errors="replace").read(), re.M))
         if t:
             tables.append(t)
+    done = committed_ids(root)
+    tables = [t for t in tables if not {c.upper() for c in t} <= done]
     if not tables:
         return {}, [], 0
     text, n = "", 0
-    for f in glob.glob(os.path.join(root, "packages/axc-verification/acceptance-api/src/features/*.feature")):
+    for f in glob.glob(os.path.join(root, FEATURES, "*.feature")):
         if os.path.basename(f) == "healthcheck.feature":
             continue
         body = open(f, errors="replace").read()
@@ -62,7 +78,6 @@ def main():
     # files under packages/ or apps/ (config cleanup, questions, docs) has no
     # coverage obligation; blocking it loops interactive users forever.
     try:
-        import subprocess
         st = subprocess.run(["git", "status", "--porcelain", "--", "packages", "apps"],
                             cwd=root, capture_output=True, text=True, timeout=10)
         if st.returncode == 0 and not st.stdout.strip():
