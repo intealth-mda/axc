@@ -67,4 +67,9 @@ ignore:
         reason: happy-dom pinned to 20.10.1 - patched 20.14.7 not published, 21.x breaks the build (TS2694 UnderlyingDefaultSource). Only serenity-framework's DOM adapter loads happy-dom; axc never runs it (re-checked 2026-10-30, still no fixed release)
         expires: 2026-12-31T00:00:00.000Z
         created: 2026-10-29T00:00:00.000Z
+  SNYK-JS-MONGODB-22566493:
+    - '*':
+        reason: Fixed only in mongodb 7.9.0. mongoose 8.24.7 pins mongodb ~6.20 and the newest mongoose (9.12.1) pins ~7.8, so no mongoose release accepts the fix. Paths are the vendored cellix test and seedwork packages and mongodb-memory-server; the deployed API bundle has no mongodb. Review by 2026-12-31 (checked 2026-11-16).
+        expires: 2026-12-31T00:00:00.000Z
+        created: 2026-11-16T00:00:00.000Z
 patch: {}
