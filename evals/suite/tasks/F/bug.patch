@@ -1,0 +1,13 @@
+diff --git a/packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts b/packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts
+index 98ab1eae..733d3d14 100644
+--- a/packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts
++++ b/packages/axc/domain/src/domain/contexts/course/course/course.aggregate.ts
+@@ -34,7 +34,7 @@ export class Course extends AggregateRoot<CourseProps, undefined> {
+ 			(needle === undefined || p.title.toLowerCase().includes(needle) || p.summary.toLowerCase().includes(needle) || tags.some((t) => t.includes(needle))) &&
+ 			(modality === undefined || p.modality === modality) &&
+ 			(status === undefined || p.status === status) &&
+-			(tag === undefined || tags.includes(tag.toLowerCase()))
++			(tag === undefined || tags.includes(tag))
+ 		);
+ 	}
+ 
