@@ -197,7 +197,7 @@ own unit test (rest is test-wired too).
   what the suite can see (the healthcheck still answers, the doc page lists each endpoint
   and error code). Exception: a task whose definition table's Expected Scope says
   `no API behavior change` (a docs page, a refactor) adds no scenarios; the existing suite and
-  the build prove it, and the coverage gate skips its table.
+  the build prove it, and the coverage gate and spec check skip it.
   Data rules outside the table bind too and get a scenario each: seed or fixture size and mix,
   including those of a task set this one builds on (Task B reuses Task A's Course model and
   search, so its seed keeps Task A's rule: at least 12 courses mixing modalities, statuses and

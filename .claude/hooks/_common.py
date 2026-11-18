@@ -129,6 +129,19 @@ def vault_log(category, text):
 
 # Rule cards: a one-line fix for a check failure the runs keep repeating. Keyed by the
 # error text precheck and gate_digest print; each card prints once.
+# A task whose definition table declares no behavior change (docs, refactor) adds no scenarios
+# and shapes no response: the coverage gate and the spec check skip it.
+NO_BEHAVIOR = __import__("re").compile(r"^\|\s*Expected Scope\s*\|[^\n]*\bno (?:API )?behaviou?r change", 2 | 8)
+
+
+def no_behavior_task(root):
+    """True when a task-set requirements file at the repo root declares no API behavior change.
+    ponytail: any such file exempts the session; pick the worked task's file if repos keep old docs specs."""
+    import glob, os
+    return any(NO_BEHAVIOR.search(open(f, errors="replace").read())
+               for f in glob.glob(os.path.join(root, "task-set-*-requirements.md")))
+
+
 FIX_HINTS = [
     (r"TS2345: Argument of type 'Expectation<", "Serenity: a string answer takes includes(s); contain(x) is for an array answer."),
     (r"TS1294", "erasableSyntaxOnly: no enum, namespace or constructor parameter properties. Declare the field and assign it in the constructor body; use a string-literal union for an enum."),

@@ -177,8 +177,10 @@ with tempfile.TemporaryDirectory() as d:
     skipped = coverage_gate.scan(d)[0]
     open(os.path.join(d, "task-set-x-requirements.md"), "w").write(row % "1 endpoint, tests, documentation")
     kept = coverage_gate.scan(d)[0]
+    open(os.path.join(d, "task-set-y-requirements.md"), "w").write(row.replace("X-", "Y-") % "1 page, no API behavior change")
+    fallback = coverage_gate.scan(d)[0]
 check("scope: no-behavior-change task skips the coverage gate, a feature task keeps it",
-      skipped == {} and sorted(kept) == ["X-AC1", "X-AC2"])
+      skipped == {} and sorted(kept) == ["X-AC1", "X-AC2"] and fallback == {})
 
 if SESSION:
     if fails:

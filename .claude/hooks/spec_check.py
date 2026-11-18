@@ -14,6 +14,8 @@ usage: python3 .claude/hooks/spec_check.py  (prints `spec check: OK ...` or the
 missing keys; exit 0, precheck decides)"""
 import glob, os, re, subprocess, sys
 
+from _common import no_behavior_task
+
 SPECS = "task-set-*-requirements.md"
 KEY = re.compile(r'"([A-Za-z_]\w*)"\s*:')
 CRIT = re.compile(r"^\|\s*(\w+-AC\d+)\s*\|", re.M)
@@ -41,6 +43,9 @@ def pick(specs, work):
 
 def main():
     root = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    if no_behavior_task(root):
+        print("spec check: OK, the task declares no API behavior change (no response to shape)")
+        return 0
     st = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all", "--", "packages", "apps"],
                         cwd=root, capture_output=True, text=True).stdout
     paths = [l[3:].split(" -> ")[-1].strip().strip('"') for l in st.splitlines() if l.strip()]

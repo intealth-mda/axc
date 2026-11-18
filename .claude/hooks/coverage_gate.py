@@ -18,13 +18,11 @@ Wire to: Stop.
 """
 import glob, json, os, re, subprocess, sys
 
+from _common import no_behavior_task
+
 MAX_BLOCKS = 2
 
 FEATURES = "packages/axc-verification/acceptance-api/src/features"
-# A task whose definition table declares no behavior change (docs, refactor) adds no
-# scenarios: the existing suite and the build prove it. Suite task H (docs page) wrote a
-# feature file and steps (4 files, +100 lines vs +26) only to satisfy this gate.
-NO_BEHAVIOR = re.compile(r"^\|\s*Expected Scope\s*\|[^\n]*\bno (?:API )?behaviou?r change", re.I | re.M)
 
 def committed_ids(root):
     """criterion ids the committed capability features already name. A table they fully
@@ -46,12 +44,16 @@ def scan(root):
     are read per file. Tables the committed features already fully cover are skipped
     (tasks done before this one); of the rest the gate scores the one with the most ids
     named in the features, then the fewest criteria."""
+    # A docs or refactor task (spec: no API behavior change) adds no scenarios; the existing
+    # suite and the build prove it. Suite task H wrote a feature file and steps (4 files,
+    # +97 lines vs +26) only for this gate. Skipping just its table let the gate fall back
+    # to Task A's table (r28), so the whole gate stands down.
+    if no_behavior_task(root):
+        return {}, [], 0
     tables = []  # one {id: description} per requirements file
     for req in sorted(glob.glob(os.path.join(root, "task-set-*-requirements.md"))):
-        body = open(req, errors="replace").read()
-        if NO_BEHAVIOR.search(body):
-            continue
-        t = dict(re.findall(r"^\|\s*([A-Z]+-AC\d+)\s*\|\s*(.*?)\s*\|\s*$", body, re.M))
+        t = dict(re.findall(r"^\|\s*([A-Z]+-AC\d+)\s*\|\s*(.*?)\s*\|\s*$",
+                            open(req, errors="replace").read(), re.M))
         if t:
             tables.append(t)
     done = committed_ids(root)
