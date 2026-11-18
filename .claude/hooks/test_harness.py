@@ -170,6 +170,16 @@ check("cards: precheck still ends with its verdict line", pre.stdout.strip().spl
 dig = gate_digest.digest(["$ chain", "$ tsc", "a.ts(1,1): error TS1294: This syntax is not allowed"], 1).splitlines()
 check("cards: digest adds the card and keeps EXIT last", any("erasableSyntaxOnly" in l for l in dig) and dig[-1] == "gate EXIT=1")
 
+import coverage_gate
+with tempfile.TemporaryDirectory() as d:
+    row = "| Expected Scope | %s |\n| X-AC1 | a |\n| X-AC2 | b |\n"
+    open(os.path.join(d, "task-set-x-requirements.md"), "w").write(row % "1 new documentation page, no API behavior change")
+    skipped = coverage_gate.scan(d)[0]
+    open(os.path.join(d, "task-set-x-requirements.md"), "w").write(row % "1 endpoint, tests, documentation")
+    kept = coverage_gate.scan(d)[0]
+check("scope: no-behavior-change task skips the coverage gate, a feature task keeps it",
+      skipped == {} and sorted(kept) == ["X-AC1", "X-AC2"])
+
 if SESSION:
     if fails:
         print("harness drift: " + "; ".join(fails) + ". The map or a hook is stale; "

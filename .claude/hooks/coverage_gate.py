@@ -21,6 +21,10 @@ import glob, json, os, re, subprocess, sys
 MAX_BLOCKS = 2
 
 FEATURES = "packages/axc-verification/acceptance-api/src/features"
+# A task whose definition table declares no behavior change (docs, refactor) adds no
+# scenarios: the existing suite and the build prove it. Suite task H (docs page) wrote a
+# feature file and steps (4 files, +100 lines vs +26) only to satisfy this gate.
+NO_BEHAVIOR = re.compile(r"^\|\s*Expected Scope\s*\|[^\n]*\bno (?:API )?behaviou?r change", re.I | re.M)
 
 def committed_ids(root):
     """criterion ids the committed capability features already name. A table they fully
@@ -44,8 +48,10 @@ def scan(root):
     named in the features, then the fewest criteria."""
     tables = []  # one {id: description} per requirements file
     for req in sorted(glob.glob(os.path.join(root, "task-set-*-requirements.md"))):
-        t = dict(re.findall(r"^\|\s*([A-Z]+-AC\d+)\s*\|\s*(.*?)\s*\|\s*$",
-                            open(req, errors="replace").read(), re.M))
+        body = open(req, errors="replace").read()
+        if NO_BEHAVIOR.search(body):
+            continue
+        t = dict(re.findall(r"^\|\s*([A-Z]+-AC\d+)\s*\|\s*(.*?)\s*\|\s*$", body, re.M))
         if t:
             tables.append(t)
     done = committed_ids(root)

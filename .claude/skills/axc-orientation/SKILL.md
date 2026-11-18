@@ -195,7 +195,9 @@ own unit test (rest is test-wired too).
   than criteria, or any id unnamed, is incomplete and will be sent back. A criterion HTTP
   cannot observe directly (existing tests pass, docs complete) still gets its scenario: assert
   what the suite can see (the healthcheck still answers, the doc page lists each endpoint
-  and error code).
+  and error code). Exception: a task whose definition table's Expected Scope says
+  `no API behavior change` (a docs page, a refactor) adds no scenarios; the existing suite and
+  the build prove it, and the coverage gate skips its table.
   Data rules outside the table bind too and get a scenario each: seed or fixture size and mix,
   including those of a task set this one builds on (Task B reuses Task A's Course model and
   search, so its seed keeps Task A's rule: at least 12 courses mixing modalities, statuses and
@@ -209,7 +211,8 @@ own unit test (rest is test-wired too).
   Run biome `--write` before patching a file with sed or python: reformatting moves the text
   a later patch would match. The checks enforce these rules, so code to them:
   - coverage: every criterion id of the task's table is named in a capability `.feature`
-    (not `healthcheck.feature`), and there are at least as many scenarios as criteria.
+    (not `healthcheck.feature`), and there are at least as many scenarios as criteria
+    (skipped when the task declares no API behavior change).
   - cellix: every layer (domain, persistence, application-services, rest) changed; each
     aggregate under `domain/src/domain/contexts/<ctx>/<agg>/` has the five files above; no
     domain file directly in `domain/src/` except `index.ts`; every changed `src/*.ts` with
