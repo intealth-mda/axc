@@ -9,6 +9,12 @@ import os, re, subprocess, sys
 LOG = "/tmp/verify.log"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 NOISE = re.compile(r"snyk monitor|DeprecationWarning|trace-deprecation|Tested \d+ dependencies|^✔ Tested /|^Next steps")
+# Lines that match "error" but are not failures; 30 of them hid the real one in 6 of the 29
+# acceptance failures across 91 A/B runs (iterations 15-18): vitest's per-package "Type Errors  no errors", passing steps
+# (a Gherkin step line or a ✓ check whose text says "error code"), source echoed beside a
+# warning (`67 │ throw new AppError(...)`), and library stack frames.
+NOT_ERR = re.compile(r"Type Errors\s+no errors|^(?:[\w@/.-]+:[\w:-]+:)?\s*(?:✓|✔|(?:Given|When|Then|And|But)\s)"
+                     r"|^(?:[\w@/.-]+:[\w:-]+:)?\s*\d+(?:\s+\d+)?\s*│|^(?:[\w@/.-]+:[\w:-]+:)?\s*at .*node_modules")
 
 
 def digest(lines, code):
@@ -28,7 +34,8 @@ def digest(lines, code):
                 out.append("     " + re.sub(r"\s+", " ", s)[:140])
         if failed:
             errs = [l.strip() for l in body if (re.search(r"error|✗|×|FAIL|Unused|not ok|ERR_", l, re.I)
-                    or re.match(r"\s*(\d+\) Scenario:|Expected|Received)", l)) and not NOISE.search(l)]
+                    or re.match(r"\s*(\d+\) Scenario:|Expected|Received)", l)) and not NOISE.search(l)
+                    and not NOT_ERR.search(l.strip())]
             out.append("     -- error lines --")
             out += ["     " + e[:200] for e in errs[:30]]
             out.append("     -- tail --")

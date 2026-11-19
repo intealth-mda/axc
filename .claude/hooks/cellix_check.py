@@ -7,7 +7,10 @@ against the CellixJS house shapes reviewers judge as Cellix-level:
   - each aggregate folder has <agg>.aggregate.ts, <agg>.value-objects.ts,
     <agg>.repository.ts, index.ts, and a colocated <agg>.aggregate.test.ts
   - no new domain source files sit flat in domain/src/ (outside contexts/)
-  - all four layers touched; a rest-layer unit test exists
+  - a change that adds an aggregate (a folder under domain/contexts/ that HEAD
+    lacks) touches all four layers and adds a rest-layer unit test; a change to
+    existing aggregates only keeps what it touches in shape (suite r29: a bug fix
+    in one layer was pushed into tests in the other three)
   - no `unknown`/`any` in domain source; application-services saves only inside
     a unit of work (withScopedTransaction)
 Prints exactly what is missing, with the expected paths. Advisory: exit 0.
@@ -57,9 +60,6 @@ def check(root):
         return None, 0
     problems = []
     layers = {f[len(pr):].split("/")[0] for f in files}
-    missing_layers = [l for l in c["layers"] if l not in layers]
-    if missing_layers:
-        problems.append(f"layers not touched: {', '.join(missing_layers)}")
 
     dom = pr + "domain/src/"
     # Cellix keeps shared domain code above the aggregates (domain/src/domain/ and
@@ -86,6 +86,11 @@ def check(root):
                 and not os.path.exists(os.path.join(root, base, n))]
         if miss:
             problems.append(f"aggregate '{agg}' missing: " + ", ".join(base + n for n in miss))
+    new = [agg for (ctx, agg) in sorted(aggs) if subprocess.run(
+        ["git", "cat-file", "-e", f"HEAD:{dom}domain/contexts/{ctx}/{agg}"], cwd=root, capture_output=True).returncode]
+    missing_layers = [l for l in c["layers"] if l not in layers]
+    if new and missing_layers:
+        problems.append(f"new aggregate {', '.join(new)}: layers not touched: {', '.join(missing_layers)}")
 
     # Test depth (Cellix colocated-test convention): every new source module has
     # a <name>.test.ts beside it. index.ts barrels and *.d.ts are exempt.
@@ -122,8 +127,8 @@ def check(root):
         problems.append("saves outside a unit of work in: " + ", ".join(unscoped)
                         + " - do read, check and save inside InMemoryUnitOfWork.withScopedTransaction")
 
-    if not any(f.startswith(pr + "rest/src/") and f.endswith(".test.ts") for f in files):
-        problems.append(f"no rest unit test under {pr}rest/src/*.test.ts")
+    if new and not any(f.startswith(pr + "rest/src/") and f.endswith(".test.ts") for f in files):
+        problems.append(f"new aggregate {', '.join(new)}: no rest unit test under {pr}rest/src/*.test.ts")
 
     return problems, len(aggs)
 
@@ -138,7 +143,7 @@ def main():
         for p in problems:
             print("  - " + p)
     else:
-        print(f"cellix check: OK - {n} aggregate(s) in Cellix shape, all layers, rest tested")
+        print(f"cellix check: OK - {n} aggregate(s) in Cellix shape")
 
 
 def stop():

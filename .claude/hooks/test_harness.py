@@ -41,6 +41,14 @@ bad = gate_digest.digest(["$ chain", "$ cucumber-js", "Failures:", "1) Scenario:
 check("digest: EXIT last on fail", bad[-1] == "gate EXIT=1")
 check("digest: failing scenario kept", any("1) Scenario: X-AC1" in l for l in bad))
 check("digest: Expected/Received kept", any("Expected 400" in l for l in bad) and any("Received 200" in l for l in bad))
+pfx = "@axc-verification/acceptance-api:test:acceptance: "
+noisy = gate_digest.digest(["$ chain", "$ turbo run test"] + [f"@axc/p{i}:test: Type Errors  no errors" for i in range(20)]
+                           + [pfx + '  And the error code is "X"', pfx + '    ✓ API client ensures that the error code does equal "X"',
+                              "@axc/a:build:     67 │ throw new AppError(400, 'X')", pfx + "      at Stage.createError (/r/node_modules/x.js:1)"] * 5
+                           + [pfx + "  AssertionError: Expected the status of the last response to equal 409"], 1)
+errs = noisy.split("-- error lines --")[1].split("-- tail --")[0]
+check("digest: real failure kept past passing-step and no-errors noise",
+      "equal 409" in errs and "no errors" not in errs and "✓" not in errs and "Stage.createError" not in errs and "│" not in errs)
 
 with tempfile.TemporaryDirectory() as tmp:
     subprocess.run(["git", "init", "-q"], cwd=tmp, check=True)
@@ -74,6 +82,29 @@ check("spec: task picked by criterion ids, not shared keys", spec_check.pick(spe
       "packages/p/src/a.ts": "items totalItems field courseId", "packages/v/src/features/y.feature": "Y-AC1"})[0]
       == "task-set-y-requirements.md")
 check("spec: no changes -> nothing to check", spec_check.pick(specs, {}) == (None, []))
+check("spec: the task's own spec wins over older specs the changes name (seeded repo)", spec_check.pick(
+      specs, {**drift, "packages/p/src/list.ts": "{ items, courseId }"}, worked={"task-set-y-requirements.md"})
+      == ("task-set-y-requirements.md", []))
+check("spec: keys the code had before the task are not judged", spec_check.pick(specs, drift, known={"totalItems"})
+      == ("task-set-x-requirements.md", []))
+import cellix_check
+with tempfile.TemporaryDirectory() as tmp:
+    agg = "packages/axc/domain/src/domain/contexts/c/{0}/{0}"
+    def put(rel, text="export const x = 1;\n"):
+        os.makedirs(os.path.join(tmp, os.path.dirname(rel)), exist_ok=True)
+        open(os.path.join(tmp, rel), "w").write(text)
+    def five(a):
+        for n in (".aggregate.ts", ".aggregate.test.ts", ".value-objects.ts", ".repository.ts"):
+            put(agg.format(a) + n, "export type T = 1;\n")
+        put(os.path.dirname(agg.format(a)) + "/index.ts")
+    g = lambda *a: subprocess.run(["git", *a], cwd=tmp, capture_output=True)
+    five("a"); g("init", "-q"); g("add", "-A"); g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
+    put(agg.format("a") + ".aggregate.ts", "export type T = 2;\n")
+    check("cellix: a fix inside an existing aggregate needs no other layer", cellix_check.check(tmp)[0] == [])
+    five("b")
+    check("cellix: a new aggregate still needs every layer and a rest test",
+          any("new aggregate b: layers not touched" in p for p in cellix_check.check(tmp)[0])
+          and any("no rest unit test" in p for p in cellix_check.check(tmp)[0]))
 check("drift: every requirements file has example JSON keys the spec check reads",
       bool(glob.glob(os.path.join(ROOT, spec_check.SPECS))) and all(
           spec_check.keys_of(open(f).read()) for f in glob.glob(os.path.join(ROOT, spec_check.SPECS))))
@@ -103,7 +134,7 @@ check("drift: per-package typecheck row builds deps (turbo), no bare tsgo row",
 check("drift: mdx rule in map, precheck and CLAUDE.md", "mdx_problems(root, files)" in read(".claude/hooks/precheck.py")
       and "- mdx: changed `apps/docs` pages" in skill and "Pages are MDX" in skill and "knip/mdx" in claude_md)
 check("drift: spec rule in map, precheck and CLAUDE.md", '"spec_check.py"' in read(".claude/hooks/precheck.py")
-      and "- spec: every key of the requirements file's example JSON" in skill and "knip/mdx/spec" in claude_md)
+      and "- spec: every key of the worked task's example JSON" in skill and "knip/mdx/spec" in claude_md)
 hc_steps = re.findall(r"^(?:Given|When|Then)\(", read("packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts"), re.M)
 check("drift: map's 'healthcheck.steps.ts defines only its own three' is true",
       len(hc_steps) == 3 and "healthcheck.steps.ts` defines only its own three" in skill)

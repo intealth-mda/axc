@@ -213,18 +213,21 @@ own unit test (rest is test-wired too).
   - coverage: every criterion id of the task's table is named in a capability `.feature`
     (not `healthcheck.feature`), and there are at least as many scenarios as criteria
     (skipped when the task declares no API behavior change).
-  - cellix: every layer (domain, persistence, application-services, rest) changed; each
+  - cellix: a new aggregate (a `contexts/<ctx>/<agg>/` folder not in HEAD) means every layer
+    (domain, persistence, application-services, rest) changed and at least one rest `src/*.test.ts`;
+    a change to existing aggregates touches only the layers it needs; each
     aggregate under `domain/src/domain/contexts/<ctx>/<agg>/` has the five files above; no
     domain file directly in `domain/src/` except `index.ts`; every changed `src/*.ts` with
     runtime code has a colocated `<name>.test.ts` (exempt: `index.ts`, `*.d.ts`, files whose
-    name contains `seed` or `fixture`, type-only files); at least one rest `src/*.test.ts`;
+    name contains `seed` or `fixture`, type-only files);
     no `unknown`/`any` in domain source (tests exempt); every application-services module
     that calls `.save(` also calls `withScopedTransaction`.
   - knip: every new file and export is reachable from its package's `src/index.ts` and used.
   - tests: tests that existed before the task stay intact: none deleted, none with fewer test
     cases or assertions (adding tests, renaming a scenario, editing imports is fine).
-  - spec: every key of the requirements file's example JSON (request, response, error bodies)
-    appears in the changed source, tests and docs excluded: use the spec's field names exactly.
+  - spec: every key of the worked task's example JSON (request, response, error bodies) that
+    the code does not already have appears in the changed source, tests and docs excluded:
+    use the spec's field names exactly.
   - mdx: changed `apps/docs` pages have no `{…}` or `<tag>` outside code (see Docs).
 - Architecture: `archunit-tests/src/dependency-rules.test.ts` — enforces the domain import ban in AGENTS.md.
 
