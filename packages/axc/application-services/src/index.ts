@@ -1,3 +1,6 @@
+import { createSeededCourseCatalog } from '@axc/persistence';
+import { type CourseSearchOutcome, type RawCourseQuery, searchCourses } from './search-courses.ts';
+
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
 
@@ -19,7 +22,12 @@ export interface ApplicationServices {
 	health: {
 		getStatus(): HealthStatus;
 	};
+	courses: {
+		search(rawQuery: RawCourseQuery): Promise<CourseSearchOutcome>;
+	};
 }
+
+export type { CourseListItem, CourseQueryErrorBody, CourseQueryFieldError, CourseSearchOutcome, CourseSearchPage, RawCourseQuery } from './search-courses.ts';
 
 export interface ApplicationServicesFactory {
 	forRequest(rawAuthHeader?: string): Promise<ApplicationServices>;
@@ -36,6 +44,7 @@ export function resolveEnvironment(nodeEnv: string | undefined): HealthEnvironme
 }
 
 export function buildApplicationServicesFactory(context: ApiContext): ApplicationServicesFactory {
+	const courseCatalog = createSeededCourseCatalog();
 	const forRequest = (): Promise<ApplicationServices> =>
 		Promise.resolve({
 			health: {
@@ -47,6 +56,11 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 						environment: context.environment,
 						timestamp: new Date().toISOString(),
 					};
+				},
+			},
+			courses: {
+				search(rawQuery: RawCourseQuery): Promise<CourseSearchOutcome> {
+					return searchCourses(courseCatalog, rawQuery);
 				},
 			},
 		});

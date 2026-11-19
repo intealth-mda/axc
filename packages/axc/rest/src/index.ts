@@ -7,12 +7,27 @@ export function createRestApp(applicationServicesFactory: ApplicationServicesFac
 	const app = new Hono();
 
 	app.get('/health', async (c) => {
-		const authorization = c.req.header('Authorization');
-		const applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);
+		const applicationServices = await servicesFor(c.req.header('Authorization'), applicationServicesFactory);
 		return c.json(applicationServices.health.getStatus());
 	});
 
+	app.get('/api/courses', async (c) => {
+		const applicationServices = await servicesFor(c.req.header('Authorization'), applicationServicesFactory);
+		const outcome = await applicationServices.courses.search(c.req.queries());
+		if (!outcome.ok) {
+			return c.json(outcome.body, 400);
+		}
+		return c.json(outcome.body);
+	});
+
 	return app;
+}
+
+function servicesFor(authorization: string | undefined, applicationServicesFactory: ApplicationServicesFactory) {
+	if (authorization === undefined) {
+		return applicationServicesFactory.forRequest();
+	}
+	return applicationServicesFactory.forRequest(authorization);
 }
 
 export const restHandlerCreator = (applicationServicesFactory: ApplicationServicesFactory): HttpHandler => {
