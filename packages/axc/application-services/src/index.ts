@@ -1,3 +1,6 @@
+import { createCourseCatalogDataSources } from './contexts/types/course/data-sources.ts';
+import { Types, type TypesContextApplicationService } from './contexts/types/index.ts';
+
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
 
@@ -19,7 +22,10 @@ export interface ApplicationServices {
 	health: {
 		getStatus(): HealthStatus;
 	};
+	types: TypesContextApplicationService;
 }
+
+export type { CourseListItem, CoursePage, CourseSearchCommand, CourseSort } from './contexts/types/course/search.ts';
 
 export interface ApplicationServicesFactory {
 	forRequest(rawAuthHeader?: string): Promise<ApplicationServices>;
@@ -36,6 +42,7 @@ export function resolveEnvironment(nodeEnv: string | undefined): HealthEnvironme
 }
 
 export function buildApplicationServicesFactory(context: ApiContext): ApplicationServicesFactory {
+	const types = Types(createCourseCatalogDataSources());
 	const forRequest = (): Promise<ApplicationServices> =>
 		Promise.resolve({
 			health: {
@@ -49,6 +56,7 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 					};
 				},
 			},
+			types,
 		});
 
 	return { forRequest };

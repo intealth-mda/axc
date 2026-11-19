@@ -2,6 +2,7 @@ import type { ApplicationServicesFactory } from '@axc/application-services';
 import type { HttpHandler, HttpRequest, InvocationContext } from '@azure/functions';
 import { azureHonoHandler } from '@marplex/hono-azurefunc-adapter';
 import { Hono } from 'hono';
+import { courseSearchResponse } from './courses.ts';
 
 export function createRestApp(applicationServicesFactory: ApplicationServicesFactory): Hono {
 	const app = new Hono();
@@ -10,6 +11,12 @@ export function createRestApp(applicationServicesFactory: ApplicationServicesFac
 		const authorization = c.req.header('Authorization');
 		const applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);
 		return c.json(applicationServices.health.getStatus());
+	});
+
+	app.get('/api/courses', async (c) => {
+		const authorization = c.req.header('Authorization');
+		const applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);
+		return courseSearchResponse(c, (command) => applicationServices.types.Course.search(command));
 	});
 
 	return app;
