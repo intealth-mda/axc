@@ -5,10 +5,11 @@ const sidebars = {
 		'intro',
 		'healthcheck',
 		'courses',
+		'enrollment-requests',
 		{
 			type: 'category',
 			label: 'Decisions',
-			items: ['decisions/course-catalog-search'],
+			items: ['decisions/course-catalog-search', 'decisions/enrollment-request-workflow'],
 		},
 	],
 } satisfies SidebarsConfig;

@@ -1,4 +1,5 @@
-import { createSeededCourseCatalog } from '@axc/persistence';
+import { createInMemoryEnrollmentRequestStore, createSeededCourseCatalog } from '@axc/persistence';
+import { createEnrollmentRequestService, type EnrollmentCommandResult, type EnrollmentListResult, type RawEnrollmentQuery } from './enrollment-requests.ts';
 import { type CourseSearchOutcome, type RawCourseQuery, searchCourses } from './search-courses.ts';
 
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
@@ -25,8 +26,27 @@ export interface ApplicationServices {
 	courses: {
 		search(rawQuery: RawCourseQuery): Promise<CourseSearchOutcome>;
 	};
+	enrollmentRequests: {
+		create(body: unknown): Promise<EnrollmentCommandResult>;
+		getById(id: string): Promise<EnrollmentCommandResult>;
+		list(rawQuery: RawEnrollmentQuery): Promise<EnrollmentListResult>;
+		updateStatus(id: string, body: unknown): Promise<EnrollmentCommandResult>;
+	};
 }
 
+export type {
+	EnrollmentCommandResult,
+	EnrollmentErrorBody,
+	EnrollmentErrorCode,
+	EnrollmentFieldError,
+	EnrollmentListResult,
+	EnrollmentRequestDto,
+	EnrollmentRequestListDto,
+	EnrollmentRequestService,
+	RawEnrollmentQuery,
+	StatusHistoryEntryDto,
+} from './enrollment-requests.ts';
+export { createEnrollmentRequestService } from './enrollment-requests.ts';
 export type { CourseListItem, CourseQueryErrorBody, CourseQueryFieldError, CourseSearchOutcome, CourseSearchPage, RawCourseQuery } from './search-courses.ts';
 
 export interface ApplicationServicesFactory {
@@ -45,6 +65,10 @@ export function resolveEnvironment(nodeEnv: string | undefined): HealthEnvironme
 
 export function buildApplicationServicesFactory(context: ApiContext): ApplicationServicesFactory {
 	const courseCatalog = createSeededCourseCatalog();
+	const enrollmentRequests = createEnrollmentRequestService({
+		catalog: courseCatalog,
+		store: createInMemoryEnrollmentRequestStore(),
+	});
 	const forRequest = (): Promise<ApplicationServices> =>
 		Promise.resolve({
 			health: {
@@ -63,6 +87,7 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 					return searchCourses(courseCatalog, rawQuery);
 				},
 			},
+			enrollmentRequests,
 		});
 
 	return { forRequest };
