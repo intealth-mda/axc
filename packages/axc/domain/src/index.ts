@@ -9,6 +9,15 @@ export type { Passport } from './domain/contexts/passport.ts';
 export { PassportFactory } from './domain/contexts/passport.ts';
 export { courseModalities, courseStatuses } from './domain/contexts/types/course/course.value-objects.ts';
 export { Course, type CourseEntityReference, type CourseProps, type CourseRepository, type CourseUnitOfWork, catalogCourses } from './domain/contexts/types/course/index.ts';
+export { canTransitionEnrollmentRequestStatus, enrollmentRequestStatuses, isActiveEnrollmentRequestStatus, isEnrollmentRequestStatus } from './domain/contexts/types/enrollment-request/enrollment-request.value-objects.ts';
+export {
+	EnrollmentRequest,
+	type EnrollmentRequestEntityReference,
+	type EnrollmentRequestProps,
+	type EnrollmentRequestRepository,
+	type EnrollmentRequestUnitOfWork,
+	type StatusHistoryProps,
+} from './domain/contexts/types/enrollment-request/index.ts';
 
 export const Domain = {
 	Contexts,
@@ -24,6 +33,9 @@ export interface DomainDataSource {
 	Types: {
 		Course: {
 			CourseUnitOfWork: Contexts.Types.Course.CourseUnitOfWork;
+		};
+		EnrollmentRequest: {
+			EnrollmentRequestUnitOfWork: Contexts.Types.EnrollmentRequest.EnrollmentRequestUnitOfWork;
 		};
 	};
 }

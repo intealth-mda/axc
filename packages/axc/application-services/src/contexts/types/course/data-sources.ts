@@ -1,4 +1,5 @@
 import { Course, type CourseEntityReference, type CourseProps, catalogCourses, PassportFactory } from '@axc/domain';
+import { createEnrollmentRequestMemory, type EnrollmentRequestMemoryReadRepository, type EnrollmentRequestMemoryUnitOfWork } from '../enrollment-request/memory.ts';
 
 export interface CourseReadRepository {
 	getAll(): Promise<CourseEntityReference[]>;
@@ -10,6 +11,16 @@ export interface DataSources {
 		Types: {
 			Course: {
 				CourseReadRepo: CourseReadRepository;
+			};
+			EnrollmentRequest: {
+				EnrollmentRequestReadRepo: EnrollmentRequestMemoryReadRepository;
+			};
+		};
+	};
+	domainDataSource: {
+		Types: {
+			EnrollmentRequest: {
+				EnrollmentRequestUnitOfWork: EnrollmentRequestMemoryUnitOfWork;
 			};
 		};
 	};
@@ -42,12 +53,23 @@ export function createCourseCatalogDataSources(): DataSources {
 			return Promise.resolve(courses.find((course) => course.id === id) ?? null);
 		},
 	};
+	const enrollmentRequests = createEnrollmentRequestMemory(passport);
 
 	return {
 		readonlyDataSource: {
 			Types: {
 				Course: {
 					CourseReadRepo: repository,
+				},
+				EnrollmentRequest: {
+					EnrollmentRequestReadRepo: enrollmentRequests.readRepository,
+				},
+			},
+		},
+		domainDataSource: {
+			Types: {
+				EnrollmentRequest: {
+					EnrollmentRequestUnitOfWork: enrollmentRequests.unitOfWork,
 				},
 			},
 		},

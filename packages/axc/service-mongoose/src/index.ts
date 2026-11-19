@@ -2,10 +2,14 @@ import type { MongooseSeedwork } from '@cellix/mongoose-seedwork';
 import { MongoMemoryServer } from 'mongodb-memory-server-core';
 import type { Connection } from 'mongoose';
 import { CourseModelFactory } from './models/course/course.model.ts';
+import { EnrollmentRequestModelFactory } from './models/enrollment-request/enrollment-request.model.ts';
 
 export type { Course, CourseModelType } from './models/course/course.model.ts';
 export { CourseModelName } from './models/course/course.model.ts';
+export type { EnrollmentRequest, EnrollmentRequestModelType, StatusHistoryDoc } from './models/enrollment-request/enrollment-request.model.ts';
+export { EnrollmentRequestModelName } from './models/enrollment-request/enrollment-request.model.ts';
 export { courseSeed } from './seed/course.ts';
+export { enrollmentRequestSeed } from './seed/enrollment-request.ts';
 
 /** Mongoose context factories added in this package use the Cellix mongoose seedwork. */
 export type PersistenceContextFactory = MongooseSeedwork.MongooseContextFactory;
@@ -21,6 +25,7 @@ export function createMemoryMongoServer(): MongoMemoryServer {
 export const mongooseContextBuilder = (initializedService: MongooseSeedwork.MongooseContextFactory) => {
 	return {
 		Course: CourseModelFactory(initializedService),
+		EnrollmentRequest: EnrollmentRequestModelFactory(initializedService),
 	};
 };
 

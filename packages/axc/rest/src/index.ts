@@ -3,6 +3,7 @@ import type { HttpHandler, HttpRequest, InvocationContext } from '@azure/functio
 import { azureHonoHandler } from '@marplex/hono-azurefunc-adapter';
 import { Hono } from 'hono';
 import { courseSearchResponse } from './courses.ts';
+import { registerEnrollmentRequestRoutes } from './enrollment-requests.ts';
 
 export function createRestApp(applicationServicesFactory: ApplicationServicesFactory): Hono {
 	const app = new Hono();
@@ -18,6 +19,8 @@ export function createRestApp(applicationServicesFactory: ApplicationServicesFac
 		const applicationServices = authorization === undefined ? await applicationServicesFactory.forRequest() : await applicationServicesFactory.forRequest(authorization);
 		return courseSearchResponse(c, (command) => applicationServices.types.Course.search(command));
 	});
+
+	registerEnrollmentRequestRoutes(app, (authorization) => applicationServicesFactory.forRequest(authorization));
 
 	return app;
 }

@@ -26,6 +26,11 @@ export interface ApplicationServices {
 }
 
 export type { CourseListItem, CoursePage, CourseSearchCommand, CourseSort } from './contexts/types/course/search.ts';
+export type { CreateEnrollmentRequestCommand } from './contexts/types/enrollment-request/create.ts';
+export { EnrollmentRequestFailure } from './contexts/types/enrollment-request/errors.ts';
+export type { EnrollmentRequestItem, StatusHistoryItem } from './contexts/types/enrollment-request/item.ts';
+export type { EnrollmentRequestList, EnrollmentRequestQueryCommand } from './contexts/types/enrollment-request/query.ts';
+export type { UpdateEnrollmentRequestStatusCommand } from './contexts/types/enrollment-request/update-status.ts';
 
 export interface ApplicationServicesFactory {
 	forRequest(rawAuthHeader?: string): Promise<ApplicationServices>;

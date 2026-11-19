@@ -1,6 +1,6 @@
-# AXC system-design / data dictionary (Rosetta PoC + Task A)
+# AXC system-design / data dictionary (Rosetta PoC + Task A + Task B)
 
-Nick-approved spreadsheet + Jason’s **cellix-rosetta** skill, plus Task A Course catalog output.
+Nick-approved spreadsheet + Jason’s **cellix-rosetta** skill, plus Course catalog and EnrollmentRequest workflow output.
 
 | File | Purpose |
 | --- | --- |
@@ -11,8 +11,8 @@ Nick-approved spreadsheet + Jason’s **cellix-rosetta** skill, plus Task A Cour
 | Branch | Contents |
 | --- | --- |
 | `ethan/rosetta-system-design-poc` | Setup only (workbook + skill) |
-| `ethan/rosetta-task-a` | Setup + Task A (Course catalog) — **this branch** |
-| `ethan/rosetta-task-b` | Task A + Task B (EnrollmentRequest) |
+| `ethan/rosetta-task-a` | Setup + Task A (Course catalog) |
+| `ethan/rosetta-task-b` | Task A + Task B (EnrollmentRequest) — **this branch** |
 
 ## How to use
 
