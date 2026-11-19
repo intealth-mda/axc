@@ -85,6 +85,38 @@ check("spec: no changes -> nothing to check", spec_check.pick(specs, {}) == (Non
 check("spec: the task's own spec wins over older specs the changes name (seeded repo)", spec_check.pick(
       specs, {**drift, "packages/p/src/list.ts": "{ items, courseId }"}, worked={"task-set-y-requirements.md"})
       == ("task-set-y-requirements.md", []))
+import task_card
+cards = {"task-set-a-requirements.md": "Task Set ID: A\n| A-AC1 | x |\n| A-AC2 | y |\n",
+         "task-set-b-requirements.md": "Task Set ID: B\nUse the Course model from Task Set A.\n| B-AC1 | x |\n",
+         "task-set-h-requirements.md": "| Expected Scope | Docs only; no API behavior change |\n| H-AC1 | x |\n"}
+ab = task_card.card({k: v for k, v in cards.items() if "-h-" not in k})
+check("card: no task spec in the last commit lists every spec, B builds on A",
+      "A-AC1..A-AC2 (2)" in ab and "builds on task-set-a-requirements.md (read both: `cat task-set-b-requirements.md task-set-a-requirements.md`)" in ab
+      and "task-set-a-requirements.md: criteria" in ab and "builds on" not in ab.split("task-set-b")[0])
+mine = task_card.card(cards, worked={"task-set-b-requirements.md"})
+check("card: the task's own spec, its ids rule, earlier specs named only",
+      "This task's spec: task-set-b-requirements.md" in mine and "`Scenario: B-AC1 <what it proves>`" in mine
+      and "Also in the repo (earlier tasks; read only what your prompt names): task-set-a-requirements.md, task-set-h" in mine)
+check("card: a no-behavior task is told to add no scenarios",
+      "add no scenarios" in task_card.card(cards, worked={"task-set-h-requirements.md"}))
+check("card: no specs -> silent", task_card.card({}) == "")
+raw = ["@axc/persistence:test: ·······x", "@axc/persistence:test:  FAIL  src/r.test.ts > R > saves",
+       "@axc/persistence:test: TypeCheckError: Property 'capacity' is missing in type '{ title string; }'",
+       "@axc/persistence:test:  ❯ src/r.test.ts:10:55", "@axc/persistence:test:      10|   const c = await repo.save(",
+       "@axc/persistence:test: Type Errors  1 failed", "@axc/p2:test: Type Errors  no errors",
+       "@axc/persistence#test:  WARNING  command finished with error, but continuing...", "Failed:    @axc/persistence#test"]
+te = precheck.test_errors("\n".join(raw))
+check("precheck: a failing unit test keeps its cause and place, not noise",
+      any("TypeCheckError: Property 'capacity'" in l for l in te) and any("❯ src/r.test.ts:10:55" in l for l in te)
+      and not any("no errors" in l or "WARNING" in l or "10|" in l for l in te))
+p2 = "@axc-verification/acceptance-api:test:acceptance: "
+real = gate_digest.digest(["$ chain", "$ turbo run test:acceptance", p2 + "  AssertionError: Expected the status of the last response to equal 400",
+                           p2 + "  Expected number: 400", p2 + "  Received number: 201",
+                           p2 + "    ☕ImplementationPendingError: Step implementation missing:", p2 + "",
+                           p2 + '    When the client sends "POST" to "/x" with body "<body>"'], 1)
+errs2 = real.split("-- error lines --")[1].split("-- tail --")[0]
+check("digest: turbo-prefixed Expected/Received and the missing step's text kept",
+      "Received number: 201" in errs2 and "Expected number: 400" in errs2 and 'with body "<body>"' in errs2)
 check("spec: keys the code had before the task are not judged", spec_check.pick(specs, drift, known={"totalItems"})
       == ("task-set-x-requirements.md", []))
 import cellix_check
@@ -133,6 +165,7 @@ check("drift: per-package typecheck row builds deps (turbo), no bare tsgo row",
       and not any("tsgo" in l.rstrip().rstrip("|").split("|")[-1] for l in claude_md.splitlines() if l.startswith("|")))
 check("drift: mdx rule in map, precheck and CLAUDE.md", "mdx_problems(root, files)" in read(".claude/hooks/precheck.py")
       and "- mdx: changed `apps/docs` pages" in skill and "Pages are MDX" in skill and "knip/mdx" in claude_md)
+check("drift: task card wired at SessionStart", "task_card.py" in json.dumps(json.loads(read(".claude/settings.json"))["hooks"]["SessionStart"]))
 check("drift: spec rule in map, precheck and CLAUDE.md", '"spec_check.py"' in read(".claude/hooks/precheck.py")
       and "- spec: every key of the worked task's example JSON" in skill and "knip/mdx/spec" in claude_md)
 hc_steps = re.findall(r"^(?:Given|When|Then)\(", read("packages/axc-verification/acceptance-api/src/step-definitions/healthcheck.steps.ts"), re.M)

@@ -87,6 +87,15 @@ def tests_weakened(root):
     return probs
 
 
+def test_errors(out):
+    """Failure lines of a turbo typecheck/test run. Case-insensitive: vitest prints the cause as
+    `TypeCheckError: ...`/`TypeError: ...` and its place as `❯ src/x.test.ts:10:55`; a lowercase-only
+    match kept just the FAIL name, so E (suite r30) opened the test file twice to learn why."""
+    from gate_digest import NOT_ERR
+    return [l for l in out.splitlines() if re.search(r"error|FAIL|✗|×|Expected|Received|Failed:|❯ src/", l, re.I)
+            and not NOT_ERR.search(l.strip()) and "WARNING  command finished" not in l]
+
+
 def _main():
     root = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     files = [f for f in changed(root) if os.path.exists(os.path.join(root, f))]
@@ -109,10 +118,8 @@ def _main():
                          "--continue", "--output-logs=errors-only", *[f"--filter={p}" for p in pkgs]], root)
         if code:
             failed.append("typecheck/test")
-            keep = [l for l in out.splitlines()
-                    if re.search(r"error|FAIL|✗|×|AssertionError|Expected|Received|Failed:", l)]
             print("-- typecheck/test (" + ", ".join(pkgs) + ") --")
-            print("\n".join(keep[:40]) or out[-2000:])
+            print("\n".join(test_errors(out)[:40]) or out[-2000:])
 
     def coverage_ok(out):  # same bar as the Stop gate: every id named, scenarios >= criteria
         m = re.search(r"(\d+) scenario\(s\), (\d+) criteria", out)

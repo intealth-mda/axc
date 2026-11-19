@@ -7,6 +7,11 @@
 						"type": "command",
 						"command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/test_harness.py\" --session",
 						"timeout": 30
+					},
+					{
+						"type": "command",
+						"command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/task_card.py\"",
+						"timeout": 10
 					}
 				]
 			}

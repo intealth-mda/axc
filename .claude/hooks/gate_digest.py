@@ -13,6 +13,7 @@ NOISE = re.compile(r"snyk monitor|DeprecationWarning|trace-deprecation|Tested \d
 # acceptance failures across 91 A/B runs (iterations 15-18): vitest's per-package "Type Errors  no errors", passing steps
 # (a Gherkin step line or a ✓ check whose text says "error code"), source echoed beside a
 # warning (`67 │ throw new AppError(...)`), and library stack frames.
+PREFIX = re.compile(r"^[\w@/.-]+:[\w:-]+: ?")  # turbo's `@pkg:task: ` on every task line
 NOT_ERR = re.compile(r"Type Errors\s+no errors|^(?:[\w@/.-]+:[\w:-]+:)?\s*(?:✓|✔|(?:Given|When|Then|And|But)\s)"
                      r"|^(?:[\w@/.-]+:[\w:-]+:)?\s*\d+(?:\s+\d+)?\s*│|^(?:[\w@/.-]+:[\w:-]+:)?\s*at .*node_modules")
 
@@ -33,9 +34,20 @@ def digest(lines, code):
                     or re.search(r"\d+ vulnerabilit|no vulnerable paths", s):
                 out.append("     " + re.sub(r"\s+", " ", s)[:140])
         if failed:
-            errs = [l.strip() for l in body if (re.search(r"error|✗|×|FAIL|Unused|not ok|ERR_", l, re.I)
-                    or re.match(r"\s*(\d+\) Scenario:|Expected|Received)", l)) and not NOISE.search(l)
-                    and not NOT_ERR.search(l.strip())]
+            # Expected/Received match after the turbo prefix (serenity prints `Received number: 201`
+            # under it; matching at line start dropped every one, so agents saw only the expected
+            # half), and the step text after "Step implementation missing:" is kept (r294 grepped
+            # the log twice for it).
+            errs, after_missing = [], False
+            for l in body:
+                s = l.strip()
+                if after_missing and PREFIX.sub("", l).strip():
+                    errs.append(s); after_missing = False; continue
+                if (re.search(r"error|✗|×|FAIL|Unused|not ok|ERR_", l, re.I)
+                        or re.match(r"\s*(\d+\) Scenario:|Expected|Received)", PREFIX.sub("", l))) \
+                        and not NOISE.search(l) and not NOT_ERR.search(s):
+                    errs.append(s)
+                    after_missing = "implementation missing" in s
             out.append("     -- error lines --")
             out += ["     " + e[:200] for e in errs[:30]]
             out.append("     -- tail --")
