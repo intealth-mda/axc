@@ -1,18 +1,20 @@
 # AXC system-design / data dictionary (Rosetta PoC + Task A + Task B)
 
-Nick-approved spreadsheet + Jason’s **cellix-rosetta** skill, plus Course catalog and EnrollmentRequest workflow output.
+**What this is:** Nick’s approved data-dictionary spreadsheet + Jason’s **cellix-rosetta** skill, plus Course catalog and EnrollmentRequest workflow output from that sheet.
+
+**What this is not:** A harness-engineering iteration. Branch names follow AXC’s required `en-cur-N` pattern only because of repo rules — treat this stack as the **Rosetta PoC**, not as another Task A/B harness eng run.
 
 | File | Purpose |
 | --- | --- |
 | `axc-system-design.xlsx` | Collections: `courses`, `enrollmentrequests` |
 
-## Branches
+## Branches (this Rosetta stack)
 
 | Branch | Contents |
 | --- | --- |
-| `ethan/rosetta-system-design-poc` | Setup only (workbook + skill) |
-| `ethan/rosetta-task-a` | Setup + Task A (Course catalog) |
-| `ethan/rosetta-task-b` | Task A + Task B (EnrollmentRequest) — **this branch** |
+| `en-cur-10` | Setup only (workbook + skill) |
+| `en-cur-10-a-out` | Setup + Task A (Course catalog) |
+| `en-cur-10-b-out` | Task A + Task B (EnrollmentRequest) — **this branch** |
 
 ## How to use
 
