@@ -86,17 +86,23 @@ check("spec: the task's own spec wins over older specs the changes name (seeded 
       specs, {**drift, "packages/p/src/list.ts": "{ items, courseId }"}, worked={"task-set-y-requirements.md"})
       == ("task-set-y-requirements.md", []))
 import task_card
-cards = {"task-set-a-requirements.md": "Task Set ID: A\n| A-AC1 | x |\n| A-AC2 | y |\n",
+cards = {"task-set-a-requirements.md": "Task Set ID: A\n| A-AC1 | x |\n| A-AC2 | y |\n| A-AC3 | Existing tests still pass. |\n"
+         "| A-AC4 | API documentation describes the endpoint. |\n",
          "task-set-b-requirements.md": "Task Set ID: B\nUse the Course model from Task Set A.\n| B-AC1 | x |\n",
          "task-set-h-requirements.md": "| Expected Scope | Docs only; no API behavior change |\n| H-AC1 | x |\n"}
 ab = task_card.card({k: v for k, v in cards.items() if "-h-" not in k})
 check("card: no task spec in the last commit lists every spec, B builds on A",
-      "A-AC1..A-AC2 (2)" in ab and "builds on task-set-a-requirements.md (read both: `cat task-set-b-requirements.md task-set-a-requirements.md`)" in ab
+      "A-AC1..A-AC4 (4)" in ab and "builds on task-set-a-requirements.md (read both: `cat task-set-b-requirements.md task-set-a-requirements.md`)" in ab
       and "task-set-a-requirements.md: criteria" in ab and "builds on" not in ab.split("task-set-b")[0])
 mine = task_card.card(cards, worked={"task-set-b-requirements.md"})
 check("card: the task's own spec, its ids rule, earlier specs named only",
       "This task's spec: task-set-b-requirements.md" in mine and "`Scenario: B-AC1 <what it proves>`" in mine
-      and "Also in the repo (earlier tasks; read only what your prompt names): task-set-a-requirements.md, task-set-h" in mine)
+      and "Read them whole: `cat task-set-b-requirements.md task-set-a-requirements.md` alone in its own call" in mine
+      and "Other specs in the repo (read only what your prompt names): task-set-h-requirements.md." in mine)
+own = task_card.card(cards, worked={"task-set-a-requirements.md"})
+check("card: names the behavior ids, exempts test and docs rows, no one-scenario-per-criterion rule",
+      "behavior id (A-AC1..A-AC2)" in own and "No scenario for A-AC3 (tests" in own and "A-AC4 (docs: edit the page under apps/docs)" in own
+      and "as many scenarios as criteria" not in own and "`cat task-set-a-requirements.md` alone" in own)
 check("card: a no-behavior task is told to add no scenarios",
       "add no scenarios" in task_card.card(cards, worked={"task-set-h-requirements.md"}))
 check("card: no specs -> silent", task_card.card({}) == "")
@@ -151,7 +157,8 @@ check("drift: rest unit test rule", "rest/src/" in cellix and "at least one rest
 check("drift: typed-domain and unit-of-work rules", "(unknown|any)" in cellix and "withScopedTransaction" in cellix
       and "no `unknown`/`any` in domain source" in skill and "calls `withScopedTransaction`" in skill)
 check("drift: map's InMemoryUnitOfWork is exported", "InMemoryUnitOfWork" in read("packages/axc/persistence/src/index.ts"))
-check("drift: coverage bar", "n >= len(crit)" in cov and "at least as many scenarios as criteria" in skill)
+check("drift: coverage bar", "n >= need" in cov and "number at\n    least the behavior criteria" in skill
+      and "need no scenario" in skill and "change under `apps/docs`" in skill and "still gets its scenario" not in skill)
 check("drift: healthcheck.feature excluded", '"healthcheck.feature"' in cov and "not `healthcheck.feature`" in skill)
 check("drift: CLAUDE.md plan-per-batch line points at the map's write order",
       "one batch at a time (the map's write order)" in read("AGENTS.md")
@@ -245,6 +252,30 @@ with tempfile.TemporaryDirectory() as d:
     fallback = coverage_gate.scan(d)[0]
 check("scope: no-behavior-change task skips the coverage gate, a feature task keeps it",
       skipped == {} and sorted(kept) == ["X-AC1", "X-AC2"] and fallback == {})
+with tempfile.TemporaryDirectory() as d:
+    feat = os.path.join(d, coverage_gate.FEATURES); os.makedirs(feat)
+    open(os.path.join(d, "task-set-x-requirements.md"), "w").write(
+        "| X-AC1 | a |\n| X-AC2 | b |\n| X-AC3 | Existing tests still pass. |\n| X-AC4 | New tests cover a and b. |\n"
+        "| X-AC5 | API documentation describes the endpoint. |\n")
+    open(os.path.join(feat, "x.feature"), "w").write("Feature: x\n  Scenario Outline: X-AC1 X-AC2 a and b\n  Scenario: c\n")
+    real = coverage_gate.docs_changed
+    coverage_gate.docs_changed = lambda r: False
+    nodocs = coverage_gate.scan(d)
+    coverage_gate.docs_changed = lambda r: True
+    docs = coverage_gate.scan(d)
+    coverage_gate.docs_changed = real
+check("coverage: test rows need no scenario, a docs row needs an apps/docs change, count is behavior rows",
+      sorted(nodocs[0]) == ["X-AC1", "X-AC2", "X-AC5"] and nodocs[1] == ["X-AC5"] and docs[1] == [] and docs[2:] == (2, 2))
+with tempfile.TemporaryDirectory() as d:
+    subprocess.run(["git", "init", "-q", d]); feat = os.path.join(d, coverage_gate.FEATURES); os.makedirs(feat)
+    open(os.path.join(d, "task-set-a-requirements.md"), "w").write("| A-AC1 | a |\n| A-AC2 | Existing tests still pass. |\n| A-AC3 | Documentation includes x. |\n")
+    open(os.path.join(d, "task-set-b-requirements.md"), "w").write("| B-AC1 | b |\n| B-AC2 | c |\n")
+    open(os.path.join(feat, "a.feature"), "w").write("Feature: a\n  Scenario: A-AC1 a\n")
+    subprocess.run(["git", "-C", d, "add", "-A"]); subprocess.run(["git", "-C", d, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "a"])
+    open(os.path.join(feat, "b.feature"), "w").write("Feature: b\n  Scenario: B-AC1 b\n")
+    later = coverage_gate.scan(d)
+check("coverage: a done task whose test/docs rows have no scenario stays done (gate scores the next task)",
+      sorted(later[0]) == ["B-AC1", "B-AC2"] and later[1] == ["B-AC2"])
 
 if SESSION:
     if fails:

@@ -18,7 +18,7 @@ Wire to: Stop.
 """
 import glob, json, os, re, subprocess, sys
 
-from _common import no_behavior_task
+from _common import DOCS, META, criteria, no_behavior_task
 
 MAX_BLOCKS = 2
 
@@ -35,9 +35,20 @@ def committed_ids(root):
     except Exception:
         return set()
 
+def docs_changed(root):
+    """apps/docs changed in the working tree or the last commit.
+    ponytail: an older commit's docs change misses; widen to a base ref if tasks commit in steps."""
+    try:
+        git = lambda *a: subprocess.run(["git", *a, "--", "apps/docs"], cwd=root, capture_output=True, text=True, timeout=10).stdout.strip()
+        return bool(git("status", "--porcelain") or git("show", "--name-only", "--format=", "HEAD"))
+    except Exception:
+        return True
+
 def scan(root):
     """criteria from the requirements table of ONE task (the one being worked); which ids
-    the features mention; scenario count (healthcheck excluded).
+    the features mention; scenario count (healthcheck excluded); scenarios needed.
+    Test and docs criteria (META) need no scenario: the gate run proves the test ones, and a
+    docs one is missing only while apps/docs is unchanged.
 
     The repo root holds a requirements file per task (ids `<X>-AC<n>`, any task letter).
     Summing them makes the gate unsatisfiable for an agent working one task, so criteria
@@ -49,17 +60,16 @@ def scan(root):
     # +97 lines vs +26) only for this gate. Skipping just its table let the gate fall back
     # to Task A's table (r28), so the whole gate stands down.
     if no_behavior_task(root):
-        return {}, [], 0
+        return {}, [], 0, 0
     tables = []  # one {id: description} per requirements file
     for req in sorted(glob.glob(os.path.join(root, "task-set-*-requirements.md"))):
-        t = dict(re.findall(r"^\|\s*([A-Z]+-AC\d+)\s*\|\s*(.*?)\s*\|\s*$",
-                            open(req, errors="replace").read(), re.M))
+        t = {c: d for c, d in criteria(open(req, errors="replace").read()).items() if not META.match(d) or DOCS.match(d)}
         if t:
             tables.append(t)
     done = committed_ids(root)
-    tables = [t for t in tables if not {c.upper() for c in t} <= done]
+    tables = [t for t in tables if not {c.upper() for c, d in t.items() if not DOCS.match(d)} <= done]
     if not tables:
-        return {}, [], 0
+        return {}, [], 0, 0
     text, n = "", 0
     for f in glob.glob(os.path.join(root, FEATURES, "*.feature")):
         if os.path.basename(f) == "healthcheck.feature":
@@ -70,8 +80,11 @@ def scan(root):
     def hit(c):
         return bool(re.search(r"\b%s\b" % re.escape(c), text, re.I))
     crit = max(tables, key=lambda t: (sum(hit(c) for c in t), -len(t)))
-    missing = [c for c in sorted(crit, key=lambda s: int(re.sub(r"\D", "", s))) if not hit(c)]
-    return crit, missing, n
+    docs = {c for c, d in crit.items() if DOCS.match(d)}
+    docs_ok = not docs or docs_changed(root)
+    missing = [c for c in sorted(crit, key=lambda s: int(re.sub(r"\D", "", s)))
+               if (c in docs and not docs_ok) or (c not in docs and not hit(c))]
+    return crit, missing, n, len(crit) - len(docs)
 
 def main():
     try:
@@ -92,13 +105,13 @@ def main():
             return
     except Exception:
         pass
-    crit, missing, n = scan(root)
+    crit, missing, n, need = scan(root)
     if not crit:
         return
-    # pass bar: every criterion id named in a capability feature file, and at
-    # least one scenario per criterion. Count alone let 21 scenarios pass with
-    # two criteria unnamed.
-    if not missing and n >= len(crit):
+    # pass bar: every behavior criterion id named in a capability feature file, docs
+    # criteria with an apps/docs change, and at least as many scenarios (existing ones
+    # included) as behavior criteria. Count alone let 21 scenarios pass with two ids unnamed.
+    if not missing and n >= need:
         return
 
     state = os.path.join(os.path.expanduser("~"), ".claude", "metrics", "coverage-gate.json")
@@ -121,7 +134,7 @@ def main():
             except Exception:
                 pass
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext":
-                  f"Coverage gate: {n} acceptance scenario(s) for {len(crit)} criteria; limit of {MAX_BLOCKS} blocks reached, "
+                  f"Coverage gate: {n} acceptance scenario(s) for {need} behavior criteria; limit of {MAX_BLOCKS} blocks reached, "
                   f"allowing stop. State the gap explicitly in your summary. (This notice is sent once.)"}}))
         return
     st[sid] = {"blocks": blocks + 1, "notified": False}
@@ -129,12 +142,12 @@ def main():
         json.dump(st, open(state, "w"))
     except Exception:
         pass
-    gaps = "\n".join(f"- {c}: {crit[c]}" for c in missing) or "(all ids mentioned; scenario count is still short)"
+    gaps = "\n".join(f"- {c}: {crit[c]}" + (" (docs: change its page under apps/docs, no scenario)" if DOCS.match(crit[c]) else "")
+                     for c in missing) or "(all ids mentioned; scenario count is still short)"
     print(json.dumps({"decision": "block", "reason":
         f"Acceptance coverage is incomplete: {n} scenario(s) in packages/axc-verification/acceptance-api/src/features "
-        f"against {len(crit)} acceptance criteria in the task requirements file. Criteria not yet covered "
-        f"(no scenario names their id):\n{gaps}\n"
-        f"Add one scenario per criterion above using the existing step-definition pattern and put the criterion id "
+        f"against {need} behavior criteria in the task requirements file. Criteria not yet covered:\n{gaps}\n"
+        f"Add a scenario for each behavior criterion above using the existing step-definition pattern and put the criterion id "
         f"in the scenario name (e.g. `Scenario: A-AC8 invalid query parameters return 400`). Verify with "
         f"`python3 .claude/hooks/coverage_gate.py --check`, run "
         f"`corepack pnpm --filter @axc-verification/acceptance-api run test:acceptance`, then finish. "
@@ -142,9 +155,9 @@ def main():
 
 if __name__ == "__main__":
     if "--check" in sys.argv:
-        crit, missing, n = scan(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
-        print(f"{n} scenario(s), {len(crit)} criteria.")
-        print("Uncovered (id not named in any scenario): " + (", ".join(missing) or "none"))
+        crit, missing, n, need = scan(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+        print(f"{n} scenario(s), {need} criteria.")
+        print("Uncovered (behavior id not named in a scenario, or docs id with apps/docs unchanged): " + (", ".join(missing) or "none"))
         sys.exit(0)
     try:
         main()

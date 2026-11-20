@@ -10,7 +10,7 @@ set up on a repo that already holds older specs); with none, every spec is liste
 usage: python3 .claude/hooks/task_card.py  (prints SessionStart JSON; silent with no specs)"""
 import glob, json, os, re, subprocess, sys
 
-from _common import NO_BEHAVIOR
+from _common import DOCS, META, NO_BEHAVIOR, criteria
 
 CRIT = re.compile(r"^\|\s*(\w+-AC\d+)\s*\|", re.M)
 REF = re.compile(r"\bTask Set ([A-Z])\b")
@@ -25,27 +25,38 @@ def card(specs, worked=()):
         ids = list(dict.fromkeys(CRIT.findall(specs[n])))
         crit = f"criteria {ids[0]}..{ids[-1]} ({len(ids)})" if ids else "no criterion table"
         base = sorted(o for o, l in letter.items() if o != n and l in REF.findall(specs[n]) and l != letter.get(n))
-        both = f" (read both: `cat {' '.join([n, *base])}`)" if base else ""
-        return n, ids, crit + (f"; builds on {', '.join(base)}{both}" if base else ""), base
+        return n, ids, crit + (f"; builds on {', '.join(base)}" if base else ""), base
     mine = sorted(n for n in specs if n in worked)
     out = ["Task card (from the repo's requirements files):"]
     if mine:
         for n in mine:
             _, ids, desc, base = line(n)
-            out.append(f"- This task's spec: {n}, {desc}. Read it whole in one call (`cat`, no head/sed slices).")
+            out.append(f"- This task's spec: {n}, {desc}. Read {'them' if base else 'it'} whole: `cat {' '.join([n, *base])}` alone "
+                       "in its own call (joined with the map or greps the output is too large and comes back as a cut preview).")
             if NO_BEHAVIOR.search(specs[n]):
                 out.append("- Its Expected Scope says no API behavior change: add no scenarios; the existing suite and the build prove it.")
             elif ids:
-                out.append(f"- Precheck and the Stop gate need every id ({ids[0]}..{ids[-1]}) in the name of a scenario in a capability "
-                           f"`.feature` (not healthcheck.feature), and at least as many scenarios as criteria: `Scenario: {ids[0]} <what it proves>`.")
-        others = sorted(set(specs) - set(mine))
+                crit = criteria(specs[n])
+                tests = [c for c, d in crit.items() if META.match(d) and not DOCS.match(d)]
+                docs = [c for c, d in crit.items() if DOCS.match(d)]
+                behavior = [c for c in ids if c not in tests and c not in docs]
+                span = f"{behavior[0]}..{behavior[-1]}" if behavior == ids[:len(behavior)] else ", ".join(behavior)
+                rule = (f"- Precheck and the Stop gate need each behavior id ({span}) named in a scenario of a capability "
+                        f"`.feature` (not healthcheck.feature): `Scenario: {behavior[0]} <what it proves>`. Write the scenarios the "
+                        "behavior needs; one scenario or outline may name every id it proves.") if behavior else ""
+                skip = [f"{', '.join(tests)} (tests: the gate run and the tests you write for the behavior prove them)"] if tests else []
+                skip += [f"{', '.join(docs)} (docs: edit the page under apps/docs)"] if docs else []
+                out.append(rule + (f" No scenario for {'; '.join(skip)}." if skip else ""))
+        others = sorted(set(specs) - set(mine) - {b for n in mine for b in line(n)[3]})
         if others:
-            out.append(f"- Also in the repo (earlier tasks; read only what your prompt names): {', '.join(others)}.")
+            out.append(f"- Other specs in the repo (read only what your prompt names): {', '.join(others)}.")
     else:
         for n in sorted(specs):
-            out.append(f"- {n}: {line(n)[2]}.")
-        out.append("- Read the spec(s) your prompt names whole in one call, with any spec it builds on (`cat`, no head/sed slices). "
-                   "Precheck and the Stop gate need every criterion id in the name of a capability `.feature` scenario.")
+            _, _, desc, base = line(n)
+            out.append(f"- {n}: {desc}" + (f" (read both: `cat {' '.join([n, *base])}`)." if base else "."))
+        out.append("- Read the spec(s) your prompt names whole, with any spec it builds on, in one `cat` call of their own (no head/sed slices). "
+                   "Precheck and the Stop gate need every behavior criterion id in the name of a capability `.feature` scenario; "
+                   "criteria about tests passing or docs need none.")
     skill = sorted(glob.glob(".claude/skills/*-orientation/SKILL.md"))
     if skill:
         out.append(f"- Load the {skill[0].split('/')[2]} skill (repo map and every check) before writing code.")

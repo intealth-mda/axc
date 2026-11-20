@@ -134,6 +134,21 @@ def vault_log(category, text):
 NO_BEHAVIOR = __import__("re").compile(r"^\|\s*Expected Scope\s*\|[^\n]*\bno (?:API )?behaviou?r change", 2 | 8)
 
 
+# Criteria about the tests or the docs, not API behavior ("Existing tests still pass", "New tests
+# cover ...", "A regression test ...", "<X> documentation describes ..."). r30: every task had them,
+# and the coverage gate forced each into a scenario (a healthcheck rerun, a step reading a
+# markdown file from disk). The gate run proves the test criteria; a docs criterion needs a
+# change under apps/docs. DOCS is the docs subset.
+META = __import__("re").compile(r"^(?:existing tests still pass|new tests cover|an? regression test|(?:\w+ ){0,2}documentation\b)", 2)
+DOCS = __import__("re").compile(r"^(?:\w+ ){0,2}documentation\b", 2)
+
+
+def criteria(text):
+    """{id: description} from a requirements file's acceptance-criteria table."""
+    import re
+    return dict(re.findall(r"^\|\s*([A-Z]+-AC\d+)\s*\|\s*(.*?)\s*\|\s*$", text, re.M))
+
+
 def no_behavior_task(root):
     """True when a task-set requirements file at the repo root declares no API behavior change.
     ponytail: any such file exempts the session; pick the worked task's file if repos keep old docs specs."""

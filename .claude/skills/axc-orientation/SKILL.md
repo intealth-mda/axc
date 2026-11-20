@@ -189,13 +189,13 @@ own unit test (rest is test-wired too).
   (`Expectation<string[]>` vs `Expectation<string>`).
   The suite boots the real Functions host on :7071 (minutes) — it is the slowest gate.
   The task's requirements file is `task-set-<x>-requirements.md` at the repo root. Cover every
-  row of its acceptance-criteria table (ids `<X>-AC<n>`) with its own scenario in the
+  behavior row of its acceptance-criteria table (ids `<X>-AC<n>`) with a scenario in the
   capability's feature file, and put the criterion id in the scenario name
-  (`Scenario: A-AC8 invalid query parameters return 400`); a feature with fewer scenarios
-  than criteria, or any id unnamed, is incomplete and will be sent back. A criterion HTTP
-  cannot observe directly (existing tests pass, docs complete) still gets its scenario: assert
-  what the suite can see (the healthcheck still answers, the doc page lists each endpoint
-  and error code). Exception: a task whose definition table's Expected Scope says
+  (`Scenario: A-AC8 invalid query parameters return 400`); one scenario or outline may name
+  every id it proves. An unnamed behavior id, or fewer capability scenarios than behavior
+  criteria, is sent back. Rows about the tests ("Existing tests still pass", "New tests
+  cover ...") get no scenario: the gate run and the tests you write prove them. A docs row
+  gets its page under `apps/docs`, not a scenario that reads the markdown. Exception: a task whose definition table's Expected Scope says
   `no API behavior change` (a docs page, a refactor) adds no scenarios; the existing suite and
   the build prove it, and the coverage gate and spec check skip it.
   Data rules outside the table bind too and get a scenario each: seed or fixture size and mix,
@@ -210,9 +210,12 @@ own unit test (rest is test-wired too).
   only problems, ending `precheck OK` or `precheck FAIL: <steps>`.
   Run biome `--write` before patching a file with sed or python: reformatting moves the text
   a later patch would match. The checks enforce these rules, so code to them:
-  - coverage: every criterion id of the task's table is named in a capability `.feature`
-    (not `healthcheck.feature`), and there are at least as many scenarios as criteria
-    (skipped when the task declares no API behavior change).
+  - coverage: every behavior criterion id of the task's table is named in a capability `.feature`
+    (not `healthcheck.feature`), and the capability scenarios (existing ones included) number at
+    least the behavior criteria; one scenario or outline may name every id it proves. Criteria
+    about tests ("Existing tests still pass", "New tests cover ...") need no scenario; a docs
+    criterion needs a change under `apps/docs`, not a scenario (all skipped when the task
+    declares no API behavior change).
   - cellix: a new aggregate (a `contexts/<ctx>/<agg>/` folder not in HEAD) means every layer
     (domain, persistence, application-services, rest) changed and at least one rest `src/*.test.ts`;
     a change to existing aggregates touches only the layers it needs; each
