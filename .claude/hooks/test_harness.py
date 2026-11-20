@@ -157,7 +157,8 @@ check("drift: rest unit test rule", "rest/src/" in cellix and "at least one rest
 check("drift: typed-domain and unit-of-work rules", "(unknown|any)" in cellix and "withScopedTransaction" in cellix
       and "no `unknown`/`any` in domain source" in skill and "calls `withScopedTransaction`" in skill)
 check("drift: map's InMemoryUnitOfWork is exported", "InMemoryUnitOfWork" in read("packages/axc/persistence/src/index.ts"))
-check("drift: coverage bar", "n >= need" in cov and "number at\n    least the behavior criteria" in skill
+check("drift: coverage bar", "if not missing:" in cov and "n >= need" not in cov
+      and "int(m[1]) >= int(m[2])" not in read(".claude/hooks/precheck.py") and "no scenario-count minimum" in skill
       and "need no scenario" in skill and "change under `apps/docs`" in skill and "still gets its scenario" not in skill)
 check("drift: healthcheck.feature excluded", '"healthcheck.feature"' in cov and "not `healthcheck.feature`" in skill)
 check("drift: CLAUDE.md plan-per-batch line points at the map's write order",

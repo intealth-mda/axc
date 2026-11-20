@@ -211,8 +211,8 @@ own unit test (rest is test-wired too).
   Run biome `--write` before patching a file with sed or python: reformatting moves the text
   a later patch would match. The checks enforce these rules, so code to them:
   - coverage: every behavior criterion id of the task's table is named in a capability `.feature`
-    (not `healthcheck.feature`), and the capability scenarios (existing ones included) number at
-    least the behavior criteria; one scenario or outline may name every id it proves. Criteria
+    (not `healthcheck.feature`); one scenario or outline may name every id it proves, and there
+    is no scenario-count minimum. Criteria
     about tests ("Existing tests still pass", "New tests cover ...") need no scenario; a docs
     criterion needs a change under `apps/docs`, not a scenario (all skipped when the task
     declares no API behavior change).

@@ -121,9 +121,8 @@ def _main():
             print("-- typecheck/test (" + ", ".join(pkgs) + ") --")
             print("\n".join(test_errors(out)[:40]) or out[-2000:])
 
-    def coverage_ok(out):  # same bar as the Stop gate: every id named, scenarios >= criteria
-        m = re.search(r"(\d+) scenario\(s\), (\d+) criteria", out)
-        return bool(m) and int(m[1]) >= int(m[2]) and re.search(r"\): none\s*$", out.strip(), re.M)
+    def coverage_ok(out):  # same bar as the Stop gate: every behavior id named, docs changed
+        return re.search(r"\): none\s*$", out.strip(), re.M)
 
     for name, script, args, ok in (("coverage", "coverage_gate.py", ["--check"], coverage_ok),
                                    ("cellix", "cellix_check.py", [], lambda o: re.search(r"cellix check: (OK|no changed source)", o)),

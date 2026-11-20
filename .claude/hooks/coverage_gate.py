@@ -108,10 +108,10 @@ def main():
     crit, missing, n, need = scan(root)
     if not crit:
         return
-    # pass bar: every behavior criterion id named in a capability feature file, docs
-    # criteria with an apps/docs change, and at least as many scenarios (existing ones
-    # included) as behavior criteria. Count alone let 21 scenarios pass with two ids unnamed.
-    if not missing and n >= need:
+    # pass bar: every behavior criterion id named in a capability feature file, and docs
+    # criteria with an apps/docs change. No scenario-count bar: r31 B named all 12 ids in 11
+    # scenarios (one merged, as the card allows) and the count made it split one to pad.
+    if not missing:
         return
 
     state = os.path.join(os.path.expanduser("~"), ".claude", "metrics", "coverage-gate.json")
@@ -143,7 +143,7 @@ def main():
     except Exception:
         pass
     gaps = "\n".join(f"- {c}: {crit[c]}" + (" (docs: change its page under apps/docs, no scenario)" if DOCS.match(crit[c]) else "")
-                     for c in missing) or "(all ids mentioned; scenario count is still short)"
+                     for c in missing)
     print(json.dumps({"decision": "block", "reason":
         f"Acceptance coverage is incomplete: {n} scenario(s) in packages/axc-verification/acceptance-api/src/features "
         f"against {need} behavior criteria in the task requirements file. Criteria not yet covered:\n{gaps}\n"
