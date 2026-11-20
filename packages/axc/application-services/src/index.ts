@@ -1,3 +1,8 @@
+import { InMemoryCourseRepository } from '@axc/persistence';
+import { type CoursesService, createCoursesService } from './courses.ts';
+
+export type { CoursePage, SearchCoursesQuery } from './courses.ts';
+export { ServiceError, type ServiceErrorCode, type ServiceErrorDetail } from './service-error.ts';
 export const HEALTH_SERVICE_NAME = 'agentCourses-api' as const;
 export const HEALTH_PROJECT_CODE = 'axc' as const;
 
@@ -19,6 +24,7 @@ export interface ApplicationServices {
 	health: {
 		getStatus(): HealthStatus;
 	};
+	courses: CoursesService;
 }
 
 export interface ApplicationServicesFactory {
@@ -36,6 +42,7 @@ export function resolveEnvironment(nodeEnv: string | undefined): HealthEnvironme
 }
 
 export function buildApplicationServicesFactory(context: ApiContext): ApplicationServicesFactory {
+	const courses = createCoursesService(new InMemoryCourseRepository());
 	const forRequest = (): Promise<ApplicationServices> =>
 		Promise.resolve({
 			health: {
@@ -49,6 +56,7 @@ export function buildApplicationServicesFactory(context: ApiContext): Applicatio
 					};
 				},
 			},
+			courses,
 		});
 
 	return { forRequest };
